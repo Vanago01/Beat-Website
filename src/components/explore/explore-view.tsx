@@ -26,9 +26,10 @@ import {
 } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 import type { BeatCard as BeatCardType, SearchResult } from "@/lib/types";
+import { PREFERENCE_KEYS, loadPreference, savePreference } from "@/lib/consent";
 
 const PAGE_SIZE = 24;
-const VIEW_KEY = "nw-explore-view";
+const VIEW_KEY = PREFERENCE_KEYS.exploreView;
 
 export function ExploreView({
   initial,
@@ -56,10 +57,8 @@ export function ExploreView({
   const requestId = useRef(0);
 
   useEffect(() => {
-    try {
-      const v = localStorage.getItem(VIEW_KEY);
-      if (v === "list" || v === "grid") setView(v);
-    } catch {}
+    const v = loadPreference(VIEW_KEY);
+    if (v === "list" || v === "grid") setView(v);
   }, []);
 
   useEffect(() => setQuery(filters.q), [filters.q]);
@@ -206,9 +205,7 @@ export function ExploreView({
               value={view}
               onChange={(v) => {
                 setView(v);
-                try {
-                  localStorage.setItem(VIEW_KEY, v);
-                } catch {}
+                savePreference(VIEW_KEY, v);
               }}
               className="hidden h-12 sm:inline-flex"
               options={[

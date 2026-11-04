@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import type { BeatCard } from "@/lib/types";
+import { PREFERENCE_KEYS, loadPreference, savePreference } from "@/lib/consent";
 
 export type PlayerBeat = Pick<
   BeatCard,
@@ -53,16 +54,12 @@ interface PlayerState {
   _consumeSeek: () => void;
 }
 
-const VOLUME_KEY = "nw-volume";
+const VOLUME_KEY = PREFERENCE_KEYS.volume;
 
 function initialVolume() {
   if (typeof window === "undefined") return 0.85;
-  try {
-    const v = Number(window.localStorage.getItem(VOLUME_KEY));
-    return Number.isFinite(v) && v > 0 && v <= 1 ? v : 0.85;
-  } catch {
-    return 0.85;
-  }
+  const v = Number(loadPreference(VOLUME_KEY));
+  return Number.isFinite(v) && v > 0 && v <= 1 ? v : 0.85;
 }
 
 export const usePlayer = create<PlayerState>((set, get) => ({
@@ -128,9 +125,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
   setVolume: (volume) => {
     const v = Math.min(Math.max(volume, 0), 1);
-    try {
-      window.localStorage.setItem(VOLUME_KEY, String(v));
-    } catch {}
+    savePreference(VOLUME_KEY, String(v));
     set({ volume: v, muted: v === 0 });
   },
   toggleMute: () => set((s) => ({ muted: !s.muted })),

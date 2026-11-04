@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cacheLife } from "next/cache";
 import { Logo } from "./logo";
+import { CookieSettingsButton } from "@/components/legal/cookie-consent";
 import { env } from "@/lib/env";
 
 async function CurrentYear() {
@@ -43,6 +44,7 @@ const COLUMNS = [
       { href: "/legal/licensing", label: "Licensing guide" },
       { href: "/legal/terms", label: "Terms of service" },
       { href: "/legal/privacy", label: "Privacy policy" },
+      { href: "/legal/cookies", label: "Cookie policy" },
     ],
   },
 ];
@@ -75,9 +77,12 @@ export function Footer() {
           ))}
         </div>
         <div className="mt-16 flex flex-col items-start justify-between gap-4 border-t border-white/[0.06] pt-8 text-xs text-ink-400 sm:flex-row sm:items-center">
-          <p>
-            © <CurrentYear /> {env.siteName}. All rights reserved.
-          </p>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <p>
+              © <CurrentYear /> {env.siteName}. All rights reserved.
+            </p>
+            <CookieSettingsButton className="underline-offset-4 transition-colors hover:text-white hover:underline" />
+          </div>
           <p className="font-display text-[clamp(2.5rem,9vw,7rem)] font-extrabold leading-none tracking-[-0.05em] text-white/[0.04] select-none" aria-hidden>
             {env.siteName}
           </p>

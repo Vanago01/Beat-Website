@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { LegalPage } from "@/components/layout/prose";
 import { env } from "@/lib/env";
 
@@ -22,7 +23,11 @@ export default function PrivacyPage() {
       <h2>Your rights</h2>
       <p>Under the GDPR you may request access to, correction or deletion of your personal data, and object to certain processing. Profile data can be edited at any time from your account.</p>
       <h2>Cookies</h2>
-      <p>We use strictly necessary cookies to keep you signed in, and local storage for preferences such as your cart and display currency.</p>
+      <p>
+        We use necessary cookies and local storage to keep you signed in, protect your account and remember your cart. Preferences such as your display
+        currency are only stored with your consent. We don&apos;t use advertising or tracking cookies. See the <Link href="/legal/cookies">cookie policy</Link> for the full list
+        and to change your choice.
+      </p>
     </LegalPage>
   );
 }

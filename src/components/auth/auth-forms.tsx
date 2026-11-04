@@ -63,10 +63,17 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const { error: err } = await getSupabaseBrowserClient().auth.signInWithPassword({ email: email.trim(), password });
+      const supabase = getSupabaseBrowserClient();
+      const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (err) {
         setUnconfirmed(/email not confirmed/i.test(err.message));
         setError(friendlyAuthError(err.message));
+        return;
+      }
+      // Two-factor set up: the password alone isn't enough — ask for the code.
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+        router.replace(`/two-factor?next=${encodeURIComponent(next)}`);
         return;
       }
       toast.success("Welcome back");
@@ -312,7 +319,14 @@ export function ResetPasswordForm() {
     if (password !== confirm) return setError("Passwords don't match.");
     startTransition(async () => {
       const { error: err } = await getSupabaseBrowserClient().auth.updateUser({ password });
-      if (err) return setError(friendlyAuthError(err.message));
+      if (err) {
+        // Accounts with two-factor need the code before the password can change.
+        if (err.code === "insufficient_aal" || /aal2|assurance level/i.test(err.message)) {
+          router.replace(`/two-factor?next=${encodeURIComponent("/reset-password")}`);
+          return;
+        }
+        return setError(friendlyAuthError(err.message));
+      }
       toast.success("Password updated");
       router.replace("/account");
       router.refresh();
@@ -344,6 +358,100 @@ export function ResetPasswordForm() {
       <Button type="submit" size="lg" className="w-full" loading={pending} disabled={hasSession === null}>
         Update password
       </Button>
+    </form>
+  );
+}
+
+/** Second sign-in step for accounts with two-factor authentication. */
+export function TwoFactorForm() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const next = safeNextPath(params.get("next"), "/account");
+  const [factorId, setFactorId] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        router.replace(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totp = factors?.totp?.[0];
+      if (!totp || aal?.currentLevel === "aal2") {
+        router.replace(next);
+        return;
+      }
+      if (!cancelled) setFactorId(totp.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [next, router]);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const clean = code.replace(/\s/g, "");
+    if (!/^\d{6}$/.test(clean)) return setError("Enter the 6-digit code from your authenticator app.");
+    if (!factorId) return;
+    startTransition(async () => {
+      const { error: err } = await getSupabaseBrowserClient().auth.mfa.challengeAndVerify({ factorId, code: clean });
+      if (err) {
+        setCode("");
+        setError("That code didn't work. Codes change every 30 seconds — check that your phone's time is correct and try the newest one.");
+        return;
+      }
+      toast.success("Signed in");
+      router.replace(next);
+      router.refresh();
+    });
+  };
+
+  const signOut = async () => {
+    await getSupabaseBrowserClient().auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-5" noValidate>
+      <FormHeader title="Two-factor sign-in" subtitle="Enter the 6-digit code from your authenticator app to finish signing in." />
+      <Field label="Authentication code" htmlFor="otp">
+        <Input
+          id="otp"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={7}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/[^\d\s]/g, ""))}
+          placeholder="123 456"
+          className="text-center font-mono text-lg tracking-[0.35em]"
+          disabled={!factorId}
+          data-autofocus
+        />
+      </Field>
+      {error && (
+        <div role="alert" className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {error}
+        </div>
+      )}
+      <Button type="submit" size="lg" className="w-full" disabled={pending || !factorId}>
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        Verify
+      </Button>
+      <p className="text-center text-sm text-ink-400">
+        Lost your phone? Contact support to reset two-factor for your account.{" "}
+        <button type="button" onClick={signOut} className="text-white underline-offset-4 hover:underline">
+          Sign out
+        </button>
+      </p>
     </form>
   );
 }

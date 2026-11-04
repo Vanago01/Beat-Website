@@ -6,16 +6,19 @@
 create schema if not exists test;
 
 -- Simulates a PostgREST request from a signed-in user (or anon when uid is null).
-create or replace function test.act_as(p_uid uuid) returns void language plpgsql as $$
+-- p_aal is the session's assurance level: 'aal2' after a two-factor sign-in.
+create or replace function test.act_as(p_uid uuid, p_aal text) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims',
     case when p_uid is null then json_build_object('role', 'anon')::text
-         else json_build_object('sub', p_uid, 'role', 'authenticated')::text end, true);
+         else json_build_object('sub', p_uid, 'role', 'authenticated', 'aal', p_aal)::text end, true);
   perform set_config('request.jwt.claim.sub', coalesce(p_uid::text, ''), true);
   perform set_config('role', case when p_uid is null then 'anon' else 'authenticated' end, true);
 end $$;
+create or replace function test.act_as(p_uid uuid) returns void language sql as $$ select test.act_as(p_uid, 'aal1') $$;
 grant usage on schema test to anon, authenticated;
 grant execute on function test.act_as(uuid) to anon, authenticated;
+grant execute on function test.act_as(uuid, text) to anon, authenticated;
 
 create or replace function test.ok(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -181,7 +184,7 @@ rollback;
 
 -- 11. Admin approves; beat becomes public.
 begin;
-select test.act_as(:'owner');
+select test.act_as(:'owner', 'aal2');
 update public.beats set status = 'published', is_featured = true where id = '11111111-1111-4111-8111-111111111111';
 commit;
 begin;
@@ -277,7 +280,7 @@ exception when insufficient_privilege then
 end $$;
 rollback;
 begin;
-select test.act_as(:'owner');
+select test.act_as(:'owner', 'aal2');
 select test.ok((select (public.admin_dashboard() -> 'revenue' ->> 'pln')::int = 21900), 'admin dashboard revenue');
 select test.ok((select (public.admin_list_users() ->> 'total')::int = 4), 'admin lists users with emails');
 rollback;
@@ -316,7 +319,7 @@ rollback;
 
 -- 19. Last admin cannot be demoted.
 begin;
-select test.act_as(:'owner');
+select test.act_as(:'owner', 'aal2');
 do $$ begin
   update public.profiles set role = 'buyer' where id = auth.uid();
   perform test.ok(false, 'last admin cannot be demoted');
@@ -331,5 +334,68 @@ set local role service_role;
 select (public.apply_order_refund(:'order_id', 21900) ->> 'full') as refunded \gset
 commit;
 select test.ok(:'refunded' = 'true' and (select revoked_at is not null from public.purchases where order_id = :'order_id'), 'full refund revokes purchase');
+
+
+-- ---------------------------------------------------------------------------
+-- Two-factor authentication
+-- 21. An admin without a two-factor sign-in has no admin powers.
+begin;
+select test.act_as(:'owner');
+select test.ok(not public.is_admin(), 'admin without two-factor sign-in has no admin powers');
+do $$ begin
+  perform public.admin_dashboard();
+  perform test.ok(false, 'admin dashboard requires two-factor sign-in');
+exception when insufficient_privilege then
+  perform test.ok(true, 'admin dashboard requires two-factor sign-in');
+end $$;
+do $$ declare n int; begin
+  update public.beats set is_featured = false where id = '11111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform test.ok(n = 0, 'admin without two-factor sign-in cannot moderate beats');
+end $$;
+rollback;
+begin;
+select test.act_as(:'owner', 'aal2');
+select test.ok(public.is_admin(), 'admin with two-factor sign-in keeps admin powers');
+rollback;
+
+-- 22. Once a user sets up two-factor, a password-only session can't use the account.
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('22222222-2222-4222-8222-222222222222', :'sb', 'test authenticator', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP');
+select set_config('test.sb', :'sb', false);
+begin;
+select test.act_as(:'sb');
+select test.ok((select count(*) = 0 from public.profiles where id = :'sb'), '2FA user: password-only session cannot read own profile');
+select test.ok((select count(*) = 0 from public.beats where producer_id = :'sb'), '2FA user: password-only session cannot read own beats');
+select test.ok(not public.is_seller(), '2FA seller: password-only session has no seller powers');
+do $$ begin
+  perform public.seller_dashboard();
+  perform test.ok(false, '2FA seller: studio data needs the code');
+exception when insufficient_privilege then
+  perform test.ok(true, '2FA seller: studio data needs the code');
+end $$;
+do $$ begin
+  perform public.become_seller('Hijacked');
+  perform test.ok(false, '2FA user: password-only session cannot change the account');
+exception when insufficient_privilege then
+  perform test.ok(true, '2FA user: password-only session cannot change the account');
+end $$;
+do $$ begin
+  insert into storage.objects (bucket_id, name, owner) values ('covers', current_setting('test.sb') || '/x.jpg', current_setting('test.sb')::uuid);
+  perform test.ok(false, '2FA user: password-only session cannot upload files');
+exception when insufficient_privilege then
+  perform test.ok(true, '2FA user: password-only session cannot upload files');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sb', 'aal2');
+select test.ok((select count(*) = 1 from public.profiles where id = :'sb'), '2FA user with the code reads own profile');
+select test.ok(public.is_seller(), '2FA seller with the code has seller powers');
+rollback;
+delete from auth.mfa_factors where id = '22222222-2222-4222-8222-222222222222';
+begin;
+select test.act_as(:'sb');
+select test.ok(public.is_seller(), 'users without two-factor are unaffected');
+rollback;
 
 \echo '--- all security tests passed ---'

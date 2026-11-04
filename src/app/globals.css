@@ -129,15 +129,15 @@
    --------------------------------------------------------------------------- */
 @utility glass {
   background-color: color-mix(in oklab, var(--color-ink-900) 62%, transparent);
-  backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
+  backdrop-filter: blur(22px) saturate(140%);
   border: 1px solid rgb(255 255 255 / 0.07);
 }
 
 @utility glass-strong {
   background-color: color-mix(in oklab, var(--color-ink-850) 82%, transparent);
-  backdrop-filter: blur(28px) saturate(150%);
   -webkit-backdrop-filter: blur(28px) saturate(150%);
+  backdrop-filter: blur(28px) saturate(150%);
   border: 1px solid rgb(255 255 255 / 0.08);
 }
 

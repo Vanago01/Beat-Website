@@ -1,8 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import type { Currency } from "@/lib/constants";
+import { PREFERENCE_KEYS, preferenceStorage } from "@/lib/consent";
 
 interface CurrencyState {
   currency: Currency;
@@ -10,6 +11,7 @@ interface CurrencyState {
   setCurrency: (c: Currency) => void;
 }
 
+// Remembered on this device only if the visitor allowed preference cookies.
 export const useCurrency = create<CurrencyState>()(
   persist(
     (set) => ({
@@ -17,6 +19,6 @@ export const useCurrency = create<CurrencyState>()(
       chosen: false,
       setCurrency: (currency) => set({ currency, chosen: true }),
     }),
-    { name: "nw-currency", version: 1, skipHydration: true },
+    { name: PREFERENCE_KEYS.currency, version: 1, skipHydration: true, storage: createJSONStorage(() => preferenceStorage) },
   ),
 );

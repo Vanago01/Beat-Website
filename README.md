@@ -55,8 +55,11 @@ Authorization is enforced **in the database**, never only in the UI:
 | Service-role-only functions | `create_pending_order`, `fulfill_order`, `apply_order_refund` cannot be called from the browser. Prices are always computed in the database. |
 | Storage | Purchased files live in a **private** bucket; buyers receive 60-second signed URLs after an ownership check. |
 | Stripe | Webhooks are signature-verified; fulfilment is idempotent (safe on retries and on the success-page fallback). Exclusive-license races are detected and the second buyer is refunded automatically. |
+| Two-factor authentication | Optional TOTP for everyone (Account → Settings), **required for administrators**: admin powers only exist in sessions that passed two-factor sign-in (`is_admin()` checks the session's `aal2` level). For anyone who set it up, a password-only session gets nothing from the database or storage until the code is entered. |
+| HTTP headers | Content-Security-Policy (scripts only from the site, no plugins/framing/foreign form targets, network and media limited to the site and Supabase), HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, a restrictive `Permissions-Policy`, `nosniff`. |
+| Cookies | Only necessary cookies by default; preferences (currency, volume, view) are stored after consent from the cookie banner. No advertising or tracking cookies. Policy at `/legal/cookies`. |
 
-`supabase/tests/security_tests.sql` contains 50+ assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds…).
+`supabase/tests/security_tests.sql` contains 65 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement…).
 
 ---
 
@@ -110,7 +113,7 @@ SUPABASE_SECRET_KEY=<local secret key> npm run test:db
    ```
    This creates all tables, policies, functions, storage buckets and storage policies.
 3. **Authentication → URL Configuration**: set *Site URL* to your domain (e.g. `https://yourdomain.com`) and add `https://yourdomain.com/**` to *Redirect URLs*.
-4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes.
+4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes. Under **Multi-Factor**, keep **TOTP (App Authenticator)** enabled.
    *Optional (recommended):* to let users confirm on a different device than they signed up on, change the email templates’ link to
    `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup&next=/account`
    (use `type=recovery&next=/reset-password` for the reset-password template). The default PKCE flow via `/auth/callback` works without changes.
@@ -126,7 +129,16 @@ set role = 'admin'
 where id = (select id from auth.users where email = 'you@example.com');
 ```
 
+Then sign in, open **Account → Settings** and set up **two-factor authentication** (any authenticator app). The admin dashboard requires it.
+
 The admin dashboard is at `/admin`. Non-admins get a 404 there, and every admin action is re-checked by the database.
+
+Lost your authenticator? Remove the old one in the SQL Editor, then set it up again:
+
+```sql
+delete from auth.mfa_factors
+where user_id = (select id from auth.users where email = 'you@example.com');
+```
 
 ### 3. Stripe
 

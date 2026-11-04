@@ -13,10 +13,14 @@ import { emailLayout, escapeHtml, sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
 import type { ActionResult } from "@/lib/types";
 
-/** Server-side admin gate. The database enforces the same rule via RLS. */
+/**
+ * Server-side admin gate. Some admin actions use the service role, so this must
+ * match the database rule exactly: admin role AND a two-factor sign-in.
+ */
 async function assertAdmin() {
   const viewer = await getViewer();
   if (!viewer?.profile || viewer.profile.role !== "admin") throw new Error("Administrator access required.");
+  if (viewer.aal !== "aal2") throw new Error("Sign in with two-factor authentication to use admin tools.");
   return viewer;
 }
 

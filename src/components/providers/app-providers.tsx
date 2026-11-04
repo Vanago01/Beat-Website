@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "./auth-provider";
+import { CookieConsent } from "@/components/legal/cookie-consent";
 import { useCart } from "@/stores/cart";
 import { useCurrency } from "@/stores/currency";
 
@@ -25,6 +26,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <AuthProvider>
       <StoreHydration />
       {children}
+      <CookieConsent />
       <Toaster
         theme="dark"
         position="top-center"

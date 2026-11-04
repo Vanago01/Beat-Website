@@ -489,6 +489,9 @@ isOneToOne: false
 "is_username_available":
 { Args: { "p_username": string }; Returns: boolean
                            },
+"mfa_satisfied":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "mark_order_failed":
 { Args: { "p_order_id": string,"p_status": Database["public"]['Enums']["order_status"] }; Returns: undefined
                            },

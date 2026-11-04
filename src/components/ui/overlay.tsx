@@ -27,13 +27,20 @@ function useScrollLock(active: boolean) {
 
 function useOverlayBehaviour(open: boolean, onClose: () => void, panel: React.RefObject<HTMLElement | null>) {
   useScrollLock(open);
+  // Read the latest onClose without re-running the effect: callers often pass
+  // an inline function, and re-running would yank focus back to the panel on
+  // every re-render (e.g. while dragging a slider inside the dialog).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
       }
       if (e.key === "Tab" && panel.current) {
         const focusables = panel.current.querySelectorAll<HTMLElement>(
@@ -61,7 +68,7 @@ function useOverlayBehaviour(open: boolean, onClose: () => void, panel: React.Re
       window.clearTimeout(t);
       previouslyFocused?.focus?.({ preventScroll: true });
     };
-  }, [open, onClose, panel]);
+  }, [open, panel]);
 }
 
 export function Modal({

@@ -9,6 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { Card } from "@/components/ui/misc";
 import { Avatar } from "@/components/ui/avatar";
+import { AVATAR_CROP, BANNER_CROP, ImageCropper } from "@/components/account/image-cropper";
 import { SocialIcon } from "@/components/layout/social-icon";
 import { useAuth } from "@/components/providers/auth-provider";
 import { updateProfile } from "@/actions/profile";
@@ -18,7 +19,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { SOCIAL_FIELDS, type SocialKey } from "@/lib/constants";
 import type { Profile } from "@/lib/types";
 
-const MAX_IMAGE = 5 * 1024 * 1024;
+// The chosen image is framed and re-encoded in the browser, so large photos are fine.
+const MAX_SOURCE_IMAGE = 25 * 1024 * 1024;
 
 export function ProfileForm({ profile }: { profile: Profile }) {
   const { refreshProfile, isSeller } = useAuth();
@@ -36,6 +38,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const [avatarPath, setAvatarPath] = useState<string | null>(profile.avatar_path);
   const [bannerPath, setBannerPath] = useState<string | null>(profile.banner_path);
   const [uploading, setUploading] = useState<"avatar" | "banner" | null>(null);
+  const [cropping, setCropping] = useState<{ kind: "avatar" | "banner"; file: File } | null>(null);
   const [usernameState, setUsernameState] = useState<"same" | "checking" | "available" | "taken" | "invalid" | "error">("same");
   const [pending, startTransition] = useTransition();
   const avatarInput = useRef<HTMLInputElement>(null);
@@ -57,15 +60,25 @@ export function ProfileForm({ profile }: { profile: Profile }) {
     return () => clearTimeout(t);
   }, [form.username, profile.username]);
 
-  const pickImage = async (kind: "avatar" | "banner", file?: File | null) => {
+  // Step 1: pick a file, then frame it in the cropper.
+  const pickImage = (kind: "avatar" | "banner", file?: File | null) => {
     if (!file) return;
     if (!/^image\/(png|jpe?g|webp|gif)$/.test(file.type)) return void toast.error("Use a PNG, JPG, WEBP or GIF image.");
-    if (file.size > MAX_IMAGE) return void toast.error("Images must be smaller than 5 MB.");
+    if (file.size > MAX_SOURCE_IMAGE) return void toast.error("Images must be smaller than 25 MB.");
+    setCropping({ kind, file });
+  };
+
+  // Step 2: upload the framed result.
+  const uploadCropped = async (image: Blob) => {
+    if (!cropping) return;
+    const { kind } = cropping;
+    const file = new File([image], `${kind}.jpg`, { type: "image/jpeg" });
     setUploading(kind);
     try {
       const path = await uploadSmall("avatars", buildPath(profile.id, "", kind, file), file);
       if (kind === "avatar") setAvatarPath(path);
       else setBannerPath(path);
+      setCropping(null);
       toast.success(`${kind === "avatar" ? "Profile picture" : "Banner"} uploaded — remember to save.`);
     } catch (err) {
       toast.error("Upload failed", { description: err instanceof Error ? err.message : undefined });
@@ -96,6 +109,12 @@ export function ProfileForm({ profile }: { profile: Profile }) {
 
   return (
     <form onSubmit={save} className="space-y-6">
+      <ImageCropper
+        file={cropping?.file ?? null}
+        preset={cropping?.kind === "banner" ? BANNER_CROP : AVATAR_CROP}
+        onCancel={() => setCropping(null)}
+        onConfirm={uploadCropped}
+      />
       <Card className="overflow-hidden">
         <div className="relative h-40 bg-ink-800 md:h-48">
           {bannerSrc ? (
@@ -113,7 +132,10 @@ export function ProfileForm({ profile }: { profile: Profile }) {
               </Button>
             )}
           </div>
-          <input ref={bannerInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => pickImage("banner", e.target.files?.[0])} />
+          <input ref={bannerInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => {
+              pickImage("banner", e.target.files?.[0]);
+              e.target.value = "";
+            }} />
         </div>
         <div className="flex flex-col gap-4 px-6 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="-mt-12 flex items-end gap-4">
@@ -123,7 +145,10 @@ export function ProfileForm({ profile }: { profile: Profile }) {
                 {uploading === "avatar" ? <LoaderCircle className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
               </span>
             </button>
-            <input ref={avatarInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => pickImage("avatar", e.target.files?.[0])} />
+            <input ref={avatarInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => {
+              pickImage("avatar", e.target.files?.[0]);
+              e.target.value = "";
+            }} />
             <div className="pb-1">
               <p className="font-display text-xl font-bold">{name}</p>
               <p className="text-sm text-ink-400">@{profile.username} · {profile.role === "admin" ? "Administrator" : profile.role === "seller" ? "Seller" : "Buyer"}</p>

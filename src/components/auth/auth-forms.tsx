@@ -102,7 +102,7 @@ export function LoginForm() {
   );
 }
 
-type Availability = "idle" | "checking" | "available" | "taken" | "invalid";
+type Availability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -123,7 +123,11 @@ export function RegisterForm() {
     if (!/^[a-z0-9_]{3,24}$/.test(u)) return setAvailability("invalid");
     setAvailability("checking");
     const t = setTimeout(async () => {
-      const { data } = await getSupabaseBrowserClient().rpc("is_username_available", { p_username: u });
+      const { data, error: checkError } = await getSupabaseBrowserClient().rpc("is_username_available", { p_username: u });
+      if (checkError) {
+        console.error("Username check failed:", checkError.message);
+        return setAvailability("error");
+      }
       setAvailability(data ? "available" : "taken");
     }, 350);
     return () => clearTimeout(t);
@@ -134,6 +138,7 @@ export function RegisterForm() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (availability === "error") return setError("We couldn't check that username right now. Please try again in a moment.");
     if (availability !== "available") return setError("Please choose an available username.");
     if (password.length < 8) return setError("Your password must be at least 8 characters.");
     if (!terms) return setError("Please accept the terms to continue.");
@@ -183,11 +188,17 @@ export function RegisterForm() {
         hint={
           availability === "invalid"
             ? "3–24 characters: lowercase letters, numbers and underscores."
-            : availability === "taken"
+            : availability === "taken" || availability === "error"
               ? undefined
               : "This is your public handle — e.g. noirwave.com/producers/yourname"
         }
-        error={availability === "taken" ? "That username is taken." : null}
+        error={
+          availability === "taken"
+            ? "That username is taken."
+            : availability === "error"
+              ? "Couldn't check usernames right now. Please try again in a moment."
+              : null
+        }
       >
         <div className="relative">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-ink-400">@</span>

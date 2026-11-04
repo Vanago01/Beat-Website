@@ -36,7 +36,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const [avatarPath, setAvatarPath] = useState<string | null>(profile.avatar_path);
   const [bannerPath, setBannerPath] = useState<string | null>(profile.banner_path);
   const [uploading, setUploading] = useState<"avatar" | "banner" | null>(null);
-  const [usernameState, setUsernameState] = useState<"same" | "checking" | "available" | "taken" | "invalid">("same");
+  const [usernameState, setUsernameState] = useState<"same" | "checking" | "available" | "taken" | "invalid" | "error">("same");
   const [pending, startTransition] = useTransition();
   const avatarInput = useRef<HTMLInputElement>(null);
   const bannerInput = useRef<HTMLInputElement>(null);
@@ -47,7 +47,11 @@ export function ProfileForm({ profile }: { profile: Profile }) {
     if (!/^[a-z0-9_]{3,24}$/.test(u)) return setUsernameState("invalid");
     setUsernameState("checking");
     const t = setTimeout(async () => {
-      const { data } = await getSupabaseBrowserClient().rpc("is_username_available", { p_username: u });
+      const { data, error } = await getSupabaseBrowserClient().rpc("is_username_available", { p_username: u });
+      if (error) {
+        console.error("Username check failed:", error.message);
+        return setUsernameState("error");
+      }
       setUsernameState(data ? "available" : "taken");
     }, 350);
     return () => clearTimeout(t);
@@ -73,6 +77,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const save = (e: React.FormEvent) => {
     e.preventDefault();
     if (usernameState === "taken" || usernameState === "invalid") return void toast.error("Please choose a valid, available username.");
+    if (usernameState === "error") return void toast.error("We couldn't check that username right now. Please try again in a moment.");
     startTransition(async () => {
       const res = await updateProfile({
         ...form,
@@ -143,7 +148,15 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           <Field
             label="Username"
             htmlFor="username"
-            error={usernameState === "taken" ? "That username is taken." : usernameState === "invalid" ? "3–24 characters: a–z, 0–9 and _" : null}
+            error={
+              usernameState === "taken"
+                ? "That username is taken."
+                : usernameState === "invalid"
+                  ? "3–24 characters: a–z, 0–9 and _"
+                  : usernameState === "error"
+                    ? "Couldn't check usernames right now. Please try again in a moment."
+                    : null
+            }
             hint="Your public URL handle."
           >
             <div className="relative">

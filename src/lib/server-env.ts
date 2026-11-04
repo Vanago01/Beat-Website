@@ -1,15 +1,18 @@
 import "server-only";
 
-// Secrets — only ever read on the server.
+// Secrets — only ever read on the server. Values are trimmed so a pasted
+// space or line break doesn't make a key invalid.
+const read = (...names: string[]) => names.map((n) => process.env[n]?.trim()).find(Boolean) ?? "";
+
 export const serverEnv = {
-  supabaseSecretKey: process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
-  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
-  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+  supabaseSecretKey: read("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
+  stripeSecretKey: read("STRIPE_SECRET_KEY"),
+  stripeWebhookSecret: read("STRIPE_WEBHOOK_SECRET"),
   /** Optional: signing secret of a separate endpoint for Connect (connected-account) events. */
-  stripeConnectWebhookSecret: process.env.STRIPE_CONNECT_WEBHOOK_SECRET ?? "",
-  resendApiKey: process.env.RESEND_API_KEY ?? "",
-  emailFrom: process.env.EMAIL_FROM ?? "",
-  stripeConnectCountry: process.env.STRIPE_CONNECT_DEFAULT_COUNTRY ?? "PL",
+  stripeConnectWebhookSecret: read("STRIPE_CONNECT_WEBHOOK_SECRET"),
+  resendApiKey: read("RESEND_API_KEY"),
+  emailFrom: read("EMAIL_FROM"),
+  stripeConnectCountry: read("STRIPE_CONNECT_DEFAULT_COUNTRY") || "PL",
 };
 
 export const isStripeConfigured = () => Boolean(serverEnv.stripeSecretKey);

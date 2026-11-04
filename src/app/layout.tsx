@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Syne } from "next/font/google";
+import { Geist, Geist_Mono, Schibsted_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
 import { Navbar } from "@/components/layout/navbar";
@@ -12,7 +12,8 @@ import { env } from "@/lib/env";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin", "latin-ext"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const syne = Syne({ variable: "--font-syne", subsets: ["latin", "latin-ext"], weight: ["600", "700", "800"] });
+// Headline font: a heavy, tightly spaced grotesk (variable weight 400–900).
+const display = Schibsted_Grotesk({ variable: "--font-display-face", subsets: ["latin", "latin-ext"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.siteUrl),
@@ -37,7 +38,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${syne.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${display.variable}`} suppressHydrationWarning>
       <body className="grain min-h-dvh bg-ink-950 text-ink-50 antialiased">
         <div className="ambient" aria-hidden />
         <AppProviders>

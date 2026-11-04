@@ -64,7 +64,7 @@ export function Hero({
             </span>
             The premium beat marketplace
           </p>
-          <h1 className="font-display text-[clamp(3.4rem,10vw,8.4rem)] font-extrabold leading-[0.86] tracking-[-0.055em]">
+          <h1 className="font-display text-[clamp(3.4rem,10vw,8.4rem)] font-extrabold leading-[0.86] tracking-[-0.04em]">
             <span className="text-gradient">Find Your</span>
             <br />
             <span className="text-gradient">Sound</span>

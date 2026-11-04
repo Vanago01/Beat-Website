@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { CircleCheck, CircleAlert, LoaderCircle, RotateCcw, Upload, X } from "lucide-react";
+import { CircleCheck, CircleAlert, LoaderCircle, Plus, RotateCcw, Upload, X } from "lucide-react";
+import { toast } from "sonner";
+import { Chip } from "@/components/ui/controls";
+import { MAX_MOODS, MOODS, isValidMood, moodLabel, normalizeMood } from "@/lib/constants";
 import { formatBytes } from "@/lib/audio-analysis";
 import { cn } from "@/lib/utils";
 
@@ -238,6 +241,82 @@ export function MoneyInput({
         className="w-full min-w-0 bg-transparent text-sm tabular-nums outline-none"
       />
       {suffix && <span className="ml-1 text-sm text-ink-400">{suffix}</span>}
+    </div>
+  );
+}
+
+
+/** Preset moods plus the producer's own words. */
+export function MoodPicker({ value, onChange }: { value: string[]; onChange: (moods: string[]) => void }) {
+  const [draft, setDraft] = useState("");
+  const custom = value.filter((m) => !MOODS.some((p) => p.value === m));
+  const full = value.length >= MAX_MOODS;
+
+  const togglePreset = (mood: string) => {
+    if (value.includes(mood)) return onChange(value.filter((m) => m !== mood));
+    if (full) return void toast.error(`Up to ${MAX_MOODS} moods per beat.`);
+    onChange([...value, mood]);
+  };
+
+  const addCustom = () => {
+    const mood = normalizeMood(draft);
+    if (!mood) return;
+    if (!isValidMood(mood)) return void toast.error("A mood needs 2–24 characters.");
+    const preset = MOODS.find((p) => p.value === mood || p.label.toLowerCase() === mood);
+    const next = preset ? preset.value : mood;
+    setDraft("");
+    if (value.includes(next)) return;
+    if (full) return void toast.error(`Up to ${MAX_MOODS} moods per beat.`);
+    onChange([...value, next]);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {MOODS.map((m) => (
+        <Chip key={m.value} active={value.includes(m.value)} onClick={() => togglePreset(m.value)}>
+          {m.label}
+        </Chip>
+      ))}
+      {custom.map((m) => (
+        <span key={m} className="inline-flex h-9 items-center gap-1 rounded-full border border-white bg-white pl-4 pr-1.5 text-[13px] font-medium text-ink-950">
+          {moodLabel(m)}
+          <button
+            type="button"
+            onClick={() => onChange(value.filter((x) => x !== m))}
+            className="grid h-6 w-6 place-items-center rounded-full transition hover:bg-ink-950/10"
+            aria-label={`Remove mood ${moodLabel(m)}`}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </span>
+      ))}
+      {!full && (
+        <span className="inline-flex h-9 items-center gap-1 rounded-full border border-dashed border-white/20 pl-4 pr-1 transition focus-within:border-accent/70 focus-within:bg-white/[0.03]">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                addCustom();
+              }
+            }}
+            maxLength={24}
+            placeholder="Your own…"
+            aria-label="Describe the mood in your own words"
+            className="w-28 bg-transparent text-[13px] text-ink-50 outline-none placeholder:text-ink-400"
+          />
+          <button
+            type="button"
+            onClick={addCustom}
+            disabled={!draft.trim()}
+            className="grid h-7 w-7 place-items-center rounded-full text-ink-200 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
+            aria-label="Add mood"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </span>
+      )}
     </div>
   );
 }

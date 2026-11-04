@@ -13,7 +13,7 @@ import { Badge, SectionHeading, Skeleton } from "@/components/ui/misc";
 import { coverUrl } from "@/lib/storage";
 import { env } from "@/lib/env";
 import { formatCompact, formatDuration, keyName } from "@/lib/format";
-import { BEAT_STATUS_LABEL, KEY_GROUPS, MOODS, type BeatStatus } from "@/lib/constants";
+import { BEAT_STATUS_LABEL, KEY_GROUPS, MOODS, moodLabel, type BeatStatus } from "@/lib/constants";
 
 export async function generateMetadata({ params }: PageProps<"/beats/[slug]">): Promise<Metadata> {
   const { slug } = await params;
@@ -145,7 +145,13 @@ async function BeatDetail({ params }: { params: PageProps<"/beats/[slug]">["para
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="accent">{beat.genre_name ?? beat.genre}</Badge>
                 {beat.moods.map((m) => (
-                  <Badge key={m}>{MOODS.find((x) => x.value === m)?.label ?? m}</Badge>
+                  <Link
+                    key={m}
+                    href={MOODS.some((x) => x.value === m) ? `/beats?mood=${m}` : `/beats?q=${encodeURIComponent(m)}`}
+                    className="transition hover:opacity-80"
+                  >
+                    <Badge>{moodLabel(m)}</Badge>
+                  </Link>
                 ))}
                 {beat.is_featured && <Badge tone="solid">Staff pick</Badge>}
               </div>

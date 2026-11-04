@@ -3,7 +3,7 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { BPM_MAX, BPM_MIN, LICENSE_ORDER, MOODS } from "@/lib/constants";
+import { BPM_MAX, BPM_MIN, LICENSE_ORDER, MAX_MOODS, isValidMood, normalizeMood } from "@/lib/constants";
 import type { ActionResult } from "@/lib/types";
 
 const path = z.string().max(512).nullable().optional();
@@ -32,7 +32,11 @@ const beatSchema = z.object({
   title: z.string().trim().min(1, "Give your beat a title").max(100),
   description: z.string().max(5000).optional().default(""),
   genre: z.string().regex(/^[a-z0-9-]+$/, "Choose a genre"),
-  moods: z.array(z.enum(MOODS.map((m) => m.value) as [string, ...string[]])).max(6),
+  moods: z
+    .array(z.string())
+    .max(MAX_MOODS, `Up to ${MAX_MOODS} moods`)
+    .transform((list) => [...new Set(list.map(normalizeMood))])
+    .refine((list) => list.every(isValidMood), "Moods must be 2–24 characters"),
   tags: z.array(z.string().trim().min(1).max(30)).max(12),
   bpm: z.number().int().min(BPM_MIN, `BPM must be between ${BPM_MIN} and ${BPM_MAX}`).max(BPM_MAX, `BPM must be between ${BPM_MIN} and ${BPM_MAX}`),
   key_note: z.number().int().min(0).max(11),
@@ -143,5 +147,6 @@ function friendly(message: string) {
   if (/row-level security|permission denied for/i.test(message)) return "You don't have permission to do that.";
   if (/beat_licenses_price_rules/i.test(message)) return "Paid licenses need a price of at least €0.50 / 2 zł.";
   if (/violates foreign key constraint .*genre/i.test(message)) return "Please choose a valid genre.";
+  if (/beats_moods_check/i.test(message)) return "That mood can't be saved. Moods need 2–24 characters (up to 8). If you added your own words, the site's database may still need update 7.";
   return message;
 }

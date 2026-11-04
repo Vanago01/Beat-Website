@@ -34,6 +34,23 @@ export const MOODS = [
 
 export type Mood = (typeof MOODS)[number]["value"];
 
+/** Presets plus the producer's own words — up to this many per beat. */
+export const MAX_MOODS = 8;
+
+/** Stored form of a mood: trimmed, single spaces, lower case. */
+export function normalizeMood(input: string) {
+  return input.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+export function isValidMood(mood: string) {
+  return mood.length >= 2 && mood.length <= 24 && !/[\u0000-\u001f\u007f]/.test(mood);
+}
+
+/** Display name: the preset's label, or the custom mood with a capital first letter. */
+export function moodLabel(mood: string) {
+  return MOODS.find((m) => m.value === mood)?.label ?? mood.charAt(0).toUpperCase() + mood.slice(1);
+}
+
 export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
 
 export type KeyMode = "major" | "minor";

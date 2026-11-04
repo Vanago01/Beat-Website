@@ -5,21 +5,21 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FileArchive, FileAudio, ImagePlus, Info, Music, Send, Sparkles, Waves } from "lucide-react";
 import { toast } from "sonner";
-import { FileSlot, TagInput, TapTempo, type FileState } from "./form-parts";
+import { FileSlot, MoodPicker, TagInput, TapTempo, type FileState } from "./form-parts";
 import { LicenseEditor } from "./license-editor";
 import { Waveform } from "@/components/player/waveform";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/misc";
-import { Chip, Segmented } from "@/components/ui/controls";
+import { Segmented } from "@/components/ui/controls";
 import { saveBeat } from "@/actions/beats";
 import { analyzeAudio } from "@/lib/audio-analysis";
 import { buildPath, uploadResumable, uploadSmall, type Bucket } from "@/lib/upload";
 import { coverUrl } from "@/lib/storage";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDuration } from "@/lib/format";
-import { BPM_MAX, BPM_MIN, DEFAULT_LICENSES, LICENSE_ORDER, MOODS, NOTE_NAMES, type LicenseDraft } from "@/lib/constants";
+import { BPM_MAX, BPM_MIN, DEFAULT_LICENSES, LICENSE_ORDER, NOTE_NAMES, type LicenseDraft } from "@/lib/constants";
 import type { BeatLicense, BeatRow } from "@/lib/types";
 
 type Kind = "cover" | "preview" | "mp3" | "wav" | "stems";
@@ -320,14 +320,8 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
                 <Segmented<"major" | "minor"> value={keyMode} onChange={setKeyMode} options={[{ value: "minor", label: "Minor" }, { value: "major", label: "Major" }]} />
               </div>
             </Field>
-            <Field label="Mood" className="md:col-span-2">
-              <div className="flex flex-wrap gap-2">
-                {MOODS.map((m) => (
-                  <Chip key={m.value} active={moods.includes(m.value)} onClick={() => setMoods(moods.includes(m.value) ? moods.filter((x) => x !== m.value) : [...moods, m.value])}>
-                    {m.label}
-                  </Chip>
-                ))}
-              </div>
+            <Field label="Mood" className="md:col-span-2" hint="Pick what fits, or type your own words (e.g. dreamy, late night) and press Enter. Up to 8.">
+              <MoodPicker value={moods} onChange={setMoods} />
             </Field>
             <Field label="Tags" className="md:col-span-2" hint="Up to 12. Press Enter or comma to add. Tags power search.">
               <TagInput value={tags} onChange={setTags} />

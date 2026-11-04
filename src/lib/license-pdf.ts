@@ -103,8 +103,10 @@ export async function buildLicensePdf(input: LicensePdfInput): Promise<Uint8Arra
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const f = await loadFonts();
-  const regular = await doc.embedFont(f.regular, { subset: true });
-  const bold = await doc.embedFont(f.bold, { subset: true });
+  // Embed the whole font: fontkit's subsetting drops most glyphs of these
+  // fonts, which left the PDF with missing letters in every viewer.
+  const regular = await doc.embedFont(f.regular, { subset: false });
+  const bold = await doc.embedFont(f.bold, { subset: false });
   doc.setTitle(`${s.license_name} — ${s.beat_title}`);
   doc.setAuthor(env.siteName);
   doc.setSubject(`License ${input.licenseNumber}`);

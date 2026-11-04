@@ -5,6 +5,20 @@ import { getSupabaseBrowserClient } from "./supabase/client";
 import { browserSupabaseUrl, env } from "./env";
 import { extensionOf, mimeFor } from "./storage";
 
+const megabytes = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+/**
+ * Turns storage errors into something a producer can act on. Supabase answers
+ * an oversized upload with HTTP 413 ("Maximum size exceeded" for the project
+ * limit, "...maximum allowed size" for a bucket limit).
+ */
+function friendlyUploadError(message: string, status: number | undefined, file: File) {
+  if (status === 413 || /maximum (allowed )?size|size exceeded|payload too large|entity too large/i.test(message)) {
+    return `This file (${megabytes(file.size)}) is bigger than the upload limit. Export a smaller file — for example a 16-bit WAV — or ask the site owner to raise the limit.`;
+  }
+  return message;
+}
+
 export type Bucket = "avatars" | "covers" | "previews" | "beat-files";
 
 export function buildPath(userId: string, scope: string, kind: string, file: File) {
@@ -46,7 +60,7 @@ function uploadViaXhr(bucket: Bucket, path: string, file: File, token: string, o
       try {
         message = JSON.parse(xhr.responseText).message ?? message;
       } catch {}
-      reject(new Error(/maximum allowed size|too large/i.test(message) ? "This file is larger than your storage upload limit." : message));
+      reject(new Error(friendlyUploadError(message, xhr.status, file)));
     };
     xhr.onerror = () => reject(new Error("Network error during upload"));
     signal?.addEventListener("abort", () => {
@@ -89,13 +103,15 @@ export async function uploadResumable(
       },
       chunkSize: 6 * 1024 * 1024,
       onError: (err) => {
-        const body = (err as tus.DetailedError).originalResponse?.getBody?.();
-        let message = err.message;
+        const response = (err as tus.DetailedError).originalResponse;
+        const body = response?.getBody?.();
+        // tus wraps the server's answer in a long technical sentence — keep just the answer.
+        let message = /response text: (.*?)(?:, request id|\)$|$)/.exec(err.message)?.[1]?.trim() || err.message;
         try {
           const parsed = body ? JSON.parse(body) : null;
           if (parsed?.message) message = parsed.message;
         } catch {}
-        reject(new Error(/maximum allowed size|Payload too large/i.test(message) ? "This file is larger than your storage upload limit." : message));
+        reject(new Error(friendlyUploadError(message, response?.getStatus?.(), file)));
       },
       onProgress: (sent, total) => onProgress?.(total ? sent / total : 0),
       onSuccess: () => resolve(path),

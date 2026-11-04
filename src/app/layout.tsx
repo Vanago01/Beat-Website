@@ -1,0 +1,55 @@
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono, Syne } from "next/font/google";
+import "./globals.css";
+import { AppProviders } from "@/components/providers/app-providers";
+import { Navbar } from "@/components/layout/navbar";
+import { Footer } from "@/components/layout/footer";
+import { CartDrawer } from "@/components/layout/cart-drawer";
+import { PlayerBar } from "@/components/player/player-bar";
+import { AudioEngine } from "@/components/player/audio-engine";
+import { LicenseModalHost } from "@/components/beats/license-modal";
+import { env } from "@/lib/env";
+
+const geist = Geist({ variable: "--font-geist", subsets: ["latin", "latin-ext"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const syne = Syne({ variable: "--font-syne", subsets: ["latin", "latin-ext"], weight: ["600", "700", "800"] });
+
+export const metadata: Metadata = {
+  metadataBase: new URL(env.siteUrl),
+  title: { default: `${env.siteName} — Find Your Sound`, template: `%s · ${env.siteName}` },
+  description: "Discover premium beats. Create without limits. License trap, drill, R&B, afrobeat and more from independent producers.",
+  applicationName: env.siteName,
+  openGraph: {
+    type: "website",
+    siteName: env.siteName,
+    title: `${env.siteName} — Find Your Sound`,
+    description: "Discover premium beats. Create without limits.",
+  },
+  twitter: { card: "summary_large_image" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#050507",
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+};
+
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  return (
+    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${syne.variable}`} suppressHydrationWarning>
+      <body className="grain min-h-dvh bg-ink-950 text-ink-50 antialiased">
+        <div className="ambient" aria-hidden />
+        <AppProviders>
+          <Navbar />
+          <main className="relative z-10 min-h-[70vh]">{children}</main>
+          <Footer />
+          <PlayerBar />
+          <AudioEngine />
+          <LicenseModalHost />
+          <CartDrawer />
+        </AppProviders>
+      </body>
+    </html>
+  );
+}

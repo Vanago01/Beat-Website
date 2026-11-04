@@ -38,7 +38,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${display.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${display.variable}`} data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className="grain min-h-dvh bg-ink-950 text-ink-50 antialiased">
         <div className="ambient" aria-hidden />
         <AppProviders>

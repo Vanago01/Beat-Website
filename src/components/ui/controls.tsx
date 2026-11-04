@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 export function Switch({
@@ -112,7 +113,11 @@ export function Chip({
   );
 }
 
-/** Minimal accessible dropdown menu. */
+/**
+ * Minimal accessible dropdown menu. The menu is rendered in a portal with fixed
+ * positioning, so containers with `overflow: hidden` (lists, cards, scroll
+ * areas) never clip it, and it opens upwards when there is no room below.
+ */
 export function Dropdown({
   trigger,
   children,
@@ -125,37 +130,101 @@ export function Dropdown({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left?: number; right?: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const triggerButton = () => ref.current?.querySelector<HTMLElement>("button, [href], [tabindex]") ?? null;
+  const menuItems = () => Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? []);
+
+  const close = useCallback((returnFocus = false) => {
+    setOpen(false);
+    if (returnFocus) triggerButton()?.focus();
+  }, []);
+
+  const place = useCallback(() => {
+    const anchor = ref.current?.getBoundingClientRect();
+    if (!anchor) return;
+    const gap = 10;
+    const margin = 8;
+    const height = menuRef.current?.offsetHeight ?? 0;
+    const below = anchor.bottom + gap;
+    const above = anchor.top - gap - height;
+    const top = below + height <= window.innerHeight - margin || above < margin ? below : above;
+    setPos(
+      align === "end"
+        ? { top, right: Math.max(margin, window.innerWidth - anchor.right) }
+        : { top, left: Math.max(margin, anchor.left) },
+    );
+  }, [align]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, place]);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close(true);
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, close]);
+
+  // Keyboard users land on the first item, like a native menu.
+  useEffect(() => {
+    if (open && pos) menuItems()[0]?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pos !== null]);
+
+  const onMenuKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const items = menuItems();
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      items[(index + step + items.length) % items.length]?.focus();
+    } else if (e.key === "Tab") {
+      // Leave the menu and continue from the trigger in normal page order.
+      close(true);
+    }
+  };
 
   return (
     <div ref={ref} className="relative">
       {trigger({ open, toggle: () => setOpen((o) => !o) })}
-      {open && (
-        <div
-          role="menu"
-          className={cn(
-            "glass-strong absolute top-[calc(100%+10px)] z-50 min-w-56 animate-fade-up overflow-hidden rounded-2xl p-1.5 shadow-2xl",
-            align === "end" ? "right-0" : "left-0",
-            className,
-          )}
-        >
-          {children(() => setOpen(false))}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            onKeyDown={onMenuKeyDown}
+            style={pos ? { position: "fixed", top: pos.top, left: pos.left, right: pos.right } : { position: "fixed", top: 0, left: 0, visibility: "hidden" }}
+            className={cn("glass-strong z-[70] min-w-56 animate-fade-up overflow-hidden rounded-2xl p-1.5 shadow-2xl", className)}
+          >
+            {children(() => close())}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

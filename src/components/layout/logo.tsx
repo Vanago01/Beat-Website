@@ -2,16 +2,31 @@ import Link from "next/link";
 import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
+/** The VBEATS glyph: a "V" whose right arm is a rising equalizer. Inherits the text colour. */
+export function LogoGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" className={className} fill="none" aria-hidden>
+      <path d="M13.5 14.5 28 48" stroke="currentColor" strokeWidth="7.2" strokeLinecap="round" />
+      <g fill="currentColor">
+        <rect x="32" y="34" width="7.2" height="17.6" rx="3.6" />
+        <rect x="41" y="24.5" width="7.2" height="27.1" rx="3.6" />
+        <rect x="50" y="10.9" width="7.2" height="40.7" rx="3.6" />
+      </g>
+    </svg>
+  );
+}
+
+/** App-icon style mark: the glyph on the electric-blue → violet tile. */
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <span className={cn("relative grid h-8 w-8 place-items-center rounded-[10px] bg-white text-ink-950", className)} aria-hidden>
-      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="currentColor">
-        <rect x="3" y="9" width="2.4" height="6" rx="1.2" />
-        <rect x="7.4" y="5" width="2.4" height="14" rx="1.2" />
-        <rect x="11.8" y="2.5" width="2.4" height="19" rx="1.2" />
-        <rect x="16.2" y="7" width="2.4" height="10" rx="1.2" />
-        <rect x="20.2" y="10.5" width="1.8" height="3" rx="0.9" />
-      </svg>
+    <span
+      className={cn(
+        "relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-[28%] bg-gradient-to-br from-[#3d8bff] to-[#8b5cff] text-white shadow-[0_6px_20px_-6px_rgba(124,108,255,0.7)]",
+        className,
+      )}
+      aria-hidden
+    >
+      <LogoGlyph className="h-full w-full" />
     </span>
   );
 }

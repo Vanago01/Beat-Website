@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { registerAudioElement, usePlayer } from "@/stores/player";
 import { coverUrl, previewUrl } from "@/lib/storage";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { env } from "@/lib/env";
 
 const COUNTED_KEY = "nw-played";
 
@@ -125,7 +126,7 @@ export function AudioEngine() {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: current.title,
         artist: current.producer_name,
-        album: "NOIRWAVE",
+        album: env.siteName,
         artwork: art ? [{ src: art, sizes: "512x512" }] : [],
       });
     }

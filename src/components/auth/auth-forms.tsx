@@ -7,8 +7,17 @@ import { CircleCheck, Eye, EyeOff, LoaderCircle, MailCheck, XCircle } from "luci
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
+import { env } from "@/lib/env";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeNextPath } from "@/lib/utils";
+
+const siteHost = (() => {
+  try {
+    return new URL(env.siteUrl).host;
+  } catch {
+    return "yoursite.com";
+  }
+})();
 
 function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const [show, setShow] = useState(false);
@@ -190,7 +199,7 @@ export function RegisterForm() {
             ? "3–24 characters: lowercase letters, numbers and underscores."
             : availability === "taken" || availability === "error"
               ? undefined
-              : "This is your public handle — e.g. noirwave.com/producers/yourname"
+              : `This is your public handle — e.g. ${siteHost}/producers/yourname`
         }
         error={
           availability === "taken"

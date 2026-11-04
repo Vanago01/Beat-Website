@@ -20,7 +20,7 @@ export const env = {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
   ).trim(),
   siteUrl: (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, ""),
-  siteName: process.env.NEXT_PUBLIC_SITE_NAME ?? "NOIRWAVE",
+  siteName: process.env.NEXT_PUBLIC_SITE_NAME?.trim() || "VBEATS",
   /**
    * Preview/tunnel setups only (leave empty in production): a same-origin path,
    * e.g. "/sb", that the Next.js server proxies to Supabase (see SUPABASE_PROXY_TARGET).

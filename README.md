@@ -1,9 +1,9 @@
-# NOIRWAVE — premium beat marketplace
+# VBEATS — premium beat marketplace
 
 A full-stack marketplace where producers upload, showcase and sell beats, and artists preview, license and download them.
 Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Postgres, Storage) and **Stripe** (Checkout + Connect).
 
-> The brand name is a placeholder — change `NEXT_PUBLIC_SITE_NAME` to rename the whole site.
+> The site name defaults to VBEATS — set `NEXT_PUBLIC_SITE_NAME` to rename the whole site.
 
 ![Homepage](docs/screenshots/home.jpg)
 
@@ -151,7 +151,7 @@ Even if a webhook is delayed, the checkout success page verifies the session wit
 
 ### 4. Email (order confirmations)
 
-Create a [Resend](https://resend.com) API key, verify your sending domain, and set `RESEND_API_KEY` and `EMAIL_FROM` (e.g. `NOIRWAVE <orders@yourdomain.com>`). Without them the app runs normally and logs emails instead of sending them. Emails sent: order confirmation (buyer), new sale (seller), beat approved / rejected (seller).
+Create a [Resend](https://resend.com) API key, verify your sending domain, and set `RESEND_API_KEY` and `EMAIL_FROM` (e.g. `VBEATS <orders@yourdomain.com>`). Without them the app runs normally and logs emails instead of sending them. Emails sent: order confirmation (buyer), new sale (seller), beat approved / rejected (seller).
 
 ### 5. Deploy (Vercel recommended)
 

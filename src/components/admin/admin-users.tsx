@@ -7,7 +7,13 @@ import { BadgeCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, EmptyState } from "@/components/ui/misc";
-import { Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+
+const ROLE_OPTIONS = [
+  { value: "buyer", label: "Buyer" },
+  { value: "seller", label: "Seller" },
+  { value: "admin", label: "Admin" },
+];
 import { Switch } from "@/components/ui/controls";
 import { setUserRole, toggleUserFlag } from "@/actions/admin";
 import { formatDate } from "@/lib/format";
@@ -86,18 +92,15 @@ export function AdminUsers({ users, currentUserId }: { users: AdminUser[]; curre
                     <Select
                       value={u.role}
                       disabled={pending}
-                      onChange={(e) => {
-                        const role = e.target.value as UserRole;
+                      onChange={(v) => {
+                        const role = v as UserRole;
                         if (self && role !== "admin" && !confirm("Remove your own administrator access?")) return;
                         run(() => setUserRole(u.id, role), `@${u.username} is now ${role === "admin" ? "an admin" : `a ${role}`}`);
                       }}
+                      options={ROLE_OPTIONS}
                       className="h-9 text-xs"
                       aria-label={`Role for ${u.username}`}
-                    >
-                      <option value="buyer">Buyer</option>
-                      <option value="seller">Seller</option>
-                      <option value="admin">Admin</option>
-                    </Select>
+                    />
                   </div>
                 </td>
                 <td className="px-3 py-3 text-center">

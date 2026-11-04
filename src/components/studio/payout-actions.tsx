@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ExternalLink, RefreshCw, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { openStripeDashboard, refreshPayoutStatus, startPayoutOnboarding } from "@/actions/seller";
 
 const COUNTRIES: [string, string][] = [
@@ -49,13 +49,12 @@ export function PayoutActions({ hasAccount, detailsSubmitted, payoutsEnabled }: 
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       {!hasAccount && (
         <div className="sm:w-56">
-          <Select value={country} onChange={(e) => setCountry(e.target.value)} aria-label="Country of your bank account">
-            {COUNTRIES.map(([code, name]) => (
-              <option key={code} value={code}>
-                {name}
-              </option>
-            ))}
-          </Select>
+          <Select
+            value={country}
+            onChange={setCountry}
+            options={COUNTRIES.map(([code, name]) => ({ value: code, label: name }))}
+            aria-label="Country of your bank account"
+          />
         </div>
       )}
       {!payoutsEnabled && (

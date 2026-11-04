@@ -9,7 +9,8 @@ import { FileSlot, TagInput, TapTempo, type FileState } from "./form-parts";
 import { LicenseEditor } from "./license-editor";
 import { Waveform } from "@/components/player/waveform";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select, Textarea } from "@/components/ui/input";
+import { Field, Input, Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/misc";
 import { Chip, Segmented } from "@/components/ui/controls";
 import { saveBeat } from "@/actions/beats";
@@ -287,16 +288,13 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
               <Input id="title" value={title} onChange={(e) => { dirty.current = true; setTitle(e.target.value); }} maxLength={100} placeholder="e.g. Midnight Run" />
             </Field>
             <Field label="Genre" htmlFor="genre">
-              <Select id="genre" value={genre} onChange={(e) => setGenre(e.target.value)}>
-                <option value="" disabled>
-                  Select a genre
-                </option>
-                {genres.map((g) => (
-                  <option key={g.slug} value={g.slug}>
-                    {g.name}
-                  </option>
-                ))}
-              </Select>
+              <Select
+                id="genre"
+                value={genre}
+                onChange={setGenre}
+                placeholder="Select a genre"
+                options={genres.map((g) => ({ value: g.slug, label: g.name }))}
+              />
             </Field>
             <Field label="Tempo (BPM)" htmlFor="bpm" hint={`${BPM_MIN}–${BPM_MAX}. Not sure? Tap along.`}>
               <div className="flex gap-2">

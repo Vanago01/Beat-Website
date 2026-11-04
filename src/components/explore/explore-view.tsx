@@ -7,7 +7,7 @@ import { FilterPanel } from "./filter-panel";
 import { BeatCard } from "@/components/beats/beat-card";
 import { BeatRow } from "@/components/beats/beat-row";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { Segmented } from "@/components/ui/controls";
 import { Sheet } from "@/components/ui/overlay";
@@ -193,13 +193,13 @@ export function ExploreView({
               <SlidersHorizontal className="h-4 w-4" /> Filters {active > 0 && `(${active})`}
             </Button>
             <div className="w-48">
-              <Select value={filters.sort} onChange={(e) => update({ sort: e.target.value as BeatFilters["sort"] })} aria-label="Sort by" className="h-12 rounded-full">
-                {sortOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
+              <Select
+                value={filters.sort}
+                onChange={(v) => update({ sort: v as BeatFilters["sort"] })}
+                options={sortOptions}
+                aria-label="Sort by"
+                className="h-12 rounded-full pl-5 pr-4"
+              />
             </div>
             <Segmented
               value={view}

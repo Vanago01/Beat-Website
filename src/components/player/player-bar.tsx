@@ -68,8 +68,28 @@ function VolumeControl() {
   );
 }
 
+const EXIT_MS = 380;
+
 export function PlayerBar() {
-  const current = usePlayer((s) => s.current);
+  const live = usePlayer((s) => s.current);
+  // Keep the last beat on screen for a moment after closing, so the bar can slide away.
+  const [lastShown, setLastShown] = useState(live);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    if (live) {
+      setLastShown(live);
+      setLeaving(false);
+      return;
+    }
+    if (!lastShown) return;
+    setLeaving(true);
+    const t = window.setTimeout(() => {
+      setLastShown(null);
+      setLeaving(false);
+    }, EXIT_MS);
+    return () => window.clearTimeout(t);
+  }, [live]);
+  const current = live ?? lastShown;
   const isPlaying = usePlayer((s) => s.isPlaying);
   const buffering = usePlayer((s) => s.buffering && s.isPlaying);
   const currentTime = usePlayer((s) => s.currentTime);
@@ -99,7 +119,14 @@ export function PlayerBar() {
       {/* spacer so content never hides behind the bar */}
       <div aria-hidden className="h-24 md:h-28" />
 
-      <div className="fixed inset-x-2 bottom-2 z-50 md:inset-x-4 md:bottom-4" role="region" aria-label="Audio player">
+      <div
+        className={cn(
+          "fixed inset-x-2 bottom-2 z-50 md:inset-x-4 md:bottom-4 motion-reduce:animate-none",
+          leaving && !live ? "pointer-events-none animate-player-out" : "animate-player-in",
+        )}
+        role="region"
+        aria-label="Audio player"
+      >
         <div className="glass-strong relative overflow-hidden rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] md:rounded-[1.4rem]">
           <ProgressLine className="absolute inset-x-0 top-0 md:hidden" />
 
@@ -172,7 +199,7 @@ export function PlayerBar() {
                 <button
                   type="button"
                   onClick={license}
-                  className="inline-flex h-9 items-center gap-2 rounded-full bg-accent-gradient px-4 text-[13px] font-semibold text-white shadow-[0_8px_24px_-10px_rgba(124,108,255,0.9)] transition hover:brightness-110"
+                  className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-accent-gradient px-4 text-[13px] font-semibold text-white shadow-[0_8px_24px_-10px_rgba(124,108,255,0.9)] transition hover:brightness-110"
                 >
                   <ShoppingBag className="h-3.5 w-3.5" />
                   {current.min_price_eur === 0 ? "Free download" : <Price eur={current.min_price_eur} pln={current.min_price_pln} prefix="from" className="[&>span]:text-white/70" />}

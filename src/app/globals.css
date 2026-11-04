@@ -35,6 +35,8 @@
 
   --animate-fade-up: fade-up 0.7s var(--ease-out-expo) both;
   --animate-fade-in: fade-in 0.5s ease both;
+  --animate-player-in: player-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  --animate-player-out: player-out 0.38s cubic-bezier(0.4, 0, 1, 1) forwards;
   --animate-shimmer: shimmer 1.6s linear infinite;
   --animate-spin-slow: spin 14s linear infinite;
   --animate-marquee: marquee 40s linear infinite;
@@ -44,6 +46,14 @@
   @keyframes fade-up {
     from { opacity: 0; transform: translateY(18px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes player-in {
+    from { opacity: 0; transform: translateY(calc(100% + 1.5rem)) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes player-out {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateY(calc(100% + 1.5rem)); }
   }
   @keyframes fade-in {
     from { opacity: 0; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { getAudioElement, usePlayer } from "@/stores/player";
 import { cn, hashString } from "@/lib/utils";
 import { formatDuration } from "@/lib/format";
@@ -56,6 +56,10 @@ export function Waveform({
   onSeekStart?: (fraction: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // One gradient per waveform. Sharing an id per beat broke the played part
+  // whenever another copy sat first in the page but hidden (e.g. a page Next.js
+  // keeps in the background after navigating): url(#id) then pointed at it.
+  const gradientId = `wg-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const isActive = usePlayer((s) => s.current?.id === beatId);
   const seekFraction = usePlayer((s) => s.seekFraction);
   const [hover, setHover] = useState<number | null>(null);
@@ -147,7 +151,7 @@ export function Waveform({
       <div className="absolute inset-0" style={{ clipPath: "inset(0 calc((1 - var(--p)) * 100%) 0 0)" }}>
         <svg viewBox={`0 0 ${width} 100`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
           <defs>
-            <linearGradient id={`wg-${beatId}`} x1="0" x2="1" y1="0" y2="0">
+            <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="0">
               <stop offset="0%" stopColor="#b7aeff" />
               <stop offset="55%" stopColor="#7c6cff" />
               <stop offset="100%" stopColor="#ffffff" />
@@ -156,7 +160,7 @@ export function Waveform({
           {data.map((v, i) => {
             const h = v * 100;
             return (
-              <rect key={i} x={i * 4} y={(100 - h) / 2} width={barW} height={h} rx={1} fill={`url(#wg-${beatId})`} />
+              <rect key={i} x={i * 4} y={(100 - h) / 2} width={barW} height={h} rx={1} fill={`url(#${gradientId})`} />
             );
           })}
         </svg>

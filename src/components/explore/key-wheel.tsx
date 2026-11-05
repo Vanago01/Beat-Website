@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { CIRCLE_OF_FIFTHS, KEY_GROUPS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,8 @@ function sector(r0: number, r1: number, a0: number, a1: number) {
  * (outer ring = major, inner ring = relative minor). Multi-select.
  */
 export function KeyWheel({ value, onChange }: { value: number[]; onChange: (groups: number[]) => void }) {
+  // Unique per wheel: the sidebar and the phone filter panel can both be in the page.
+  const gradientId = `kw-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const selected = new Set(value);
   const toggle = (g: number) => {
     const next = new Set(selected);
@@ -36,7 +39,7 @@ export function KeyWheel({ value, onChange }: { value: number[]; onChange: (grou
     <div className="flex flex-col items-center gap-4">
       <svg viewBox="0 0 220 220" className="w-full max-w-[260px] select-none" role="group" aria-label="Musical key">
         <defs>
-          <linearGradient id="kw-active" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#998cff" />
             <stop offset="100%" stopColor="#4f42cf" />
           </linearGradient>
@@ -68,9 +71,10 @@ export function KeyWheel({ value, onChange }: { value: number[]; onChange: (grou
               <title>{k.label}</title>
               <path
                 d={sector(66, 106, a0, a1)}
+                style={on ? { fill: `url(#${gradientId})` } : undefined}
                 className={cn(
                   "transition-all duration-200",
-                  on ? "fill-[url(#kw-active)]" : "fill-white/[0.04] group-hover/key:fill-white/[0.12] group-focus-visible/key:fill-white/[0.16]",
+                  !on && "fill-white/[0.04] group-hover/key:fill-white/[0.12] group-focus-visible/key:fill-white/[0.16]",
                 )}
                 stroke="rgba(255,255,255,0.08)"
               />

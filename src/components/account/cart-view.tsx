@@ -10,7 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
 import { CurrencySwitch } from "@/components/layout/currency-switch";
 import { useCartTotals, useCheckout } from "@/components/layout/cart-drawer";
-import { useCart } from "@/stores/cart";
+import { itemPrice, useCart } from "@/stores/cart";
 import { useAuth } from "@/components/providers/auth-provider";
 import { formatPrice } from "@/lib/format";
 import { LICENSE_META } from "@/lib/constants";
@@ -63,7 +63,7 @@ export function CartView() {
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <span className="text-lg font-semibold tabular-nums">{formatPrice(currency === "pln" ? i.pricePln : i.priceEur, currency, { exact: true })}</span>
+                <span className="text-lg font-semibold tabular-nums">{formatPrice(itemPrice(i, currency), currency, { exact: true })}</span>
                 <button type="button" onClick={() => remove(i.beatId)} className="inline-flex items-center gap-1 text-xs text-ink-400 hover:text-danger">
                   <Trash2 className="h-3.5 w-3.5" /> Remove
                 </button>
@@ -82,7 +82,7 @@ export function CartView() {
             {items.map((i) => (
               <div key={i.beatId} className="flex justify-between gap-4 text-ink-300">
                 <dt className="truncate">{i.title}</dt>
-                <dd className="tabular-nums">{formatPrice(currency === "pln" ? i.pricePln : i.priceEur, currency, { exact: true })}</dd>
+                <dd className="tabular-nums">{formatPrice(itemPrice(i, currency), currency, { exact: true })}</dd>
               </div>
             ))}
             <div className="flex items-baseline justify-between border-t border-white/[0.08] pt-4">

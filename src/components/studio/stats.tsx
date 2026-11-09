@@ -5,7 +5,7 @@ import { BarChart, type BarDatum } from "@/components/ui/bar-chart";
 import { Segmented } from "@/components/ui/controls";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Currency } from "@/lib/constants";
+import { CURRENCIES, type Currency } from "@/lib/constants";
 
 export function StatTile({ label, value, sub, icon, className }: { label: string; value: ReactNode; sub?: ReactNode; icon?: ReactNode; className?: string }) {
   return (
@@ -21,17 +21,20 @@ export function StatTile({ label, value, sub, icon, className }: { label: string
 }
 
 const MONTH = new Intl.DateTimeFormat("en-GB", { month: "short" });
+/** Only used to pick which currency the chart opens on. */
+const ROUGH_PER_EUR: Record<Currency, number> = { eur: 1, pln: 4.25, usd: 1.15 };
 const MONTH_LONG = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" });
 
 export interface MonthlyPoint {
   month: string; // YYYY-MM
   eur: number;
   pln: number;
+  usd?: number;
 }
 
 function compactMoney(minor: number, currency: Currency) {
   const major = minor / 100;
-  const symbol = currency === "eur" ? "€" : "";
+  const symbol = currency === "eur" ? "€" : currency === "usd" ? "$" : "";
   const suffix = currency === "pln" ? " zł" : "";
   if (major >= 10000) return `${symbol}${Math.round(major / 1000)}K${suffix}`;
   if (major >= 1000) return `${symbol}${(major / 1000).toFixed(1).replace(/\.0$/, "")}K${suffix}`;
@@ -40,11 +43,20 @@ function compactMoney(minor: number, currency: Currency) {
 
 /** Monthly money chart with a currency switch (currencies are never summed). */
 export function MoneyChart({ title, data, defaultCurrency }: { title: string; data: MonthlyPoint[]; defaultCurrency?: Currency }) {
-  const totals = { eur: data.reduce((s, d) => s + d.eur, 0), pln: data.reduce((s, d) => s + d.pln, 0) };
-  const [currency, setCurrency] = useState<Currency>(defaultCurrency ?? (totals.pln > totals.eur * 4 ? "pln" : "eur"));
+  const totals: Record<Currency, number> = {
+    eur: data.reduce((s, d) => s + d.eur, 0),
+    pln: data.reduce((s, d) => s + d.pln, 0),
+    usd: data.reduce((s, d) => s + (d.usd ?? 0), 0),
+  };
+  // Open on the currency with the most sales (roughly compared in euro).
+  const busiest = (["pln", "usd"] as const).reduce<Currency>(
+    (best, c) => (totals[c] / ROUGH_PER_EUR[c] > totals[best] / ROUGH_PER_EUR[best] ? c : best),
+    "eur",
+  );
+  const [currency, setCurrency] = useState<Currency>(defaultCurrency ?? busiest);
   const bars: BarDatum[] = data.map((d) => {
     const date = new Date(`${d.month}-01T12:00:00Z`);
-    const value = currency === "eur" ? d.eur : d.pln;
+    const value = currency === "usd" ? (d.usd ?? 0) : d[currency];
     return { key: d.month, label: MONTH.format(date), fullLabel: MONTH_LONG.format(date), value, display: formatPrice(value, currency, { exact: value % 100 !== 0 }) };
   });
   return (
@@ -56,7 +68,7 @@ export function MoneyChart({ title, data, defaultCurrency }: { title: string; da
             Last 12 months · {currency.toUpperCase()} total {formatPrice(totals[currency], currency, { exact: true })}
           </p>
         </div>
-        <Segmented<Currency> size="sm" value={currency} onChange={setCurrency} options={[{ value: "eur", label: "EUR" }, { value: "pln", label: "PLN" }]} />
+        <Segmented<Currency> size="sm" value={currency} onChange={setCurrency} options={CURRENCIES.map((c) => ({ value: c.code, label: c.label }))} />
       </div>
       <BarChart data={bars} minStep={100} emptyLabel={`No ${currency.toUpperCase()} sales in the last 12 months yet`} formatTick={(v) => compactMoney(v, currency)} ariaLabel={`${title} in ${currency.toUpperCase()}, last 12 months`} />
     </div>

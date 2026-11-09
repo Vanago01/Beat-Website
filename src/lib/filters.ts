@@ -17,7 +17,7 @@ export interface BeatFilters {
   sort: SortOption;
 }
 
-export const PRICE_SLIDER_MAX: Record<Currency, number> = { eur: 500, pln: 2000 };
+export const PRICE_SLIDER_MAX: Record<Currency, number> = { eur: 500, pln: 2000, usd: 500 };
 
 type ParamSource = URLSearchParams | Record<string, string | string[] | undefined>;
 

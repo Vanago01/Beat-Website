@@ -5,12 +5,12 @@ import { BecomeSellerCard } from "@/components/studio/become-seller";
 
 export const metadata: Metadata = {
   title: "Sell your beats",
-  description: "Upload WAVs and stems, set your own license prices in EUR and PLN, and get paid through Stripe.",
+  description: "Upload WAVs and stems, set your own license prices in EUR, PLN and USD, and get paid through Stripe.",
 };
 
 const FEATURES = [
   { icon: CloudUpload, title: "Studio-grade uploads", body: "Resumable uploads for big WAVs and stem packs, with real waveforms generated from your audio." },
-  { icon: BadgeEuro, title: "Your prices, two currencies", body: "Set every license tier in EUR and PLN. Card, BLIK and Przelewy24 checkout through Stripe." },
+  { icon: BadgeEuro, title: "Your prices, three currencies", body: "Set every license tier in EUR, PLN and USD. Card, BLIK and Przelewy24 checkout through Stripe." },
   { icon: Lock, title: "Protected delivery", body: "Full-quality files stay private. Buyers get expiring download links only after they pay." },
   { icon: FileText, title: "Automatic license PDFs", body: "Every sale generates a license agreement with your terms, credit line and usage limits." },
   { icon: ChartColumn, title: "Real analytics", body: "Plays, favorites, sales and earnings per beat — see what's working at a glance." },
@@ -38,7 +38,7 @@ export default async function SellPage() {
           <dl className="mt-10 grid max-w-xl grid-cols-3 gap-4">
             {[
               { k: `${keep}%`, v: "of every sale is yours" },
-              { k: "2", v: "currencies: EUR & PLN" },
+              { k: "3", v: "currencies: EUR, PLN & USD" },
               { k: "0 €", v: "to join, no monthly fee" },
             ].map((s) => (
               <div key={s.v} className="glass rounded-2xl p-4">

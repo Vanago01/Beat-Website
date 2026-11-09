@@ -70,8 +70,7 @@ export function FilterPanel({
   const [price, setPrice] = useDraft<[number, number]>(priceValue, (v) =>
     onChange({ price: [v[0] > 0 ? v[0] : null, v[1] >= priceMax ? null : v[1]] }),
   );
-  const symbol = currency === "pln" ? " zł" : "€";
-  const fmt = (n: number) => (currency === "pln" ? `${n}${symbol}` : `${symbol}${n}`);
+  const fmt = (n: number) => (currency === "pln" ? `${n} zł` : currency === "usd" ? `$${n}` : `€${n}`);
 
   const toggleIn = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 

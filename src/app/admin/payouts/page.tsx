@@ -7,7 +7,8 @@ import { isStripeConfigured } from "@/lib/server-env";
 import { PayoutButton } from "@/components/admin/admin-actions";
 import { PageSkeleton } from "@/components/account/page-skeleton";
 import { Badge, EmptyState } from "@/components/ui/misc";
-import { formatPrice } from "@/lib/format";
+import { formatAmounts } from "@/lib/format";
+import type { Currency } from "@/lib/constants";
 
 export const metadata: Metadata = { title: "Seller payouts", robots: { index: false } };
 
@@ -19,9 +20,10 @@ async function Payouts() {
     supabase.from("seller_accounts").select("user_id, payouts_enabled, details_submitted, country"),
   ]);
 
-  const sellers = new Map<string, { pending: { eur: number; pln: number }; paid: { eur: number; pln: number } }>();
+  const zero = (): Record<Currency, number> => ({ eur: 0, pln: 0, usd: 0 });
+  const sellers = new Map<string, { pending: Record<Currency, number>; paid: Record<Currency, number> }>();
   for (const e of earnings ?? []) {
-    const s = sellers.get(e.seller_id) ?? { pending: { eur: 0, pln: 0 }, paid: { eur: 0, pln: 0 } };
+    const s = sellers.get(e.seller_id) ?? { pending: zero(), paid: zero() };
     s[e.status === "pending" ? "pending" : "paid"][e.currency] += e.net;
     sellers.set(e.seller_id, s);
   }
@@ -32,14 +34,15 @@ async function Payouts() {
   const accountBy = new Map((accounts ?? []).map((a) => [a.user_id, a]));
   const stripeReady = isStripeConfigured();
 
-  const fmt = (m: { eur: number; pln: number }) =>
-    !m.eur && !m.pln ? "—" : [m.eur && formatPrice(m.eur, "eur", { exact: true }), m.pln && formatPrice(m.pln, "pln", { exact: true })].filter(Boolean).join(" · ");
+  const fmt = (m: Record<Currency, number>) => formatAmounts(m, { exact: true, empty: "—" });
+  // Roughly in euro, only to put the largest pending payouts first.
+  const weight = (m: Record<Currency, number>) => m.eur + m.pln / 4.25 + m.usd / 1.15;
 
   if (!ids.length) return <EmptyState title="No seller earnings yet" description="Earnings appear here after sellers make sales." />;
 
   const rows = ids
     .map((id) => ({ id, ...sellers.get(id)!, profile: profiles?.find((p) => p.id === id), account: accountBy.get(id) }))
-    .sort((a, b) => b.pending.eur + b.pending.pln / 4 - (a.pending.eur + a.pending.pln / 4));
+    .sort((a, b) => weight(b.pending) - weight(a.pending));
 
   return (
     <>
@@ -60,7 +63,7 @@ async function Payouts() {
           <tbody className="divide-y divide-white/[0.05]">
             {rows.map((r) => {
               const name = r.profile?.producer_name || r.profile?.display_name || r.profile?.username || r.id;
-              const hasPending = r.pending.eur > 0 || r.pending.pln > 0;
+              const hasPending = r.pending.eur > 0 || r.pending.pln > 0 || r.pending.usd > 0;
               return (
                 <tr key={r.id}>
                   <td className="px-5 py-3">

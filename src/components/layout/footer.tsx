@@ -59,7 +59,7 @@ export function Footer() {
             <p className="mt-5 text-sm leading-relaxed text-ink-300">
               Premium beats from independent producers. License instantly, create without limits.
             </p>
-            <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-500">EUR · PLN · Secure payments by Stripe</p>
+            <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-500">EUR · PLN · USD · Secure payments by Stripe</p>
           </div>
           {COLUMNS.map((col) => (
             <div key={col.title}>

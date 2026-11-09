@@ -5,10 +5,19 @@ export type Currency = Database["public"]["Enums"]["currency_code"];
 export type BeatStatus = Database["public"]["Enums"]["beat_status"];
 export type UserRole = Database["public"]["Enums"]["user_role"];
 
-export const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
-  { code: "eur", label: "EUR", symbol: "€" },
-  { code: "pln", label: "PLN", symbol: "zł" },
+export const CURRENCIES: { code: Currency; label: string; symbol: string; name: string }[] = [
+  { code: "eur", label: "EUR", symbol: "€", name: "euro" },
+  { code: "pln", label: "PLN", symbol: "zł", name: "Polish złoty" },
+  { code: "usd", label: "USD", symbol: "$", name: "US dollars" },
 ];
+
+export const CURRENCY_CODES: Currency[] = CURRENCIES.map((c) => c.code);
+
+/** Suggestion rates from EUR (Admin → Settings) used to pre-fill PLN and USD prices. */
+export interface PriceRates {
+  pln: number;
+  usd: number;
+}
 
 /** Static fallback; the `genres` table is the source of truth. */
 export const DEFAULT_GENRES = [
@@ -92,6 +101,7 @@ export interface LicenseDraft {
   enabled: boolean;
   price_eur: number; // cents
   price_pln: number; // grosze
+  price_usd: number; // cents
   includes_mp3: boolean;
   includes_wav: boolean;
   includes_stems: boolean;
@@ -122,6 +132,7 @@ export const DEFAULT_LICENSES: LicenseDraft[] = [
     enabled: false,
     price_eur: 0,
     price_pln: 0,
+    price_usd: 0,
     includes_mp3: false,
     includes_wav: false,
     includes_stems: false,
@@ -139,6 +150,7 @@ export const DEFAULT_LICENSES: LicenseDraft[] = [
     enabled: true,
     price_eur: 2999,
     price_pln: 12900,
+    price_usd: 3499,
     includes_mp3: true,
     includes_wav: false,
     includes_stems: false,
@@ -156,6 +168,7 @@ export const DEFAULT_LICENSES: LicenseDraft[] = [
     enabled: true,
     price_eur: 4999,
     price_pln: 21900,
+    price_usd: 5799,
     includes_mp3: true,
     includes_wav: true,
     includes_stems: false,
@@ -173,6 +186,7 @@ export const DEFAULT_LICENSES: LicenseDraft[] = [
     enabled: true,
     price_eur: 9999,
     price_pln: 42900,
+    price_usd: 11900,
     includes_mp3: true,
     includes_wav: true,
     includes_stems: true,
@@ -190,6 +204,7 @@ export const DEFAULT_LICENSES: LicenseDraft[] = [
     enabled: true,
     price_eur: 19999,
     price_pln: 84900,
+    price_usd: 23900,
     includes_mp3: true,
     includes_wav: true,
     includes_stems: true,
@@ -207,6 +222,7 @@ export const DEFAULT_LICENSES: LicenseDraft[] = [
     enabled: true,
     price_eur: 99900,
     price_pln: 429900,
+    price_usd: 114900,
     includes_mp3: true,
     includes_wav: true,
     includes_stems: true,
@@ -233,4 +249,4 @@ export const SOCIAL_FIELDS = [
 export type SocialKey = (typeof SOCIAL_FIELDS)[number]["key"];
 
 /** Stripe minimum charge amounts, in minor units. */
-export const MIN_CHARGE: Record<Currency, number> = { eur: 50, pln: 200 };
+export const MIN_CHARGE: Record<Currency, number> = { eur: 50, pln: 200, usd: 50 };

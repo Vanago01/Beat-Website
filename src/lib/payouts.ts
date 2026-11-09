@@ -3,7 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { getStripe } from "./stripe";
-import type { Currency } from "./constants";
+import { shareOfPayment, type Settlement } from "./payout-math";
 
 /** Syncs a seller's Stripe Connect account flags into the database. */
 export async function syncSellerAccount(stripeAccountId: string) {
@@ -24,42 +24,126 @@ export async function syncSellerAccount(stripeAccountId: string) {
 }
 
 /**
- * Transfers all of a seller's pending earnings from the platform balance.
- * Used for sales made before the seller finished payout setup.
+ * How a payment arrived in the platform's Stripe balance. Stripe converts a
+ * payment into the platform's currency when the account doesn't hold the
+ * currency the buyer paid in (e.g. USD into a PLN account).
+ */
+export async function chargeSettlement(chargeId: string): Promise<Settlement | null> {
+  const charge = await getStripe().charges.retrieve(chargeId, { expand: ["balance_transaction"] });
+  const bt = charge.balance_transaction;
+  if (!bt || typeof bt === "string") return null;
+  return { chargeAmount: charge.amount, chargeCurrency: charge.currency, settledAmount: bt.amount, settledCurrency: bt.currency };
+}
+
+interface EarningShare {
+  id: string;
+  net: number;
+  currency: string;
+}
+
+/**
+ * Sends a producer their share of one order's payment. The transfer is linked
+ * to the payment (so it works before the money is available) and is made in
+ * the currency the payment settled in. Records what was sent on each earning,
+ * so a refund can reverse exactly that.
+ */
+export async function transferOrderShare(opts: {
+  orderId: string;
+  chargeId: string;
+  sellerId: string;
+  destination: string;
+  earnings: EarningShare[];
+  settlement: Settlement | null;
+  idempotencyKey: string;
+}) {
+  const parts = opts.earnings.map((e) => ({ id: e.id, ...shareOfPayment(e.net, e.currency, opts.settlement) }));
+  const amount = parts.reduce((sum, p) => sum + p.amount, 0);
+  if (amount <= 0 || parts.length === 0) return null;
+  const currency = parts[0].currency;
+
+  const transfer = await getStripe().transfers.create(
+    {
+      amount,
+      currency,
+      destination: opts.destination,
+      source_transaction: opts.chargeId,
+      transfer_group: opts.orderId,
+      metadata: { order_id: opts.orderId, seller_id: opts.sellerId },
+    },
+    { idempotencyKey: opts.idempotencyKey },
+  );
+
+  const admin = createSupabaseAdminClient();
+  const paidAt = new Date().toISOString();
+  for (const p of parts) {
+    await admin
+      .from("seller_earnings")
+      .update({ status: "paid", stripe_transfer_id: transfer.id, paid_at: paidAt, transfer_amount: p.amount, transfer_currency: p.currency })
+      .eq("id", p.id)
+      .eq("status", "pending");
+  }
+  return { amount, currency };
+}
+
+/**
+ * Pays out all of a seller's pending earnings — sales made before they
+ * finished payout setup, or transfers that failed. One transfer per order,
+ * each linked to that order's payment.
  */
 export async function payoutPendingEarnings(sellerId: string) {
   const admin = createSupabaseAdminClient();
   const { data: account } = await admin.from("seller_accounts").select("stripe_account_id, payouts_enabled").eq("user_id", sellerId).maybeSingle();
   if (!account?.payouts_enabled) return { paid: [], errors: ["The seller has not completed payout setup with Stripe yet."] };
 
-  const { data: earnings } = await admin.from("seller_earnings").select("id, net, currency").eq("seller_id", sellerId).eq("status", "pending");
-  const groups = new Map<Currency, { ids: string[]; amount: number }>();
+  const { data: earnings } = await admin
+    .from("seller_earnings")
+    .select("id, net, currency, order_id, orders(stripe_charge_id)")
+    .eq("seller_id", sellerId)
+    .eq("status", "pending");
+
+  const byOrder = new Map<string, { chargeId: string | null; rows: EarningShare[] }>();
   for (const e of earnings ?? []) {
-    const g = groups.get(e.currency) ?? { ids: [], amount: 0 };
-    g.ids.push(e.id);
-    g.amount += e.net;
-    groups.set(e.currency, g);
+    const group = byOrder.get(e.order_id) ?? { chargeId: e.orders?.stripe_charge_id ?? null, rows: [] };
+    group.rows.push({ id: e.id, net: e.net, currency: e.currency });
+    byOrder.set(e.order_id, group);
   }
 
-  const paid: { currency: Currency; amount: number }[] = [];
+  const paid = new Map<string, number>();
   const errors: string[] = [];
-  for (const [currency, g] of groups) {
-    if (g.amount <= 0) continue;
-    const key = createHash("sha256").update(g.ids.sort().join(",")).digest("hex").slice(0, 32);
+  for (const [orderId, group] of byOrder) {
+    if (group.rows.reduce((sum, r) => sum + r.net, 0) <= 0) continue;
+    const key = createHash("sha256").update(group.rows.map((r) => r.id).sort().join(",")).digest("hex").slice(0, 24);
     try {
-      const transfer = await getStripe().transfers.create(
-        { amount: g.amount, currency, destination: account.stripe_account_id, metadata: { seller_id: sellerId, earnings: String(g.ids.length) } },
-        { idempotencyKey: `payout-${sellerId}-${currency}-${key}` },
-      );
-      await admin
-        .from("seller_earnings")
-        .update({ status: "paid", stripe_transfer_id: transfer.id, paid_at: new Date().toISOString() })
-        .in("id", g.ids)
-        .eq("status", "pending");
-      paid.push({ currency, amount: g.amount });
+      if (group.chargeId) {
+        const settlement = await chargeSettlement(group.chargeId);
+        const sent = await transferOrderShare({
+          orderId,
+          chargeId: group.chargeId,
+          sellerId,
+          destination: account.stripe_account_id,
+          earnings: group.rows,
+          settlement,
+          idempotencyKey: `payout-${orderId}-${sellerId}-${key}`,
+        });
+        if (sent) paid.set(sent.currency, (paid.get(sent.currency) ?? 0) + sent.amount);
+      } else {
+        // No payment on record for this order: pay from the platform balance instead.
+        const amount = group.rows.reduce((sum, r) => sum + r.net, 0);
+        const currency = group.rows[0].currency;
+        const transfer = await getStripe().transfers.create(
+          { amount, currency, destination: account.stripe_account_id, metadata: { seller_id: sellerId, order_id: orderId } },
+          { idempotencyKey: `payout-${orderId}-${sellerId}-${key}` },
+        );
+        await admin
+          .from("seller_earnings")
+          .update({ status: "paid", stripe_transfer_id: transfer.id, paid_at: new Date().toISOString(), transfer_amount: null, transfer_currency: currency })
+          .in("id", group.rows.map((r) => r.id))
+          .eq("status", "pending");
+        paid.set(currency, (paid.get(currency) ?? 0) + amount);
+      }
     } catch (err) {
-      errors.push(err instanceof Error ? err.message : `Transfer in ${currency.toUpperCase()} failed`);
+      errors.push(err instanceof Error ? err.message : "A transfer failed");
     }
   }
-  return { paid, errors };
+  return { paid: [...paid].map(([currency, amount]) => ({ currency, amount })), errors };
 }

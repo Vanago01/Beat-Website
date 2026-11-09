@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Sheet } from "@/components/ui/overlay";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { BeatCover } from "@/components/beats/cover";
-import { useCart } from "@/stores/cart";
+import { itemPrice, useCart } from "@/stores/cart";
 import { useCurrency } from "@/stores/currency";
 import { useAuth } from "@/components/providers/auth-provider";
 import { startCheckout } from "@/actions/checkout";
@@ -17,7 +17,7 @@ import { formatPrice } from "@/lib/format";
 export function useCartTotals() {
   const items = useCart((s) => s.items);
   const currency = useCurrency((s) => s.currency);
-  const total = items.reduce((sum, i) => sum + (currency === "pln" ? i.pricePln : i.priceEur), 0);
+  const total = items.reduce((sum, i) => sum + (itemPrice(i, currency) ?? 0), 0);
   return { items, currency, total };
 }
 
@@ -94,7 +94,7 @@ export function CartDrawer() {
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <span className="text-sm font-semibold tabular-nums">
-                    {formatPrice(currency === "pln" ? i.pricePln : i.priceEur, currency)}
+                    {formatPrice(itemPrice(i, currency), currency)}
                   </span>
                   <button onClick={() => remove(i.beatId)} className="grid h-7 w-7 place-items-center rounded-full text-ink-400 hover:bg-danger/10 hover:text-danger" aria-label={`Remove ${i.title}`}>
                     <Trash2 className="h-3.5 w-3.5" />

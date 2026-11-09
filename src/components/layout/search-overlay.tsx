@@ -151,7 +151,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                       {b.producer_name} · {b.genre_name} · {b.bpm} BPM · {keyName(b.key_note, b.key_mode)}
                     </span>
                   </span>
-                  <Price eur={b.min_price_eur} pln={b.min_price_pln} className="text-sm font-semibold" />
+                  <Price eur={b.min_price_eur} pln={b.min_price_pln} usd={b.min_price_usd} className="text-sm font-semibold" />
                 </button>
               ))}
               {producers.length > 0 && <p className="px-3 pb-1 pt-3 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-400">Producers</p>}

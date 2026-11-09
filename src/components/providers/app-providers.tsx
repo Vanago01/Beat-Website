@@ -12,13 +12,21 @@ import { useCurrency } from "@/stores/currency";
 
 function StoreHydration() {
   useEffect(() => {
-    useCart.persist.rehydrate();
+    Promise.resolve(useCart.persist.rehydrate())
+      .then(() => useCart.getState().refreshPrices())
+      .catch(() => {});
     Promise.resolve(useCurrency.persist.rehydrate()).then(() => {
-      // First visit from a Polish browser: default to PLN.
+      // First visit: Polish browsers see złoty, visitors in the Americas (or with a
+      // US-English browser outside Europe) see US dollars, everyone else euro.
       const state = useCurrency.getState();
-      if (!state.chosen && typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("pl")) {
-        useCurrency.setState({ currency: "pln" });
-      }
+      if (state.chosen || typeof navigator === "undefined") return;
+      const language = navigator.language?.toLowerCase() ?? "";
+      let zone = "";
+      try {
+        zone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+      } catch {}
+      if (language.startsWith("pl")) useCurrency.setState({ currency: "pln" });
+      else if (/^(America|US)\//.test(zone) || (language === "en-us" && !zone.startsWith("Europe/"))) useCurrency.setState({ currency: "usd" });
     });
   }, []);
   return null;

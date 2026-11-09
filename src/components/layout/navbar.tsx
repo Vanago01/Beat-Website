@@ -238,7 +238,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative rounded-full px-4 py-2 text-[13.5px] font-medium transition-colors",
+                  "relative whitespace-nowrap rounded-full px-4 py-2 text-[13.5px] font-medium transition-colors",
                   isActive(pathname, item.href) ? "text-white" : "text-ink-300 hover:text-white",
                 )}
               >
@@ -254,7 +254,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="hidden h-10 items-center gap-2.5 rounded-full border border-white/[0.08] bg-white/[0.03] pl-3.5 pr-2 text-[13px] text-ink-300 transition hover:border-white/20 hover:text-white md:flex"
+              className="hidden h-10 items-center gap-2.5 rounded-full border border-white/[0.08] bg-white/[0.03] pl-3.5 pr-2 text-[13px] text-ink-300 transition hover:border-white/20 hover:text-white md:flex lg:hidden xl:flex"
               aria-label="Search"
             >
               <Search className="h-4 w-4" />
@@ -264,7 +264,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="grid h-10 w-10 place-items-center rounded-full text-ink-100 hover:bg-white/[0.08] md:hidden"
+              className="grid h-10 w-10 place-items-center rounded-full text-ink-100 hover:bg-white/[0.08] md:hidden lg:grid xl:hidden"
               aria-label="Search"
             >
               <Search className="h-[19px] w-[19px]" />

@@ -35,7 +35,7 @@ async function BeatsList({ searchParams }: { searchParams: PageProps<"/admin/bea
   let query = supabase
     .from("beats")
     .select(
-      "id, slug, title, status, cover_path, preview_path, waveform, duration_seconds, bpm, key_note, key_mode, genre, plays_count, sales_count, favorites_count, is_featured, admin_locked, exclusive_sold_at, rejection_reason, submitted_at, created_at, min_price_eur, min_price_pln, producer:profiles!beats_producer_id_fkey(id, username, producer_name, display_name)",
+      "id, slug, title, status, cover_path, preview_path, waveform, duration_seconds, bpm, key_note, key_mode, genre, plays_count, sales_count, favorites_count, is_featured, admin_locked, exclusive_sold_at, rejection_reason, submitted_at, created_at, min_price_eur, min_price_pln, min_price_usd, producer:profiles!beats_producer_id_fkey(id, username, producer_name, display_name)",
       { count: "exact" },
     );
   if (status !== "all") query = query.eq("status", status as AdminBeat["status"]);

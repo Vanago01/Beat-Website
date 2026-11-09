@@ -15,6 +15,7 @@ export function PlatformSettingsForm({ settings }: { settings: PlatformSettings 
   const router = useRouter();
   const [fee, setFee] = useState(String(settings.platform_fee_percent));
   const [rate, setRate] = useState(String(settings.eur_to_pln));
+  const [usdRate, setUsdRate] = useState(String(settings.eur_to_usd ?? 1.15));
   const [approval, setApproval] = useState(settings.require_beat_approval);
   const [signups, setSignups] = useState(settings.seller_signups_open);
   const [pending, startTransition] = useTransition();
@@ -24,6 +25,7 @@ export function PlatformSettingsForm({ settings }: { settings: PlatformSettings 
       const res = await updatePlatformSettings({
         platform_fee_percent: Number(fee),
         eur_to_pln: Number(rate),
+        eur_to_usd: Number(usdRate),
         require_beat_approval: approval,
         seller_signups_open: signups,
       });
@@ -41,6 +43,9 @@ export function PlatformSettingsForm({ settings }: { settings: PlatformSettings 
         </Field>
         <Field label="EUR → PLN suggestion rate" htmlFor="rate" hint="Used to pre-fill PLN prices in the upload form.">
           <Input id="rate" type="number" min={0.1} step={0.01} value={rate} onChange={(e) => setRate(e.target.value)} />
+        </Field>
+        <Field label="EUR → USD suggestion rate" htmlFor="usd-rate" hint="Used to pre-fill USD prices in the upload form.">
+          <Input id="usd-rate" type="number" min={0.1} step={0.01} value={usdRate} onChange={(e) => setUsdRate(e.target.value)} />
         </Field>
         <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-white/[0.07] p-4">
           <span>

@@ -5,7 +5,7 @@ import { ChevronDown, Crown, Infinity as InfinityIcon } from "lucide-react";
 import { MoneyInput } from "./form-parts";
 import { Switch } from "@/components/ui/controls";
 import { Input, Textarea } from "@/components/ui/input";
-import { LICENSE_META, type LicenseDraft } from "@/lib/constants";
+import { LICENSE_META, type LicenseDraft, type PriceRates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 /** Rounds a converted PLN amount up to a "charm" price ending in 9 (e.g. 127.46 → 129). */
@@ -14,6 +14,18 @@ export function charmPln(eurMinor: number, rate: number) {
   const whole = Math.ceil((eurMinor / 100) * rate);
   const charmed = whole % 10 === 9 ? whole : whole + ((9 - (whole % 10) + 10) % 10);
   return Math.max(200, charmed * 100);
+}
+
+/**
+ * Suggests a dollar price from a euro price (same rule as the database):
+ * .99 prices up to $100 (€29.99 → $34.99), whole dollars ending in 9 above
+ * (€99.99 → $119, €999 → $1,149).
+ */
+export function suggestUsd(eurMinor: number, rate: number) {
+  if (eurMinor <= 0) return 0;
+  const whole = Math.ceil((eurMinor * (rate > 0 ? rate : 1.15)) / 100);
+  if (whole <= 100) return whole * 100 - 1;
+  return (whole + ((19 - (whole % 10)) % 10)) * 100;
 }
 
 function LimitInput({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
@@ -48,16 +60,18 @@ function LimitInput({ label, value, onChange }: { label: string; value: number |
 export function LicenseEditor({
   licenses,
   onChange,
-  rate,
+  rates,
   available,
 }: {
   licenses: LicenseDraft[];
   onChange: (licenses: LicenseDraft[]) => void;
-  rate: number;
+  rates: PriceRates;
   available: { mp3: boolean; wav: boolean; stems: boolean };
 }) {
   const [open, setOpen] = useState<string | null>(null);
+  // Prices a producer typed themselves aren't replaced by suggestions any more.
   const [plnTouched, setPlnTouched] = useState<Set<string>>(() => new Set());
+  const [usdTouched, setUsdTouched] = useState<Set<string>>(() => new Set());
 
   const patch = (type: string, p: Partial<LicenseDraft>) => onChange(licenses.map((l) => (l.type === type ? { ...l, ...p } : l)));
 
@@ -82,13 +96,17 @@ export function LicenseEditor({
                 </div>
               </div>
               {!free && (
-                <div className={cn("grid grid-cols-2 gap-2 md:w-[17rem]", !l.enabled && "pointer-events-none opacity-40")}>
+                <div className={cn("grid grid-cols-3 gap-2 md:w-[24rem]", !l.enabled && "pointer-events-none opacity-40")}>
                   <MoneyInput
                     ariaLabel={`${meta.label} price in EUR`}
                     prefix="€"
                     value={l.price_eur}
                     onChange={(price_eur) =>
-                      patch(l.type, plnTouched.has(l.type) ? { price_eur } : { price_eur, price_pln: charmPln(price_eur, rate) })
+                      patch(l.type, {
+                        price_eur,
+                        ...(plnTouched.has(l.type) ? {} : { price_pln: charmPln(price_eur, rates.pln) }),
+                        ...(usdTouched.has(l.type) ? {} : { price_usd: suggestUsd(price_eur, rates.usd) }),
+                      })
                     }
                   />
                   <MoneyInput
@@ -100,9 +118,18 @@ export function LicenseEditor({
                       patch(l.type, { price_pln });
                     }}
                   />
+                  <MoneyInput
+                    ariaLabel={`${meta.label} price in USD`}
+                    prefix="$"
+                    value={l.price_usd}
+                    onChange={(price_usd) => {
+                      setUsdTouched((s) => new Set(s).add(l.type));
+                      patch(l.type, { price_usd });
+                    }}
+                  />
                 </div>
               )}
-              {free && <p className={cn("text-sm font-semibold text-ink-200 md:w-[17rem] md:text-right", !l.enabled && "opacity-40")}>Free · tagged MP3</p>}
+              {free && <p className={cn("text-sm font-semibold text-ink-200 md:w-[24rem] md:text-right", !l.enabled && "opacity-40")}>Free · tagged MP3</p>}
               <button
                 type="button"
                 onClick={() => setOpen(expanded ? null : l.type)}

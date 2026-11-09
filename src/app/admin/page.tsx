@@ -8,7 +8,7 @@ import { MoneyChart, StatTile, type MonthlyPoint } from "@/components/studio/sta
 import { BeatCover } from "@/components/beats/cover";
 import { Badge, EmptyState } from "@/components/ui/misc";
 import { PageSkeleton } from "@/components/account/page-skeleton";
-import { formatCompact, formatDateTime, formatPrice } from "@/lib/format";
+import { formatAmounts, formatCompact, formatDateTime, formatPrice } from "@/lib/format";
 import type { Currency } from "@/lib/constants";
 
 export const metadata: Metadata = { title: "Admin dashboard", robots: { index: false } };
@@ -56,8 +56,7 @@ interface TopBeat {
   status: string;
 }
 
-const both = (m: Record<Currency, number>) =>
-  !m.eur && !m.pln ? formatPrice(0, "eur") : [m.eur ? formatPrice(m.eur, "eur") : null, m.pln ? formatPrice(m.pln, "pln") : null].filter(Boolean).join(" · ");
+const both = (m: Partial<Record<Currency, number>>) => formatAmounts(m);
 
 function BeatList({ title, beats, metric }: { title: string; beats: TopBeat[]; metric: "plays_count" | "sales_count" }) {
   return (

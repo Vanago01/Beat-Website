@@ -65,9 +65,9 @@ export function FileSlot({
       <div className="flex items-start gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/[0.05] text-ink-200">{preview ?? icon}</div>
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 text-sm font-semibold">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
             {label}
-            {required && <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-ink-300">Required to publish</span>}
+            {required && <span className="whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-ink-300">Required to publish</span>}
           </p>
           {state ? (
             <p className="mt-0.5 truncate text-xs text-ink-300">

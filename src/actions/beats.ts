@@ -15,6 +15,7 @@ const licenseSchema = z.object({
   enabled: z.boolean(),
   price_eur: z.number().int().min(0).max(10_000_000),
   price_pln: z.number().int().min(0).max(50_000_000),
+  price_usd: z.number().int().min(0).max(10_000_000),
   includes_mp3: z.boolean(),
   includes_wav: z.boolean(),
   includes_stems: z.boolean(),
@@ -145,7 +146,7 @@ function friendly(message: string) {
   if (/permission denied: protected/i.test(message)) return "You can't change moderation fields on this beat.";
   if (/locked by an administrator/i.test(message)) return "This beat has been locked by an administrator.";
   if (/row-level security|permission denied for/i.test(message)) return "You don't have permission to do that.";
-  if (/beat_licenses_price_rules/i.test(message)) return "Paid licenses need a price of at least €0.50 / 2 zł.";
+  if (/beat_licenses_price_rules/i.test(message)) return "Paid licenses need a price of at least €0.50 / 2 zł / $0.50.";
   if (/violates foreign key constraint .*genre/i.test(message)) return "Please choose a valid genre.";
   if (/beats_moods_check/i.test(message)) return "That mood can't be saved. Moods need 2–24 characters (up to 8). If you added your own words, the site's database may still need update 7.";
   return message;

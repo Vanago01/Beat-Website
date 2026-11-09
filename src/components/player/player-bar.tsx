@@ -203,7 +203,7 @@ export function PlayerBar() {
                   className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-accent-gradient px-4 text-[13px] font-semibold text-on-accent shadow-[0_8px_24px_-10px_color-mix(in_oklab,var(--color-accent)_90%,transparent)] transition hover:brightness-110"
                 >
                   <ShoppingBag className="h-3.5 w-3.5" />
-                  {current.min_price_eur === 0 ? "Free download" : <Price eur={current.min_price_eur} pln={current.min_price_pln} prefix="from" className="[&>span]:text-on-accent/70" />}
+                  {current.min_price_eur === 0 ? "Free download" : <Price eur={current.min_price_eur} pln={current.min_price_pln} usd={current.min_price_usd} prefix="from" className="[&>span]:text-on-accent/70" />}
                 </button>
               )}
               <div className="hidden xl:block">
@@ -270,7 +270,7 @@ export function PlayerBar() {
               }}
               className="mt-auto inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-accent-gradient font-semibold text-on-accent"
             >
-              <ShoppingBag className="h-4 w-4" /> License this beat · <Price eur={current.min_price_eur} pln={current.min_price_pln} prefix="from" />
+              <ShoppingBag className="h-4 w-4" /> License this beat · <Price eur={current.min_price_eur} pln={current.min_price_pln} usd={current.min_price_usd} prefix="from" />
             </button>
           )}
         </div>

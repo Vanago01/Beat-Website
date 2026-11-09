@@ -134,6 +134,7 @@ const settingsSchema = z.object({
   require_beat_approval: z.boolean(),
   seller_signups_open: z.boolean(),
   eur_to_pln: z.number().min(0.1).max(100),
+  eur_to_usd: z.number().min(0.1).max(100),
 });
 
 export async function updatePlatformSettings(input: z.input<typeof settingsSchema>): Promise<ActionResult> {

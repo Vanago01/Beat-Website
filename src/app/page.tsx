@@ -178,7 +178,7 @@ export default async function HomePage() {
                 Your rules. Your revenue.
               </h2>
               <p className="mt-5 max-w-lg text-ink-300">
-                Upload WAVs and stems, set your own license prices in EUR and PLN, and get paid straight to your bank via Stripe.
+                Upload WAVs and stems, set your own license prices in EUR, PLN and USD, and get paid straight to your bank via Stripe.
                 Keep {100 - fee}% of every sale.
               </p>
             </div>

@@ -95,7 +95,7 @@ export function FeaturedBeat({ beat, queue, label = "Featured beat" }: { beat: B
               ) : (
                 <>
                   License <span className="text-ink-400">·</span>
-                  <Price eur={beat.min_price_eur} pln={beat.min_price_pln} prefix="from" />
+                  <Price eur={beat.min_price_eur} pln={beat.min_price_pln} usd={beat.min_price_usd} prefix="from" />
                 </>
               )}
             </button>

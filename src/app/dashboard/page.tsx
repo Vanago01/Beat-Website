@@ -9,7 +9,7 @@ import { BeatCover } from "@/components/beats/cover";
 import { Badge, EmptyState } from "@/components/ui/misc";
 import { buttonVariants } from "@/components/ui/button";
 import { PageSkeleton } from "@/components/account/page-skeleton";
-import { formatCompact, formatDate, formatPrice } from "@/lib/format";
+import { formatAmounts, formatCompact, formatDate, formatPrice } from "@/lib/format";
 import { BEAT_STATUS_LABEL, type BeatStatus, type Currency } from "@/lib/constants";
 
 export const metadata: Metadata = { title: "Producer studio", robots: { index: false } };
@@ -29,10 +29,7 @@ interface SellerDashboard {
 
 function money(rows: SellerDashboard["earnings"], filter: (s: string) => boolean) {
   const sum = (c: Currency) => rows.filter((r) => r.currency === c && filter(r.status)).reduce((s, r) => s + Number(r.net), 0);
-  const eur = sum("eur");
-  const pln = sum("pln");
-  if (!eur && !pln) return formatPrice(0, "eur");
-  return [eur ? formatPrice(eur, "eur") : null, pln ? formatPrice(pln, "pln") : null].filter(Boolean).join(" · ");
+  return formatAmounts({ eur: sum("eur"), pln: sum("pln"), usd: sum("usd") });
 }
 
 async function Overview() {

@@ -41,6 +41,7 @@ export interface AdminBeat {
   created_at: string;
   min_price_eur: number | null;
   min_price_pln: number | null;
+  min_price_usd: number | null;
   producer: { id: string; username: string; producer_name: string | null; display_name: string | null } | null;
 }
 
@@ -86,7 +87,7 @@ export function AdminBeats({ beats }: { beats: AdminBeat[] }) {
                       id: b.id, slug: b.slug, title: b.title, producer_name: producerName, producer_username: b.producer?.username ?? "",
                       cover_path: b.cover_path, preview_path: b.preview_path, duration_seconds: b.duration_seconds, waveform: b.waveform,
                       bpm: b.bpm, key_note: b.key_note, key_mode: b.key_mode, genre_name: b.genre, min_price_eur: b.min_price_eur,
-                      min_price_pln: b.min_price_pln, has_free: false, exclusive_sold_at: b.exclusive_sold_at,
+                      min_price_pln: b.min_price_pln, min_price_usd: b.min_price_usd, has_free: false, exclusive_sold_at: b.exclusive_sold_at,
                     })
                   }
                   className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl"

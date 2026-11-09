@@ -20,7 +20,7 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 **Marketplace**
 - Homepage: hero search, featured beat, trending, staff picks, new releases, best-selling chart, popular genres, featured producers, recently uploaded.
 - Explore page with filters that all combine instantly and live in the URL (shareable):
-  dual-handle **BPM slider (40–220)**, **circle-of-fifths key wheel** (12 relative major/minor pairs, multi-select), genre, mood, price range (EUR/PLN), free beats, exclusive available, staff picks, and sort (newest, trending, most popular, best selling, price).
+  dual-handle **BPM slider (40–220)**, **circle-of-fifths key wheel** (12 relative major/minor pairs, multi-select), genre, mood, price range (EUR/PLN/USD), free beats, exclusive available, staff picks, and sort (newest, trending, most popular, best selling, price).
 - Full-text + prefix search across titles, tags, moods and producer names.
 - Persistent audio player (waveform seek, volume, queue, keyboard & lock-screen controls). Waveforms are computed from the real audio at upload time.
 - Beat pages with license comparison, reviews from verified buyers, related beats, SEO metadata and JSON-LD.
@@ -28,13 +28,13 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 
 **Buying**
 - Five configurable license tiers (Basic MP3, Premium WAV, Trackout/Stems, Unlimited, Exclusive) plus optional free downloads.
-- Cart (one license per beat), EUR and PLN pricing, Stripe Checkout (cards, BLIK, Przelewy24 when enabled).
+- Cart (one license per beat), EUR, PLN and USD pricing, Stripe Checkout (cards, BLIK, Przelewy24 when enabled).
 - Instant, permanent library: expiring signed download links and an auto-generated **PDF license agreement** per purchase.
 - Order confirmation emails, purchase history, favorites.
 
 **Selling**
 - “Become a seller” onboarding, producer studio with analytics (earnings chart, plays, top beats, recent sales).
-- Upload form: resumable uploads (cover, tagged preview, MP3, WAV, stems ZIP), tap-tempo, key picker, moods, tags, per-tier prices in EUR & PLN with suggested conversion, editable usage terms, reusable license defaults.
+- Upload form: resumable uploads (cover, tagged preview, MP3, WAV, stems ZIP), tap-tempo, key picker, moods, tags, per-tier prices in EUR, PLN & USD with suggested conversion, editable usage terms, reusable license defaults.
 - Stripe Connect Express payouts: automatic transfer of the seller’s share after each sale.
 
 **Messages**
@@ -45,7 +45,7 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 - Dark or light theme and seven accent colours (Account → Settings), remembered per device and applied before the page paints.
 
 **Administration** (`/admin`, only for admin accounts)
-- Analytics: revenue (EUR/PLN), sales, users, platform earnings, monthly revenue chart, most popular & best-selling beats, recent purchases.
+- Analytics: revenue (EUR/PLN/USD), sales, users, platform earnings, monthly revenue chart, most popular & best-selling beats, recent purchases.
 - Beat moderation queue (approve / reject with reason / feature / lock / edit / delete), user roles & verified badges, orders with one-click refunds, seller payouts, platform settings (fee %, approval workflow, seller signups, EUR→PLN rate), genre management.
 
 ---
@@ -67,7 +67,7 @@ Authorization is enforced **in the database**, never only in the UI:
 | HTTP headers | Content-Security-Policy (scripts only from the site, no plugins/framing/foreign form targets, network and media limited to the site and Supabase), HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, a restrictive `Permissions-Policy`, `nosniff`. |
 | Cookies | Only necessary cookies by default; preferences (currency, volume, view) are stored after consent from the cookie banner. No advertising or tracking cookies. Policy at `/legal/cookies`. |
 
-`supabase/tests/security_tests.sql` contains 106 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits…).
+`supabase/tests/security_tests.sql` contains 115 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits…).
 
 ---
 
@@ -120,7 +120,7 @@ SUPABASE_SECRET_KEY=<local secret key> npm run test:db
    npx supabase db push
    ```
    This creates all tables, policies, functions, storage buckets and storage policies.
-   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 8). Every file can safely be run again.
+   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 9). Every file can safely be run again.
    File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`).
 3. **Authentication → URL Configuration**: set *Site URL* to your domain (e.g. `https://yourdomain.com`) and add `https://yourdomain.com/**` to *Redirect URLs*.
 4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes. Under **Multi-Factor**, keep **TOTP (App Authenticator)** enabled.
@@ -153,7 +153,8 @@ where user_id = (select id from auth.users where email = 'you@example.com');
 ### 3. Stripe
 
 1. **API keys** → put the secret key in `STRIPE_SECRET_KEY`.
-2. **Payment methods** (Settings → Payment methods): enable Cards, and for Poland **BLIK** and **Przelewy24**. Checkout shows the methods available for the buyer’s currency (EUR or PLN).
+2. **Payment methods** (Settings → Payment methods): enable Cards, and for Poland **BLIK** and **Przelewy24**. Checkout shows the methods available for the buyer’s currency (EUR, PLN or USD — BLIK and Przelewy24 only appear for PLN/EUR).
+   *Currencies:* when a buyer pays in a currency your Stripe account doesn't hold, Stripe converts it to your account's currency. Producer transfers then use the converted amount automatically. To keep USD or EUR sales unconverted, add a bank account in that currency if Stripe offers it for your country (Settings → Bank accounts and currencies).
 3. **Connect**: enable Connect with **Express** accounts so producers can onboard for payouts. The platform keeps the configured fee (default 20 %) and transfers the rest after each sale (*separate charges and transfers*).
 4. **Webhooks** → add an endpoint `https://yourdomain.com/api/webhooks/stripe` listening to:
    - `checkout.session.completed`
@@ -214,6 +215,6 @@ supabase/
 
 ## Notes
 
-- Prices are stored per license in both EUR and PLN (minor units) — no runtime conversion at checkout.
+- Prices are stored per license in EUR, PLN and USD (minor units) — no runtime conversion at checkout. USD prices are suggested from EUR at the rate in Admin → Settings; producers can override them.
 - Beats with sales cannot be hard-deleted; they are archived so buyers keep their downloads.
 - Free downloads deliver the tagged preview and are recorded as zero-value orders.

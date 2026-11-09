@@ -96,7 +96,7 @@ export function BeatRow({ beat, index, queue }: { beat: BeatCard; index?: number
             className="inline-flex h-9 items-center gap-2 rounded-full bg-white/[0.06] px-3.5 text-[13px] font-semibold transition-all hover:bg-white hover:text-ink-950"
           >
             <ShoppingBag className="hidden h-3.5 w-3.5 sm:block" />
-            <Price eur={beat.min_price_eur} pln={beat.min_price_pln} />
+            <Price eur={beat.min_price_eur} pln={beat.min_price_pln} usd={beat.min_price_usd} />
           </button>
         )}
       </div>

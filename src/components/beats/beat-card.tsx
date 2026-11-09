@@ -94,6 +94,7 @@ export function BeatCard({
           <Price
             eur={beat.min_price_eur}
             pln={beat.min_price_pln}
+            usd={beat.min_price_usd}
             className="shrink-0 text-[14px] font-semibold text-ink-50"
           />
         </div>

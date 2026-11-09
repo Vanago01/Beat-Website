@@ -16,6 +16,7 @@ export function CurrencySwitch({ className }: { className?: string }) {
       options={[
         { value: "eur", label: "EUR", title: "Show prices in euro" },
         { value: "pln", label: "PLN", title: "Pokaż ceny w złotych" },
+        { value: "usd", label: "USD", title: "Show prices in US dollars" },
       ]}
     />
   );

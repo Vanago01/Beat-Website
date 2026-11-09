@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { FileArchive, FileAudio, ImagePlus, Info, Music, Send, Sparkles, Waves } from "lucide-react";
 import { toast } from "sonner";
 import { FileSlot, MoodPicker, TagInput, TapTempo, type FileState } from "./form-parts";
-import { LicenseEditor } from "./license-editor";
+import { LicenseEditor, suggestUsd } from "./license-editor";
 import { Waveform } from "@/components/player/waveform";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import { buildPath, uploadResumable, uploadSmall, type Bucket } from "@/lib/uplo
 import { coverUrl } from "@/lib/storage";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDuration } from "@/lib/format";
-import { BPM_MAX, BPM_MIN, DEFAULT_LICENSES, LICENSE_ORDER, NOTE_NAMES, type LicenseDraft } from "@/lib/constants";
+import { BPM_MAX, BPM_MIN, DEFAULT_LICENSES, LICENSE_ORDER, NOTE_NAMES, type LicenseDraft, type PriceRates } from "@/lib/constants";
 import type { BeatLicense, BeatRow } from "@/lib/types";
 
 type Kind = "cover" | "preview" | "mp3" | "wav" | "stems";
@@ -32,12 +32,15 @@ const SPEC: Record<Kind, { bucket: Bucket; accept: string; max: number; types: R
   stems: { bucket: "beat-files", accept: ".zip,.rar,.7z,application/zip", max: 500 * 1024 ** 2, types: /\.(zip|rar|7z)$/i, label: "Stems" },
 };
 
-function mergeLicenses(saved: unknown): LicenseDraft[] {
+function mergeLicenses(saved: unknown, rates: PriceRates): LicenseDraft[] {
   const list = Array.isArray(saved) ? (saved as Partial<LicenseDraft>[]) : [];
   return LICENSE_ORDER.map((type) => {
     const base = DEFAULT_LICENSES.find((d) => d.type === type)!;
     const s = list.find((l) => l?.type === type);
-    return s ? { ...base, ...s, terms: s.terms ?? "" } : { ...base };
+    if (!s) return { ...base };
+    // Defaults saved before USD existed have no dollar price yet: suggest one.
+    const price_usd = typeof s.price_usd === "number" ? s.price_usd : suggestUsd(s.price_eur ?? base.price_eur, rates.usd);
+    return { ...base, ...s, price_usd, terms: s.terms ?? "" };
   });
 }
 
@@ -47,13 +50,13 @@ export interface BeatFormProps {
   licenses?: BeatLicense[];
   licenseDefaults?: unknown;
   genres: { slug: string; name: string }[];
-  rate: number;
+  rates: PriceRates;
   canSelfPublish: boolean;
   isAdmin?: boolean;
   returnTo: string;
 }
 
-export function BeatForm({ producerId, beat, licenses: existingLicenses, licenseDefaults, genres, rate, canSelfPublish, isAdmin, returnTo }: BeatFormProps) {
+export function BeatForm({ producerId, beat, licenses: existingLicenses, licenseDefaults, genres, rates, canSelfPublish, isAdmin, returnTo }: BeatFormProps) {
   const router = useRouter();
   const [beatId] = useState(() => beat?.id ?? crypto.randomUUID());
   const [title, setTitle] = useState(beat?.title ?? "");
@@ -74,8 +77,9 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
             const l = existingLicenses.find((x) => x.type === type);
             return l ? { ...l, terms: l.terms ?? "" } : { ...DEFAULT_LICENSES.find((d) => d.type === type)!, enabled: false };
           }),
+          rates,
         )
-      : mergeLicenses(licenseDefaults),
+      : mergeLicenses(licenseDefaults, rates),
   );
   // Pre-checked only for a producer's first upload; afterwards saving defaults is opt-in.
   const [saveDefaults, setSaveDefaults] = useState(!beat && !Array.isArray(licenseDefaults));
@@ -169,7 +173,7 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
     const enabled = licenses.filter((l) => l.enabled);
     if (!enabled.length) p.push("Enable at least one license.");
     for (const l of enabled) {
-      if (l.type !== "free" && (l.price_eur < 50 || l.price_pln < 200)) p.push(`Set a price for ${l.name} (min €0.50 / 2 zł).`);
+      if (l.type !== "free" && (l.price_eur < 50 || l.price_pln < 200 || l.price_usd < 50)) p.push(`Set a price for ${l.name} (min €0.50 / 2 zł / $0.50).`);
       if (l.type === "free") continue;
       if (l.includes_mp3 && !available.mp3) p.push(`${l.name} needs the MP3 file.`);
       if (l.includes_wav && !available.wav) p.push(`${l.name} needs the WAV file.`);
@@ -231,12 +235,12 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
   const coverSrc = localCover ?? coverUrl(files.cover?.path);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-6">
         <Card className="p-5 md:p-6">
           <h2 className="mb-1 font-display text-lg font-bold">Audio & artwork</h2>
           <p className="mb-5 text-sm text-ink-400">Large files upload in resumable chunks — you can keep filling in details while they upload.</p>
-          <div className="grid gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <FileSlot
               label="Cover artwork"
               hint="Square JPG/PNG/WEBP, at least 1000×1000 px, max 10 MB."
@@ -264,7 +268,7 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
                 ) : null
               }
             />
-            <div className="grid gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <FileSlot label="MP3 (untagged)" hint="Delivered with Basic and higher." accept={SPEC.mp3.accept} icon={<FileAudio className="h-5 w-5" />} state={files.mp3} onSelect={(f) => upload("mp3", f)} onRemove={() => remove("mp3")} />
               <FileSlot label="WAV" hint="Delivered with Premium and higher." accept={SPEC.wav.accept} icon={<Music className="h-5 w-5" />} state={files.wav} onSelect={(f) => upload("wav", f)} onRemove={() => remove("wav")} />
               <FileSlot label="Stems (ZIP)" hint="Track-outs for Trackout+." accept={SPEC.stems.accept} icon={<FileArchive className="h-5 w-5" />} state={files.stems} onSelect={(f) => upload("stems", f)} onRemove={() => remove("stems")} />
@@ -336,14 +340,16 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-bold">Licenses & pricing</h2>
-              <p className="mt-1 text-sm text-ink-400">PLN prices are suggested from EUR at {rate.toFixed(2)} zł/€ — override any of them.</p>
+              <p className="mt-1 text-sm text-ink-400">
+                PLN and USD prices are suggested from EUR (€1 ≈ {rates.pln.toFixed(2)} zł ≈ ${rates.usd.toFixed(2)}) — override any of them.
+              </p>
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-300">
               <input type="checkbox" checked={saveDefaults} onChange={(e) => setSaveDefaults(e.target.checked)} className="h-4 w-4 accent-[var(--color-accent)]" />
               Save as my default licenses
             </label>
           </div>
-          <LicenseEditor licenses={licenses} onChange={setLicenses} rate={rate} available={available} />
+          <LicenseEditor licenses={licenses} onChange={setLicenses} rates={rates} available={available} />
         </Card>
       </div>
 

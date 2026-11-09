@@ -21,6 +21,7 @@ export type PlayerBeat = Pick<
   | "genre_name"
   | "min_price_eur"
   | "min_price_pln"
+  | "min_price_usd"
   | "has_free"
   | "exclusive_sold_at"
 >;
@@ -159,6 +160,7 @@ export function toPlayerBeat(b: PlayerBeat): PlayerBeat {
     genre_name: b.genre_name,
     min_price_eur: b.min_price_eur,
     min_price_pln: b.min_price_pln,
+    min_price_usd: b.min_price_usd,
     has_free: b.has_free,
     exclusive_sold_at: b.exclusive_sold_at,
   };

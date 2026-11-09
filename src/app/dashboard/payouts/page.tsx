@@ -10,16 +10,14 @@ import { PayoutActions } from "@/components/studio/payout-actions";
 import { StatTile } from "@/components/studio/stats";
 import { Badge, Card } from "@/components/ui/misc";
 import { PageSkeleton } from "@/components/account/page-skeleton";
-import { formatDateTime, formatPrice } from "@/lib/format";
+import { formatAmounts, formatDateTime, formatPrice } from "@/lib/format";
 import type { Currency } from "@/lib/constants";
 
 export const metadata: Metadata = { title: "Payouts", robots: { index: false } };
 
 function sum(rows: { net: number; currency: Currency; status: string }[], status: string[]) {
-  const eur = rows.filter((r) => r.currency === "eur" && status.includes(r.status)).reduce((s, r) => s + r.net, 0);
-  const pln = rows.filter((r) => r.currency === "pln" && status.includes(r.status)).reduce((s, r) => s + r.net, 0);
-  if (!eur && !pln) return formatPrice(0, "eur");
-  return [eur && formatPrice(eur, "eur", { exact: true }), pln && formatPrice(pln, "pln", { exact: true })].filter(Boolean).join(" · ");
+  const total = (c: Currency) => rows.filter((r) => r.currency === c && status.includes(r.status)).reduce((s, r) => s + r.net, 0);
+  return formatAmounts({ eur: total("eur"), pln: total("pln"), usd: total("usd") }, { exact: true });
 }
 
 async function Payouts({ searchParams }: { searchParams: PageProps<"/dashboard/payouts">["searchParams"] }) {
@@ -131,7 +129,7 @@ export default function PayoutsPage({ searchParams }: PageProps<"/dashboard/payo
     <>
       <div className="mb-6">
         <h2 className="font-display text-2xl font-bold">Payouts</h2>
-        <p className="mt-1 text-sm text-ink-300">Get paid through Stripe Connect — secure, automatic transfers in EUR and PLN.</p>
+        <p className="mt-1 text-sm text-ink-300">Get paid through Stripe Connect — secure, automatic transfers for sales in EUR, PLN and USD.</p>
       </div>
       <Suspense fallback={<PageSkeleton rows={3} />}>
         <Payouts searchParams={searchParams} />

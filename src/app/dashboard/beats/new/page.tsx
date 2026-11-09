@@ -15,7 +15,7 @@ async function NewBeat() {
     <BeatForm
       producerId={viewer.id}
       genres={genres}
-      rate={Number(settings?.eur_to_pln ?? 4.25)}
+      rates={{ pln: Number(settings?.eur_to_pln ?? 4.25), usd: Number(settings?.eur_to_usd ?? 1.15) }}
       canSelfPublish={isAdmin || !(settings?.require_beat_approval ?? true)}
       isAdmin={isAdmin}
       licenseDefaults={viewer.profile.license_defaults}

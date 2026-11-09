@@ -30,7 +30,7 @@ async function EditBeat({ params }: { params: PageProps<"/dashboard/beats/[id]/e
       beat={beat}
       licenses={licenses ?? []}
       genres={genres}
-      rate={Number(settings?.eur_to_pln ?? 4.25)}
+      rates={{ pln: Number(settings?.eur_to_pln ?? 4.25), usd: Number(settings?.eur_to_usd ?? 1.15) }}
       canSelfPublish={isAdmin || !(settings?.require_beat_approval ?? true) || !!beat.approved_at}
       isAdmin={isAdmin}
       returnTo={isAdmin && beat.producer_id !== viewer.id ? "/admin/beats" : "/dashboard/beats"}

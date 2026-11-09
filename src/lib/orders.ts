@@ -5,6 +5,7 @@ import { revalidateTag } from "next/cache";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { getStripe } from "./stripe";
 import { isStripeConfigured } from "./server-env";
+import { chargeSettlement, transferOrderShare } from "./payouts";
 import { emailLayout, escapeHtml, sendEmail } from "./email";
 import { env } from "./env";
 import { formatPrice } from "./format";
@@ -107,39 +108,36 @@ export async function payoutOrderEarnings(orderId: string, chargeId: string) {
     .eq("status", "pending");
   if (!earnings?.length) return;
 
-  const bySeller = new Map<string, { ids: string[]; amount: number; currency: Currency }>();
+  const bySeller = new Map<string, { id: string; net: number; currency: string }[]>();
   for (const e of earnings) {
-    const entry = bySeller.get(e.seller_id) ?? { ids: [], amount: 0, currency: e.currency };
-    entry.ids.push(e.id);
-    entry.amount += e.net;
-    bySeller.set(e.seller_id, entry);
+    bySeller.set(e.seller_id, [...(bySeller.get(e.seller_id) ?? []), { id: e.id, net: e.net, currency: e.currency }]);
   }
 
   const { data: accounts } = await admin
     .from("seller_accounts")
     .select("user_id, stripe_account_id, payouts_enabled")
     .in("user_id", [...bySeller.keys()]);
+  const ready = (accounts ?? []).filter((a) => a.payouts_enabled && bySeller.has(a.user_id));
+  if (!ready.length) return;
 
-  for (const account of accounts ?? []) {
-    const entry = bySeller.get(account.user_id);
-    if (!entry || !account.payouts_enabled || entry.amount <= 0) continue;
+  // Stripe converts a payment when the platform doesn't hold its currency;
+  // transfers then have to be made in the converted currency.
+  const settlement = await chargeSettlement(chargeId).catch((err) => {
+    console.error(`[orders] could not read how order ${orderId} was settled`, err);
+    return null;
+  });
+
+  for (const account of ready) {
     try {
-      const transfer = await getStripe().transfers.create(
-        {
-          amount: entry.amount,
-          currency: entry.currency,
-          destination: account.stripe_account_id,
-          source_transaction: chargeId,
-          transfer_group: orderId,
-          metadata: { order_id: orderId, seller_id: account.user_id },
-        },
-        { idempotencyKey: `transfer-${orderId}-${account.user_id}` },
-      );
-      await admin
-        .from("seller_earnings")
-        .update({ status: "paid", stripe_transfer_id: transfer.id, paid_at: new Date().toISOString() })
-        .in("id", entry.ids)
-        .eq("status", "pending");
+      await transferOrderShare({
+        orderId,
+        chargeId,
+        sellerId: account.user_id,
+        destination: account.stripe_account_id,
+        earnings: bySeller.get(account.user_id)!,
+        settlement,
+        idempotencyKey: `transfer-${orderId}-${account.user_id}`,
+      });
     } catch (err) {
       // Stays "pending" — the admin can retry from the payouts screen.
       console.error(`[orders] transfer to ${account.stripe_account_id} failed`, err);

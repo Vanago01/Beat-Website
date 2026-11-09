@@ -1,12 +1,13 @@
-import { NOTE_NAMES, type Currency, type KeyMode } from "./constants";
+import { CURRENCY_CODES, NOTE_NAMES, type Currency, type KeyMode } from "./constants";
 
 const formatters = new Map<string, Intl.NumberFormat>();
+const LOCALE: Record<Currency, string> = { eur: "en-IE", pln: "pl-PL", usd: "en-US" };
 
 function currencyFormatter(currency: Currency, fractionDigits: number) {
   const id = `${currency}-${fractionDigits}`;
   let f = formatters.get(id);
   if (!f) {
-    f = new Intl.NumberFormat(currency === "pln" ? "pl-PL" : "en-IE", {
+    f = new Intl.NumberFormat(LOCALE[currency], {
       style: "currency",
       currency: currency.toUpperCase(),
       minimumFractionDigits: fractionDigits,
@@ -22,6 +23,15 @@ export function formatPrice(minor: number | null | undefined, currency: Currency
   if (minor == null) return "—";
   const digits = opts?.exact || minor % 100 !== 0 ? 2 : 0;
   return currencyFormatter(currency, digits).format(minor / 100);
+}
+
+/** Amounts in several currencies (never added together), e.g. "€120 · 450 zł · $80". */
+export function formatAmounts(
+  amounts: Partial<Record<Currency, number | null | undefined>>,
+  opts?: { exact?: boolean; empty?: string },
+) {
+  const parts = CURRENCY_CODES.filter((c) => amounts[c]).map((c) => formatPrice(amounts[c], c, { exact: opts?.exact }));
+  return parts.length ? parts.join(" · ") : (opts?.empty ?? formatPrice(0, "eur"));
 }
 
 export function formatDuration(totalSeconds: number | null | undefined) {

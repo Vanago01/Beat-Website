@@ -42,6 +42,7 @@ export interface BeatCard {
   rating_count: number;
   min_price_eur: number | null;
   min_price_pln: number | null;
+  min_price_usd: number | null;
   has_free: boolean;
   has_exclusive: boolean;
   exclusive_sold_at: string | null;
@@ -91,6 +92,8 @@ export interface CartItem {
   licenseName: string;
   priceEur: number;
   pricePln: number;
+  /** Missing on items added before USD existed until the cart refreshes its prices. */
+  priceUsd?: number;
   title: string;
   slug: string;
   coverPath: string | null;

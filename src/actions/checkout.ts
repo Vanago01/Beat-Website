@@ -14,7 +14,7 @@ import type { ActionResult } from "@/lib/types";
 
 const checkoutSchema = z.object({
   licenseIds: z.array(z.uuid()).min(1, "Your cart is empty").max(50),
-  currency: z.enum(["eur", "pln"]),
+  currency: z.enum(["eur", "pln", "usd"]),
 });
 
 interface PendingOrder {

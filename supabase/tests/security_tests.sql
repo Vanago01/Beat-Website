@@ -89,7 +89,7 @@ select (public.save_beat(
     'duration_seconds', 180
   ),
   jsonb_build_array(
-    jsonb_build_object('type', 'basic', 'name', 'Basic MP3', 'price_eur', 2999, 'price_pln', 12900, 'includes_mp3', true),
+    jsonb_build_object('type', 'basic', 'name', 'Basic MP3', 'price_eur', 2999, 'price_pln', 12900, 'price_usd', 3299, 'includes_mp3', true),
     jsonb_build_object('type', 'premium', 'name', 'Premium WAV', 'price_eur', 4999, 'price_pln', 21900, 'includes_mp3', true, 'includes_wav', true),
     jsonb_build_object('type', 'exclusive', 'name', 'Exclusive', 'price_eur', 49900, 'price_pln', 219900, 'includes_mp3', true, 'includes_wav', true, 'includes_stems', true)
   ),
@@ -100,6 +100,8 @@ select test.ok(:'beat1_status' = 'pending', 'seller publish request requires app
 select test.ok((select tags = array['dark trap', 'travis'] from public.beats where id = '11111111-1111-4111-8111-111111111111'), 'tags are normalised & de-duplicated');
 select test.ok((select min_price_eur = 2999 and min_price_pln = 12900 and has_exclusive from public.beats where id = '11111111-1111-4111-8111-111111111111'), 'price summary is denormalised from licenses');
 select test.ok((select key_group = 0 from public.beats where id = '11111111-1111-4111-8111-111111111111'), 'A minor maps to key group C major / A minor');
+select test.ok((select min_price_usd = 3299 from public.beats where id = '11111111-1111-4111-8111-111111111111')
+  and (select price_usd = 5799 from public.beat_licenses where type = 'premium'), 'USD: prices given are kept, missing ones are suggested from EUR (€49.99 → $57.99)');
 
 -- 6. Pending beats are invisible to the public.
 begin;
@@ -126,6 +128,25 @@ do $$ begin
   perform test.ok(false, 'seller cannot self-approve');
 exception when insufficient_privilege then
   perform test.ok(true, 'seller cannot self-approve');
+end $$;
+rollback;
+
+begin;
+select test.act_as(:'sa');
+do $$ begin
+  update public.beats set min_price_usd = 1 where id = '11111111-1111-4111-8111-111111111111';
+  perform test.ok(false, 'seller cannot change the USD price summary');
+exception when insufficient_privilege then
+  perform test.ok(true, 'seller cannot change the USD price summary');
+end $$;
+do $$ begin
+  perform public.save_beat(
+    jsonb_build_object('id', '44444444-4444-4444-8444-444444444444', 'title', 'Dollar Test', 'genre', 'trap', 'bpm', 120, 'key_note', 0, 'key_mode', 'major'),
+    jsonb_build_array(jsonb_build_object('type', 'basic', 'name', 'Basic', 'price_eur', 2999, 'price_pln', 12900, 'price_usd', 10, 'includes_mp3', true)),
+    null);
+  perform test.ok(false, 'paid licenses must cost at least $0.50');
+exception when check_violation then
+  perform test.ok(true, 'paid licenses must cost at least $0.50');
 end $$;
 rollback;
 
@@ -196,6 +217,9 @@ select test.ok((select (public.search_beats(p_keys := array[0], p_bpm_min := 140
 select test.ok((select (public.search_beats(p_keys := array[2]) ->> 'total')::int = 0), 'key filter excludes other keys');
 select test.ok((select (public.search_beats(p_moods := array['chill']) ->> 'total')::int = 0), 'mood filter excludes');
 select test.ok((select (public.search_beats(p_price_max := 2000) ->> 'total')::int = 0), 'price filter excludes');
+select test.ok((select (public.search_beats(p_currency := 'usd', p_price_max := 3298) ->> 'total')::int = 0
+  and (public.search_beats(p_currency := 'usd', p_price_max := 3299) ->> 'total')::int = 1), 'price filter works in USD');
+select test.ok((select (public.search_beats() -> 'items' -> 0 ->> 'min_price_usd')::int = 3299), 'search results include the USD price');
 select test.ok((select (public.search_beats(p_exclusive_only := true, p_sort := 'trending') ->> 'total')::int = 1), 'exclusive filter + trending sort');
 select test.ok((select count(*) = 3 from public.beat_licenses), 'anon sees licenses of published beat');
 rollback;
@@ -255,6 +279,13 @@ select test.ok((select count(*) = 1 from public.purchases where order_id = :'ord
 select test.ok((select status = 'pending' and net = 17520 from public.seller_earnings where order_id = :'order_id'), 'seller earning recorded');
 select test.ok((select sales_count = 1 from public.beats where id = '11111111-1111-4111-8111-111111111111'), 'sales counter incremented');
 
+begin;
+set local role service_role;
+select (public.create_pending_order(:'buyer', 'buyerc@test.local', 'usd',
+  array[(select id from public.beat_licenses where type = 'basic' limit 1)]) ->> 'total') as usd_total \gset
+rollback;
+select test.ok(:'usd_total' = '3299', 'order priced from DB in USD');
+
 -- 16. Buyer now sees their purchase + can review; seller sees the sale but not the order.
 begin;
 select test.act_as(:'buyer');
@@ -267,6 +298,7 @@ select test.act_as(:'sa');
 select test.ok((select count(*) = 1 from public.order_items), 'seller sees their sold items');
 select test.ok((select count(*) = 0 from public.orders), 'seller cannot read buyer orders');
 select test.ok((select (public.seller_dashboard() ->> 'sales_count')::int = 1), 'seller dashboard counts sale');
+select test.ok((select (public.seller_dashboard() -> 'monthly' -> 11) ? 'usd'), 'seller dashboard reports USD');
 rollback;
 
 -- 17. Only admins can read the admin dashboard.
@@ -282,6 +314,7 @@ rollback;
 begin;
 select test.act_as(:'owner', 'aal2');
 select test.ok((select (public.admin_dashboard() -> 'revenue' ->> 'pln')::int = 21900), 'admin dashboard revenue');
+select test.ok((select (public.admin_dashboard() -> 'revenue' ->> 'usd')::int = 0 and (public.admin_dashboard() -> 'monthly' -> 0) ? 'usd'), 'admin dashboard reports USD');
 select test.ok((select (public.admin_list_users() ->> 'total')::int = 4), 'admin lists users with emails');
 rollback;
 
@@ -623,5 +656,22 @@ delete from auth.mfa_factors where id = '33333333-3333-4333-8333-333333333333';
 select test.ok((select count(*) = 2 from pg_publication_tables
   where pubname = 'supabase_realtime' and schemaname = 'public' and tablename in ('messages', 'conversation_members')),
   'messages are published to Realtime');
+
+-- 33. Refunds reverse the amount that was actually transferred (Stripe may
+--     have converted a USD sale into the platform's currency).
+begin;
+with o as (
+  insert into public.orders (buyer_id, buyer_email, currency, status, subtotal, total)
+  values (:'buyer', 'buyerc@test.local', 'usd', 'paid', 1000, 1000) returning id
+), i as (
+  insert into public.order_items (order_id, buyer_id, seller_id, license_type, license_name, beat_title, producer_name, currency, price, platform_fee, seller_amount)
+  select o.id, :'buyer', :'sa', 'basic', 'Basic', 'Test', 'Seller A', 'usd', 1000, 200, 800 from o returning id, order_id
+)
+insert into public.seller_earnings (seller_id, order_id, order_item_id, currency, gross, platform_fee, net, status, stripe_transfer_id, transfer_amount, transfer_currency)
+select :'sa', i.order_id, i.id, 'usd', 1000, 200, 800, 'paid', 'tr_test', 3150, 'pln' from i
+returning order_id as rev_order \gset
+select test.ok((public.apply_order_refund(:'rev_order', 1000) -> 'transfers_to_reverse' -> 0 ->> 'amount')::int = 3150,
+  'refunds reverse the converted amount that was transferred');
+rollback;
 
 \echo '--- all security tests passed ---'

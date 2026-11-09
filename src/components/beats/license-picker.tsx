@@ -76,6 +76,7 @@ export function LicensePicker({
       licenseName: selected.name,
       priceEur: selected.price_eur,
       pricePln: selected.price_pln,
+      priceUsd: selected.price_usd,
       title: beat.title,
       slug: beat.slug,
       coverPath: beat.cover_path,
@@ -153,7 +154,7 @@ export function LicensePicker({
                   </p>
                 </div>
                 <div className="text-right">
-                  <Price eur={l.price_eur} pln={l.price_pln} className="text-lg font-semibold tracking-tight" />
+                  <Price eur={l.price_eur} pln={l.price_pln} usd={l.price_usd} className="text-lg font-semibold tracking-tight" />
                   {isOwned && (
                     <Badge tone="success" className="mt-1">
                       <Check className="h-3 w-3" /> Owned
@@ -212,7 +213,7 @@ export function LicensePicker({
               {inCart?.licenseId === selected?.id ? "In cart" : inCart ? "Switch license" : "Add to cart"}
             </Button>
             <Button size="lg" className="flex-1" onClick={buyNow} loading={pending}>
-              <Zap className="h-4 w-4" /> Buy now · <Price eur={selected?.price_eur} pln={selected?.price_pln} />
+              <Zap className="h-4 w-4" /> Buy now · <Price eur={selected?.price_eur} pln={selected?.price_pln} usd={selected?.price_usd} />
             </Button>
           </>
         )}

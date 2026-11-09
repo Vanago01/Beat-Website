@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/misc";
 import { SocialIcon } from "@/components/layout/social-icon";
 import { ProducerBeats } from "@/components/home/producer-beats";
 import { OwnProfileLink } from "@/components/home/own-profile-link";
+import { MessageButton } from "@/components/messages/message-button";
 import { avatarUrl } from "@/lib/storage";
 import { formatCompact, formatDate } from "@/lib/format";
 import { SOCIAL_FIELDS, type SocialKey } from "@/lib/constants";
@@ -92,6 +93,7 @@ async function Producer({ params }: { params: PageProps<"/producers/[username]">
               </a>
             ))}
             <OwnProfileLink profileId={p.id} />
+            <MessageButton profileId={p.id} returnTo={`/producers/${p.username}`} variant="primary" />
           </div>
         </div>
 

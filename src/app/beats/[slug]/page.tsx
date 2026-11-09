@@ -9,6 +9,7 @@ import { BeatCover } from "@/components/beats/cover";
 import { BeatCard } from "@/components/beats/beat-card";
 import { BeatHeroPlayer, BeatLicenses, ReviewsSection, ShareButtons } from "@/components/beats/beat-detail-client";
 import { Avatar } from "@/components/ui/avatar";
+import { MessageButton } from "@/components/messages/message-button";
 import { Badge, SectionHeading, Skeleton } from "@/components/ui/misc";
 import { coverUrl } from "@/lib/storage";
 import { env } from "@/lib/env";
@@ -165,16 +166,19 @@ async function BeatDetail({ params }: { params: PageProps<"/beats/[slug]">["para
                 </div>
               </div>
 
-              <Link href={`/producers/${producer.username}`} className="group mt-5 inline-flex items-center gap-3">
-                <Avatar path={producer.avatar_path} name={beat.producer_name} size={40} />
-                <span>
-                  <span className="flex items-center gap-1.5 font-semibold group-hover:underline">
-                    {beat.producer_name}
-                    {producer.is_verified && <BadgeCheck className="h-4 w-4 text-accent-400" />}
+              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+                <Link href={`/producers/${producer.username}`} className="group inline-flex items-center gap-3">
+                  <Avatar path={producer.avatar_path} name={beat.producer_name} size={40} />
+                  <span>
+                    <span className="flex items-center gap-1.5 font-semibold group-hover:underline">
+                      {beat.producer_name}
+                      {producer.is_verified && <BadgeCheck className="h-4 w-4 text-accent-400" />}
+                    </span>
+                    <span className="block text-xs text-ink-400">@{producer.username}</span>
                   </span>
-                  <span className="block text-xs text-ink-400">@{producer.username}</span>
-                </span>
-              </Link>
+                </Link>
+                <MessageButton profileId={beat.producer_id} returnTo={`/beats/${beat.slug}`} variant="outline" size="xs" label="Message producer" />
+              </div>
 
               <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[

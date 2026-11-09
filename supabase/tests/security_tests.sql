@@ -398,4 +398,230 @@ select test.act_as(:'sb');
 select test.ok(public.is_seller(), 'users without two-factor are unaffected');
 rollback;
 
+-- ---------------------------------------------------------------------------
+-- Direct messages
+select set_config('test.sa', :'sa', false);
+select set_config('test.buyer', :'buyer', false);
+
+-- 23. One conversation per pair, whoever starts it.
+begin;
+select test.act_as(:'buyer');
+select public.start_conversation(:'sa') as conv \gset
+commit;
+select set_config('test.conv', :'conv', false);
+begin;
+select test.act_as(:'buyer');
+select test.ok(public.start_conversation(:'sa') = :'conv', 'starting again opens the same conversation');
+rollback;
+begin;
+select test.act_as(:'sa');
+select test.ok(public.start_conversation(:'buyer') = :'conv', 'the other person gets the same conversation');
+do $$ begin
+  perform public.start_conversation(auth.uid());
+  perform test.ok(false, 'nobody can message themselves');
+exception when raise_exception then
+  perform test.ok(true, 'nobody can message themselves');
+end $$;
+rollback;
+
+-- 24. Visitors who aren't signed in can't use messages at all.
+begin;
+select test.act_as(null);
+do $$ begin
+  perform public.start_conversation(current_setting('test.sa')::uuid);
+  perform test.ok(false, 'anon cannot start conversations');
+exception when insufficient_privilege then
+  perform test.ok(true, 'anon cannot start conversations');
+end $$;
+do $$ begin
+  perform count(*) from public.messages;
+  perform test.ok(false, 'anon cannot read messages');
+exception when insufficient_privilege then
+  perform test.ok(true, 'anon cannot read messages');
+end $$;
+rollback;
+
+-- 25. Sending: text is tidied, empty or overlong messages are refused, and
+--     nobody can write the tables directly.
+begin;
+select test.act_as(:'buyer');
+select public.send_message(:'conv', E'  Hi! Is Midnight Run still available?\r\n\n\n\nThanks  ') ->> 'body' as body1 \gset
+commit;
+select test.ok(:'body1' = E'Hi! Is Midnight Run still available?\n\nThanks', 'message text is tidied (spaces, line breaks)');
+begin;
+select test.act_as(:'buyer');
+do $$ begin
+  perform public.send_message(current_setting('test.conv')::uuid, E'  \n\t ');
+  perform test.ok(false, 'empty messages are refused');
+exception when raise_exception then
+  perform test.ok(true, 'empty messages are refused');
+end $$;
+do $$ begin
+  perform public.send_message(current_setting('test.conv')::uuid, repeat('x', 2001));
+  perform test.ok(false, 'messages over 2,000 characters are refused');
+exception when raise_exception then
+  perform test.ok(true, 'messages over 2,000 characters are refused');
+end $$;
+do $$ begin
+  insert into public.messages (conversation_id, sender_id, body) values (current_setting('test.conv')::uuid, auth.uid(), 'sneaky');
+  perform test.ok(false, 'messages cannot be inserted directly');
+exception when insufficient_privilege then
+  perform test.ok(true, 'messages cannot be inserted directly');
+end $$;
+do $$ begin
+  update public.conversation_members set last_read_at = now();
+  perform test.ok(false, 'read state cannot be changed directly');
+exception when insufficient_privilege then
+  perform test.ok(true, 'read state cannot be changed directly');
+end $$;
+do $$ begin
+  update public.messages set body = 'edited';
+  perform test.ok(false, 'messages cannot be edited directly');
+exception when insufficient_privilege then
+  perform test.ok(true, 'messages cannot be edited directly');
+end $$;
+rollback;
+
+-- 26. Only the two people in the conversation can read it.
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 1 from public.messages where conversation_id = :'conv'), 'recipient reads the message');
+select test.ok(public.unread_conversation_count() = 1, 'recipient has one unread conversation');
+select test.ok((public.list_conversations() -> 0 -> 'other' ->> 'username') = 'buyerc'
+  and (public.list_conversations() -> 0 ->> 'unread_count')::int = 1, 'inbox shows the conversation with its unread count');
+select test.ok((public.get_conversation(:'conv') -> 'other' ->> 'username') = 'buyerc', 'chat screen shows who you are talking to');
+rollback;
+begin;
+select test.act_as(:'sb');
+select test.ok((select count(*) = 0 from public.messages), 'outsider cannot read the messages');
+select test.ok((select count(*) = 0 from public.conversations), 'outsider cannot see the conversation');
+select test.ok(public.get_conversation(:'conv') is null, 'outsider gets nothing from get_conversation');
+select test.ok(public.list_conversations()::text = '[]', 'outsider inbox is empty');
+do $$ begin
+  perform public.send_message(current_setting('test.conv')::uuid, 'let me in');
+  perform test.ok(false, 'outsider cannot post into the conversation');
+exception when no_data_found then
+  perform test.ok(true, 'outsider cannot post into the conversation');
+end $$;
+do $$ begin
+  perform public.delete_conversation(current_setting('test.conv')::uuid);
+  perform test.ok(false, 'outsider cannot delete the conversation');
+exception when no_data_found then
+  perform test.ok(true, 'outsider cannot delete the conversation');
+end $$;
+rollback;
+begin;
+select test.act_as(:'owner', 'aal2');
+select test.ok((select count(*) = 0 from public.messages), 'administrators cannot read private messages');
+rollback;
+
+-- 27. Reading clears the badge; the sender sees it was read.
+begin;
+select test.act_as(:'sa');
+select public.mark_conversation_read(:'conv');
+select test.ok(public.unread_conversation_count() = 0, 'reading the conversation clears the unread badge');
+commit;
+begin;
+select test.act_as(:'buyer');
+select test.ok((public.get_conversation(:'conv') ->> 'other_read_at') is not null, 'sender can see the message was read');
+select test.ok(public.unread_conversation_count() = 0, 'your own messages never count as unread');
+rollback;
+
+-- 28. At most 20 messages a minute.
+begin;
+select test.act_as(:'sa');
+do $$ declare i int; begin
+  for i in 1..20 loop
+    perform public.send_message(current_setting('test.conv')::uuid, 'message ' || i);
+  end loop;
+  begin
+    perform public.send_message(current_setting('test.conv')::uuid, 'one too many');
+    perform test.ok(false, 'more than 20 messages a minute are refused');
+  exception when raise_exception then
+    perform test.ok(true, 'more than 20 messages a minute are refused');
+  end;
+end $$;
+rollback;
+
+-- 29. Blocking stops messages both ways and stays private.
+begin;
+select test.act_as(:'sa');
+insert into public.user_blocks (blocker_id, blocked_id) values (auth.uid(), :'buyer');
+commit;
+begin;
+select test.act_as(:'buyer');
+select test.ok((select count(*) = 0 from public.user_blocks), 'people cannot see who blocked them');
+select test.ok((public.get_conversation(:'conv') ->> 'blocked_me')::boolean, 'chat screen knows you cannot reply');
+do $$ begin
+  perform public.send_message(current_setting('test.conv')::uuid, 'hello?');
+  perform test.ok(false, 'a blocked person cannot send messages');
+exception when raise_exception then
+  perform test.ok(true, 'a blocked person cannot send messages');
+end $$;
+do $$ begin
+  insert into public.user_blocks (blocker_id, blocked_id) values (current_setting('test.sa')::uuid, current_setting('test.sb')::uuid);
+  perform test.ok(false, 'nobody can create a block for someone else');
+exception when insufficient_privilege then
+  perform test.ok(true, 'nobody can create a block for someone else');
+end $$;
+delete from public.user_blocks;
+commit;
+select test.ok((select count(*) = 1 from public.user_blocks where blocked_id = :'buyer'), 'nobody can remove a block made by someone else');
+begin;
+select test.act_as(:'sa');
+do $$ begin
+  perform public.send_message(current_setting('test.conv')::uuid, 'bye');
+  perform test.ok(false, 'the blocker cannot send either until they unblock');
+exception when raise_exception then
+  perform test.ok(true, 'the blocker cannot send either until they unblock');
+end $$;
+delete from public.user_blocks where blocked_id = :'buyer';
+commit;
+begin;
+select test.act_as(:'buyer');
+select test.ok((public.send_message(:'conv', 'Unblocked!') ->> 'body') = 'Unblocked!', 'unblocking lets messages through again');
+commit;
+
+-- 30. "Delete conversation" hides it for you only; a new message brings it back.
+begin;
+select test.act_as(:'sa');
+select public.delete_conversation(:'conv');
+select test.ok(public.list_conversations()::text = '[]' and (select count(*) = 0 from public.messages), 'deleting hides the conversation and its history for you');
+commit;
+begin;
+select test.act_as(:'buyer');
+select test.ok((select count(*) = 2 from public.messages), 'the other person keeps their copy');
+select public.send_message(:'conv', 'Still there?');
+commit;
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 1 from public.messages) and json_array_length(public.list_conversations()) = 1
+  and public.unread_conversation_count() = 1, 'a new message brings the conversation back without the old ones');
+rollback;
+
+-- 31. Two-factor: a password-only session can't read or send messages.
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('33333333-3333-4333-8333-333333333333', :'sa', 'test authenticator', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP');
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 0 from public.messages), '2FA user: password-only session cannot read messages');
+select test.ok(public.unread_conversation_count() = 0 and public.get_conversation(:'conv') is null, '2FA user: password-only session sees no conversations');
+do $$ begin
+  perform public.send_message(current_setting('test.conv')::uuid, 'hi');
+  perform test.ok(false, '2FA user: password-only session cannot send messages');
+exception when insufficient_privilege then
+  perform test.ok(true, '2FA user: password-only session cannot send messages');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa', 'aal2');
+select test.ok((select count(*) = 1 from public.messages), '2FA user with the code reads messages');
+rollback;
+delete from auth.mfa_factors where id = '33333333-3333-4333-8333-333333333333';
+
+-- 32. New messages are published to Realtime.
+select test.ok((select count(*) = 2 from pg_publication_tables
+  where pubname = 'supabase_realtime' and schemaname = 'public' and tablename in ('messages', 'conversation_members')),
+  'messages are published to Realtime');
+
 \echo '--- all security tests passed ---'

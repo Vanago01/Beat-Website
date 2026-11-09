@@ -126,6 +126,7 @@ export function PlayerBar() {
         )}
         role="region"
         aria-label="Audio player"
+        data-player-bar
       >
         <div className="glass-strong relative overflow-hidden rounded-2xl shadow-[0_30px_80px_-20px_color-mix(in_oklab,var(--color-shadow)_90%,transparent)] md:rounded-[1.4rem]">
           <ProgressLine className="absolute inset-x-0 top-0 md:hidden" />

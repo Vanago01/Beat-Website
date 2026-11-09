@@ -38,6 +38,10 @@ function cleanDbMessage(message: string) {
   if (/row-level security|permission denied for/i.test(message)) {
     return "You don't have permission to do that.";
   }
+  // A database update hasn't been installed yet (e.g. a new feature's SQL file).
+  if (/could not find the (function|table)|schema cache|relation .* does not exist/i.test(message)) {
+    return "This isn't available yet. Please try again later.";
+  }
   const prefixed = message.match(/^permission denied:\s*(.+)$/i);
   if (prefixed) {
     const detail = prefixed[1];

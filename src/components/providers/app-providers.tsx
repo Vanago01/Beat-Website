@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "./auth-provider";
 import { CookieConsent } from "@/components/legal/cookie-consent";
 import { AppearanceSync } from "./appearance-sync";
+import { MessagesBootstrap } from "@/components/messages/messages-bootstrap";
 import { currentAppearance, subscribeAppearance } from "@/lib/appearance";
 import { useCart } from "@/stores/cart";
 import { useCurrency } from "@/stores/currency";
@@ -29,6 +30,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <AuthProvider>
       <AppearanceSync />
       <StoreHydration />
+      <MessagesBootstrap />
       {children}
       <CookieConsent />
       <Toaster

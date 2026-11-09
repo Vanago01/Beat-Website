@@ -15,9 +15,14 @@ export default function PrivacyPage() {
         <li>Account data: email address, username, profile information you choose to publish.</li>
         <li>Transaction data: orders, licenses and payout records. Card details are handled by Stripe and never stored by us.</li>
         <li>Usage data: plays and favorites, used to power charts and recommendations.</li>
+        <li>
+          Messages: the text of direct messages you send and receive, when they were sent and read, and the people you block.
+          Only you and the person you&apos;re talking to can read a conversation. If you delete a conversation it disappears
+          from your account; the other person keeps their copy.
+        </li>
       </ul>
       <h2>How we use it</h2>
-      <p>To provide the marketplace, deliver purchased files, issue license agreements, pay sellers, prevent fraud and send transactional emails such as order confirmations.</p>
+      <p>To provide the marketplace, deliver purchased files and messages, issue license agreements, pay sellers, prevent fraud and abuse, and send transactional emails such as order confirmations.</p>
       <h2>Processors</h2>
       <p>We use Supabase (database, authentication and file storage), Stripe (payments and payouts) and an email delivery provider. They process data on our behalf under data-processing agreements.</p>
       <h2>Your rights</h2>

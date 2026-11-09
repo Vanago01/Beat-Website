@@ -89,6 +89,64 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"conversation_members": {
+                  Row: {
+                    "cleared_at": string,"conversation_id": string,"last_read_at": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cleared_at"?: string,"conversation_id": string,"last_read_at"?: string | null,"user_id": string
+                  }
+                  Update: {
+                    "cleared_at"?: string,"conversation_id"?: string,"last_read_at"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversation_members_conversation_id_fkey"
+      columns: ["conversation_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversation_members_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"conversations": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"id": string,"last_message_at": string | null,"last_sender_id": string | null,"user_a": string,"user_b": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"last_message_at"?: string | null,"last_sender_id"?: string | null,"user_a": string,"user_b": string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"last_message_at"?: string | null,"last_sender_id"?: string | null,"user_a"?: string,"user_b"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversations_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversations_user_a_fkey"
+      columns: ["user_a"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversations_user_b_fkey"
+      columns: ["user_b"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"favorites": {
                   Row: {
                     "beat_id": string,"created_at": string,"user_id": string
@@ -134,6 +192,32 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"messages": {
+                  Row: {
+                    "body": string,"conversation_id": string,"created_at": string,"id": string,"sender_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "body": string,"conversation_id": string,"created_at"?: string,"id"?: string,"sender_id": string
+                  }
+                  Update: {
+                    "body"?: string,"conversation_id"?: string,"created_at"?: string,"id"?: string,"sender_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "messages_conversation_id_fkey"
+      columns: ["conversation_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "messages_sender_id_fkey"
+      columns: ["sender_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"order_items": {
                   Row: {
@@ -385,6 +469,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"user_blocks": {
+                  Row: {
+                    "blocked_id": string,"blocker_id": string,"created_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "blocked_id": string,"blocker_id": string,"created_at"?: string
+                  }
+                  Update: {
+                    "blocked_id"?: string,"blocker_id"?: string,"created_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "user_blocks_blocked_id_fkey"
+      columns: ["blocked_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "user_blocks_blocker_id_fkey"
+      columns: ["blocker_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Views: {
@@ -451,14 +561,23 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"clean_message_body":
+{ Args: { "p_body": string }; Returns: string
+                           },
 "create_pending_order":
 { Args: { "p_buyer_email": string,"p_buyer_id": string,"p_currency": Database["public"]['Enums']["currency_code"],"p_license_ids": (string)[] }; Returns: Json
+                           },
+"delete_conversation":
+{ Args: { "p_conversation": string }; Returns: undefined
                            },
 "escape_like":
 { Args: { "value": string }; Returns: string
                            },
 "fulfill_order":
 { Args: { "p_charge_id"?: string,"p_order_id": string,"p_payment_intent"?: string,"p_session_id"?: string }; Returns: Json
+                           },
+"get_conversation":
+{ Args: { "p_conversation": string }; Returns: Json
                            },
 "get_genre_stats":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -489,11 +608,17 @@ isOneToOne: false
 "is_username_available":
 { Args: { "p_username": string }; Returns: boolean
                            },
-"mfa_satisfied":
-{ Args: Record<PropertyKey, never>; Returns: boolean
+"list_conversations":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"mark_conversation_read":
+{ Args: { "p_conversation": string }; Returns: undefined
                            },
 "mark_order_failed":
 { Args: { "p_order_id": string,"p_status": Database["public"]['Enums']["order_status"] }; Returns: undefined
+                           },
+"mfa_satisfied":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "prefix_tsquery":
 { Args: { "q": string }; Returns: unknown
@@ -563,11 +688,23 @@ isOneToOne: false
 "seller_sales":
 { Args: { "p_limit"?: number,"p_offset"?: number }; Returns: Json
                            },
+"send_message":
+{ Args: { "p_body": string,"p_conversation": string }; Returns: Json
+                           },
 "slugify":
 { Args: { "value": string }; Returns: string
                            },
+"start_conversation":
+{ Args: { "p_user": string }; Returns: string
+                           },
 "unique_beat_slug":
 { Args: { "p_id": string,"p_title": string }; Returns: string
+                           },
+"unread_conversation_count":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"valid_moods":
+{ Args: { "moods": (string)[] }; Returns: boolean
                            },
 "valid_tags":
 { Args: { "tags": (string)[] }; Returns: boolean

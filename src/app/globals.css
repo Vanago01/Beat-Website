@@ -457,3 +457,22 @@ input[type="range"].range::-moz-range-thumb {
   --color-accent-300: #18181b; --color-accent-400: #27272a; --color-accent: #18181b;
   --color-accent-600: #2a2a30; --color-accent-700: #45454f; --color-electric: #5f5f6b; --color-on-accent: #fafafa;
 }
+
+/* Messages: the chat fills the screen below the navbar and above the player bar. */
+:root:has([data-player-bar]) {
+  --player-space: 6rem;
+}
+@media (min-width: 48rem) {
+  :root:has([data-player-bar]) {
+    --player-space: 7rem;
+  }
+}
+.messages-frame {
+  height: calc(100dvh - 68px - var(--player-space, 0px));
+  min-height: 26rem;
+}
+@media (min-width: 40rem) {
+  .messages-frame {
+    height: calc(100dvh - 68px - 3rem - var(--player-space, 0px));
+  }
+}

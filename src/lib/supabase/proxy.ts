@@ -4,7 +4,7 @@ import type { Database } from "../database.types";
 import { authCookieName, env } from "../env";
 import { safeNextPath } from "../utils";
 
-const PROTECTED_PREFIXES = ["/account", "/dashboard", "/admin", "/checkout"];
+const PROTECTED_PREFIXES = ["/account", "/dashboard", "/admin", "/checkout", "/messages"];
 const AUTH_PAGES = ["/login", "/register"];
 
 function matches(path: string, prefixes: string[]) {

@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageCircle,
   Receipt,
   Search,
   Settings,
@@ -27,6 +28,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useCart } from "@/stores/cart";
+import { useMessages } from "@/stores/messages";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -61,8 +63,35 @@ function CartButton() {
   );
 }
 
+const badgeText = (n: number) => (n > 9 ? "9+" : String(n));
+
+function MessagesButton({ pathname }: { pathname: string | null }) {
+  const { user } = useAuth();
+  const unread = useMessages((s) => s.unread);
+  if (!user) return null;
+  const active = isActive(pathname, "/messages");
+  return (
+    <Link
+      href="/messages"
+      className={cn(
+        "relative grid h-10 w-10 place-items-center rounded-full transition hover:bg-white/[0.08]",
+        active ? "bg-white/[0.06] text-white" : "text-ink-100 hover:text-white",
+      )}
+      aria-label={unread > 0 ? `Messages, ${unread} unread` : "Messages"}
+    >
+      <MessageCircle className="h-[19px] w-[19px]" />
+      {unread > 0 && (
+        <span className="absolute right-0.5 top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent ring-2 ring-ink-950">
+          {badgeText(unread)}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 function AccountMenu({ pathname }: { pathname: string | null }) {
   const { user, profile, loading, isSeller, isAdmin, signOut } = useAuth();
+  const unread = useMessages((s) => s.unread);
   const router = useRouter();
 
   if (loading) return <span className="skeleton h-10 w-10 rounded-full" aria-hidden />;
@@ -114,6 +143,12 @@ function AccountMenu({ pathname }: { pathname: string | null }) {
           <MenuItem onClick={() => go("/account", close)}>
             <User className="h-4 w-4 text-ink-300" /> My profile
           </MenuItem>
+          <MenuItem onClick={() => go("/messages", close)}>
+            <MessageCircle className="h-4 w-4 text-ink-300" /> Messages
+            {unread > 0 && (
+              <span className="ml-auto rounded-full bg-accent px-1.5 text-[11px] font-bold leading-5 text-on-accent">{badgeText(unread)}</span>
+            )}
+          </MenuItem>
           <MenuItem onClick={() => go("/account/library", close)}>
             <Library className="h-4 w-4 text-ink-300" /> Purchased beats
           </MenuItem>
@@ -159,6 +194,7 @@ function AccountMenu({ pathname }: { pathname: string | null }) {
 
 function NavbarView({ pathname }: { pathname: string | null }) {
   const { user, isSeller, isAdmin, signOut } = useAuth();
+  const unread = useMessages((s) => s.unread);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -193,7 +229,8 @@ function NavbarView({ pathname }: { pathname: string | null }) {
         )}
       >
         <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-6 px-4 sm:px-6 lg:px-8">
-          <Logo />
+          {/* Signed in, narrow phones need the room for the account icons: show just the mark. */}
+          <Logo wordmarkClassName={user ? "max-[399px]:hidden" : undefined} />
 
           <nav className="hidden flex-1 items-center justify-center gap-1 lg:flex" aria-label="Main">
             {NAV.map((item) => (
@@ -233,6 +270,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
               <Search className="h-[19px] w-[19px]" />
             </button>
             <CurrencySwitch className="mx-1 hidden sm:inline-flex" />
+            <MessagesButton pathname={pathname} />
             <Link
               href="/favorites"
               className={cn(
@@ -270,16 +308,24 @@ function NavbarView({ pathname }: { pathname: string | null }) {
           </button>
         </div>
         <nav className="flex flex-col px-3" aria-label="Mobile">
-          {[...NAV, { href: "/favorites", label: "Favorites" }, { href: "/cart", label: "Shopping Cart" }].map((item) => (
+          {[
+            ...NAV,
+            ...(user ? [{ href: "/messages", label: "Messages" }] : []),
+            { href: "/favorites", label: "Favorites" },
+            { href: "/cart", label: "Shopping Cart" },
+          ].map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "rounded-2xl px-4 py-3.5 font-display text-2xl font-bold tracking-tight transition",
+                "flex items-center justify-between rounded-2xl px-4 py-3.5 font-display text-2xl font-bold tracking-tight transition",
                 isActive(pathname, item.href) ? "bg-white/[0.06] text-white" : "text-ink-200 hover:bg-white/[0.04]",
               )}
             >
               {item.label}
+              {item.href === "/messages" && unread > 0 && (
+                <span className="rounded-full bg-accent px-2.5 font-sans text-sm leading-7 text-on-accent">{badgeText(unread)}</span>
+              )}
             </Link>
           ))}
         </nav>

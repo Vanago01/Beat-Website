@@ -37,6 +37,13 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 - Upload form: resumable uploads (cover, tagged preview, MP3, WAV, stems ZIP), tap-tempo, key picker, moods, tags, per-tier prices in EUR & PLN with suggested conversion, editable usage terms, reusable license defaults.
 - Stripe Connect Express payouts: automatic transfer of the seller’s share after each sale.
 
+**Messages**
+- Direct messages between any two members: inbox with unread counts, live delivery (Supabase Realtime, with automatic fallback to checking every 20 seconds), “Seen”, links, a notification while browsing elsewhere, and an unread badge in the navbar.
+- “Message” buttons on producer profiles and beat pages; block / unblock (also under Account → Settings); “Delete conversation” hides it for you only.
+
+**Appearance**
+- Dark or light theme and seven accent colours (Account → Settings), remembered per device and applied before the page paints.
+
 **Administration** (`/admin`, only for admin accounts)
 - Analytics: revenue (EUR/PLN), sales, users, platform earnings, monthly revenue chart, most popular & best-selling beats, recent purchases.
 - Beat moderation queue (approve / reject with reason / feature / lock / edit / delete), user roles & verified badges, orders with one-click refunds, seller payouts, platform settings (fee %, approval workflow, seller signups, EUR→PLN rate), genre management.
@@ -56,10 +63,11 @@ Authorization is enforced **in the database**, never only in the UI:
 | Storage | Purchased files live in a **private** bucket; buyers receive 60-second signed URLs after an ownership check. |
 | Stripe | Webhooks are signature-verified; fulfilment is idempotent (safe on retries and on the success-page fallback). Exclusive-license races are detected and the second buyer is refunded automatically. |
 | Two-factor authentication | Optional TOTP for everyone (Account → Settings), **required for administrators**: admin powers only exist in sessions that passed two-factor sign-in (`is_admin()` checks the session's `aal2` level). For anyone who set it up, a password-only session gets nothing from the database or storage until the code is entered. |
+| Messages | Only the two people in a conversation can read it (administrators can't either). Messages are written only through `send_message()`: 1–2,000 characters, at most 20 a minute and 500 a day per person, and 30 new conversations a day. A block stops messages in both directions and isn't visible to the blocked person. |
 | HTTP headers | Content-Security-Policy (scripts only from the site, no plugins/framing/foreign form targets, network and media limited to the site and Supabase), HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, a restrictive `Permissions-Policy`, `nosniff`. |
 | Cookies | Only necessary cookies by default; preferences (currency, volume, view) are stored after consent from the cookie banner. No advertising or tracking cookies. Policy at `/legal/cookies`. |
 
-`supabase/tests/security_tests.sql` contains 65 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement…).
+`supabase/tests/security_tests.sql` contains 106 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits…).
 
 ---
 
@@ -112,6 +120,8 @@ SUPABASE_SECRET_KEY=<local secret key> npm run test:db
    npx supabase db push
    ```
    This creates all tables, policies, functions, storage buckets and storage policies.
+   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 8). Every file can safely be run again.
+   File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`).
 3. **Authentication → URL Configuration**: set *Site URL* to your domain (e.g. `https://yourdomain.com`) and add `https://yourdomain.com/**` to *Redirect URLs*.
 4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes. Under **Multi-Factor**, keep **TOTP (App Authenticator)** enabled.
    *Optional (recommended):* to let users confirm on a different device than they signed up on, change the email templates’ link to
@@ -195,7 +205,7 @@ src/
     orders.ts          fulfilment, refunds, seller transfers, emails
     license-pdf.ts     license agreement PDF generator
     supabase/          browser / server / service-role / public clients + session proxy
-  stores/              client state (player, cart, currency, favorites)
+  stores/              client state (player, cart, currency, favorites, messages)
   proxy.ts             session refresh + route protection
 supabase/
   migrations/          schema, RLS, functions, storage

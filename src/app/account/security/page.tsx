@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { SecurityForms } from "@/components/account/security-forms";
 import { TwoFactorSettings } from "@/components/account/two-factor-settings";
 import { AppearanceSettings } from "@/components/account/appearance-settings";
+import { BlockedUsers } from "@/components/account/blocked-users";
 
 export const metadata: Metadata = { title: "Account settings", robots: { index: false } };
 
@@ -11,7 +12,7 @@ export default function SecurityPage() {
     <>
       <div className="mb-6">
         <h2 className="font-display text-2xl font-bold">Account settings</h2>
-        <p className="mt-1 text-sm text-ink-300">Appearance, two-factor authentication, your login email, password and active sessions.</p>
+        <p className="mt-1 text-sm text-ink-300">Appearance, two-factor authentication, your login email, password, active sessions and blocked people.</p>
       </div>
       <div className="space-y-6">
         <AppearanceSettings />
@@ -19,6 +20,7 @@ export default function SecurityPage() {
           <TwoFactorSettings />
         </Suspense>
         <SecurityForms />
+        <BlockedUsers />
       </div>
     </>
   );

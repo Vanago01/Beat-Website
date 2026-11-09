@@ -28,6 +28,8 @@ const supabaseOrigins = supabaseUrl
     ]
   : [];
 const supabaseSources = supabaseOrigins.join(" ");
+// Live messages: Supabase Realtime is a WebSocket to the same host (wss:// in production).
+const supabaseRealtime = supabaseUrl ? `${supabaseUrl.protocol === "https:" ? "wss:" : "ws:"}//${supabaseUrl.host}` : "";
 
 // Content-Security-Policy without nonces (keeps static pages cacheable — see
 // node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md).
@@ -40,7 +42,7 @@ const contentSecurityPolicy = [
   `img-src 'self' data: blob: ${supabaseSources}`,
   `media-src 'self' blob: ${supabaseSources}`,
   "font-src 'self' data:",
-  `connect-src 'self' ${supabaseSources}${isDev ? " ws: wss:" : ""}`,
+  `connect-src 'self' ${supabaseSources} ${supabaseRealtime}${isDev ? " ws: wss:" : ""}`,
   "worker-src 'self' blob:",
   "frame-src 'none'",
   "object-src 'none'",

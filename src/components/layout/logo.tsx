@@ -31,11 +31,11 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-export function Logo({ className }: { className?: string }) {
+export function Logo({ className, wordmarkClassName }: { className?: string; wordmarkClassName?: string }) {
   return (
-    <Link href="/" className={cn("group inline-flex items-center gap-2.5", className)} aria-label={`${env.siteName} — home`}>
+    <Link href="/" className={cn("group inline-flex shrink-0 items-center gap-2.5", className)} aria-label={`${env.siteName} — home`}>
       <LogoMark className="transition-transform duration-500 group-hover:rotate-[-8deg]" />
-      <span className="font-display text-[15px] font-extrabold tracking-[0.22em] sm:text-base">{env.siteName}</span>
+      <span className={cn("font-display text-[15px] font-extrabold tracking-[0.22em] sm:text-base", wordmarkClassName)}>{env.siteName}</span>
     </Link>
   );
 }

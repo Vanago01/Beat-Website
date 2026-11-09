@@ -37,7 +37,7 @@ export function PlayButton({
       className={cn(
         "relative grid shrink-0 place-items-center rounded-full transition-all duration-300 ease-out hover:scale-105 active:scale-95",
         variant === "solid"
-          ? "bg-white text-ink-950 shadow-[0_10px_30px_-8px_rgba(255,255,255,0.55)]"
+          ? "bg-white text-ink-950 shadow-[0_10px_30px_-8px_color-mix(in_oklab,var(--color-white)_55%,transparent)]"
           : "glass text-white hover:bg-white/15",
         dims,
         className,

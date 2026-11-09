@@ -53,7 +53,7 @@ function CartButton() {
     >
       <ShoppingBag className="h-[19px] w-[19px]" />
       {count > 0 && (
-        <span className="absolute right-0.5 top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-white ring-2 ring-ink-950">
+        <span className="absolute right-0.5 top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent ring-2 ring-ink-950">
           {count}
         </span>
       )}

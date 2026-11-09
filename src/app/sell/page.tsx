@@ -23,7 +23,7 @@ export default async function SellPage() {
   const keep = 100 - fee;
   return (
     <div className="relative isolate overflow-hidden">
-      <div className="absolute inset-x-0 top-0 -z-10 h-[700px] opacity-60 [background:radial-gradient(50%_60%_at_70%_10%,rgba(124,108,255,0.35),transparent_70%)]" aria-hidden />
+      <div className="absolute inset-x-0 top-0 -z-10 h-[700px] opacity-60 [background:radial-gradient(50%_60%_at_70%_10%,color-mix(in_oklab,var(--color-accent)_35%,transparent),transparent_70%)]" aria-hidden />
       <div className="mx-auto grid max-w-[1400px] gap-14 px-4 pb-10 pt-10 sm:px-6 md:pt-16 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-accent-300">For producers</p>

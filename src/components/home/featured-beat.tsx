@@ -27,11 +27,11 @@ export function FeaturedBeat({ beat, queue, label = "Featured beat" }: { beat: B
         style={{
           background: art
             ? `url(${art}) center/cover`
-            : "radial-gradient(circle at 30% 30%, rgba(124,108,255,0.7), transparent 60%), radial-gradient(circle at 70% 70%, rgba(61,139,255,0.5), transparent 60%)",
+            : "radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--color-accent) 70%, transparent), transparent 60%), radial-gradient(circle at 70% 70%, color-mix(in oklab, var(--color-electric) 50%, transparent), transparent 60%)",
         }}
         aria-hidden
       />
-      <div className="glass-strong relative overflow-hidden rounded-[2rem] p-4 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)] sm:p-5">
+      <div className="glass-strong relative overflow-hidden rounded-[2rem] p-4 shadow-[0_40px_120px_-40px_color-mix(in_oklab,var(--color-shadow)_90%,transparent)] sm:p-5">
         <div className="group relative aspect-square overflow-hidden rounded-[1.5rem]">
           <Link href={`/beats/${beat.slug}`} className="absolute inset-0" aria-label={beat.title}>
             <BeatCover path={beat.cover_path} title={beat.title} seed={beat.id} priority sizes="(max-width: 1024px) 90vw, 460px" className="h-full w-full" />

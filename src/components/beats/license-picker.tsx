@@ -134,7 +134,7 @@ export function LicensePicker({
               className={cn(
                 "group relative flex flex-col gap-3 rounded-2xl border p-4 text-left transition-all duration-200",
                 active
-                  ? "border-accent/70 bg-accent/[0.09] shadow-[0_0_0_4px_rgba(124,108,255,0.12)]"
+                  ? "border-accent/70 bg-accent/[0.09] shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-accent)_12%,transparent)]"
                   : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]",
               )}
             >

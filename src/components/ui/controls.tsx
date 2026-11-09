@@ -103,7 +103,7 @@ export function Chip({
       className={cn(
         "inline-flex h-9 items-center gap-1.5 rounded-full border px-4 text-[13px] font-medium transition-all duration-200",
         active
-          ? "border-white bg-white text-ink-950 shadow-[0_6px_24px_-8px_rgba(255,255,255,0.5)]"
+          ? "border-white bg-white text-ink-950 shadow-[0_6px_24px_-8px_color-mix(in_oklab,var(--color-white)_50%,transparent)]"
           : "border-white/[0.09] bg-white/[0.02] text-ink-200 hover:border-white/25 hover:text-ink-50",
         className,
       )}

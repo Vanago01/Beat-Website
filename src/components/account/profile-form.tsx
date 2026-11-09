@@ -120,7 +120,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           {bannerSrc ? (
             <Image src={bannerSrc} alt="" fill sizes="1100px" className="object-cover" />
           ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(70%_120%_at_20%_0%,rgba(124,108,255,0.45),transparent_60%),radial-gradient(60%_100%_at_90%_100%,rgba(61,139,255,0.3),transparent_60%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(70%_120%_at_20%_0%,color-mix(in_oklab,var(--color-accent)_45%,transparent),transparent_60%),radial-gradient(60%_100%_at_90%_100%,color-mix(in_oklab,var(--color-electric)_30%,transparent),transparent_60%)]" />
           )}
           <div className="absolute right-4 top-4 flex gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => bannerInput.current?.click()} loading={uploading === "banner"}>

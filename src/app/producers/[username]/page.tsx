@@ -58,7 +58,7 @@ async function Producer({ params }: { params: PageProps<"/producers/[username]">
         ) : (
           <div
             className="absolute inset-0"
-            style={{ background: `radial-gradient(80% 120% at 20% 0%, hsl(${hue} 70% 50% / 0.55), transparent 60%), radial-gradient(70% 100% at 90% 100%, hsl(${(hue + 70) % 360} 70% 45% / 0.45), transparent 60%), #0a0a0d` }}
+            style={{ background: `radial-gradient(80% 120% at 20% 0%, hsl(${hue} 70% 50% / 0.55), transparent 60%), radial-gradient(70% 100% at 90% 100%, hsl(${(hue + 70) % 360} 70% 45% / 0.45), transparent 60%), var(--color-ink-900)` }}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-ink-950/30 to-ink-950" />

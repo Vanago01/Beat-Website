@@ -91,7 +91,7 @@ export function BarChart({
         <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block overflow-visible">
           {ticks.map((t) => (
             <g key={t}>
-              <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke="rgba(255,255,255,0.07)" strokeWidth={1} shapeRendering="crispEdges" />
+              <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} className="stroke-white/[0.07]" strokeWidth={1} shapeRendering="crispEdges" />
               <text x={M.left - 10} y={y(t)} textAnchor="end" dominantBaseline="central" className="fill-ink-400 font-mono text-[10px] tabular-nums">
                 {formatTick(t)}
               </text>
@@ -141,7 +141,7 @@ export function BarChart({
             </text>
           )}
 
-          <line x1={M.left} x2={width - M.right} y1={M.top + plotH} y2={M.top + plotH} stroke="rgba(255,255,255,0.14)" strokeWidth={1} shapeRendering="crispEdges" />
+          <line x1={M.left} x2={width - M.right} y1={M.top + plotH} y2={M.top + plotH} className="stroke-white/[0.14]" strokeWidth={1} shapeRendering="crispEdges" />
           {empty && (
             <text x={M.left + plotW / 2} y={M.top + plotH / 2} textAnchor="middle" dominantBaseline="central" className="fill-ink-400 font-sans text-[13px]">
               {emptyLabel}

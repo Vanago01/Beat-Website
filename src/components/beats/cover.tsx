@@ -23,7 +23,7 @@ export function BeatCover({
   const src = coverUrl(path);
   if (src) {
     return (
-      <div className={cn("relative overflow-hidden bg-ink-800", className)}>
+      <div className={cn("force-dark relative overflow-hidden bg-ink-800", className)}>
         <Image
           src={src}
           alt={`${title} — cover art`}

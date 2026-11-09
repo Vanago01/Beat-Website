@@ -9,6 +9,7 @@ import { PlayerBar } from "@/components/player/player-bar";
 import { AudioEngine } from "@/components/player/audio-engine";
 import { LicenseModalHost } from "@/components/beats/license-modal";
 import { env } from "@/lib/env";
+import { APPEARANCE_SCRIPT } from "@/lib/appearance";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin", "latin-ext"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -38,7 +39,18 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${display.variable}`} data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${geist.variable} ${geistMono.variable} ${display.variable}`}
+      data-theme="dark"
+      data-accent="purple"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Applies the saved theme and colour before the first paint (no flash, pages stay static). */}
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_SCRIPT }} />
+      </head>
       <body className="grain min-h-dvh bg-ink-950 text-ink-50 antialiased">
         <div className="ambient" aria-hidden />
         <AppProviders>

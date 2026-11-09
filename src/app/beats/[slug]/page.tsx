@@ -93,9 +93,11 @@ async function BeatDetail({ params }: { params: PageProps<"/beats/[slug]">["para
 
       <div className="relative isolate overflow-hidden">
         {art && (
-          <div className="absolute inset-x-0 top-0 -z-10 h-[620px] opacity-40" aria-hidden>
+          <div
+            className="absolute inset-x-0 top-0 -z-10 h-[620px] overflow-hidden opacity-40 [mask-image:linear-gradient(to_bottom,black_35%,transparent)] light:opacity-30"
+            aria-hidden
+          >
             <div className="absolute inset-0 scale-125 blur-[110px] saturate-150" style={{ background: `url(${art}) center/cover` }} />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-ink-950/40 to-ink-950" />
           </div>
         )}
 
@@ -118,7 +120,7 @@ async function BeatDetail({ params }: { params: PageProps<"/beats/[slug]">["para
           <div className="grid gap-10 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:gap-14">
             <div className="lg:sticky lg:top-24 lg:self-start">
               <div className="relative">
-                <BeatCover path={beat.cover_path} title={beat.title} seed={beat.id} priority sizes="(max-width: 1024px) 92vw, 440px" className="aspect-square w-full rounded-[2rem] border border-white/[0.08] shadow-[0_50px_120px_-40px_rgba(0,0,0,0.95)]" />
+                <BeatCover path={beat.cover_path} title={beat.title} seed={beat.id} priority sizes="(max-width: 1024px) 92vw, 440px" className="aspect-square w-full rounded-[2rem] border border-white/[0.08] shadow-[0_50px_120px_-40px_color-mix(in_oklab,var(--color-shadow)_95%,transparent)]" />
                 {sold && (
                   <span className="glass absolute left-5 top-5 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-warning">
                     <Crown className="h-3.5 w-3.5" /> Sold exclusively

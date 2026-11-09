@@ -45,8 +45,8 @@ export function BeatCard({
         className={cn(
           "relative aspect-square overflow-hidden rounded-[1.35rem] border bg-ink-800 transition-all duration-500",
           active
-            ? "border-accent/50 shadow-[0_20px_60px_-25px_rgba(124,108,255,0.8)]"
-            : "border-white/[0.06] group-hover:border-white/[0.14] group-hover:shadow-[0_24px_60px_-30px_rgba(0,0,0,0.9)]",
+            ? "border-accent/50 shadow-[0_20px_60px_-25px_color-mix(in_oklab,var(--color-accent)_80%,transparent)]"
+            : "border-white/[0.06] group-hover:border-white/[0.14] group-hover:shadow-[0_24px_60px_-30px_color-mix(in_oklab,var(--color-shadow)_90%,transparent)]",
         )}
       >
         <Link href={`/beats/${beat.slug}`} className="absolute inset-0" aria-label={`${beat.title} by ${beat.producer_name}`}>

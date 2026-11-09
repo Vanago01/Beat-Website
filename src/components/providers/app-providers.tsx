@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "./auth-provider";
 import { CookieConsent } from "@/components/legal/cookie-consent";
+import { AppearanceSync } from "./appearance-sync";
+import { currentAppearance, subscribeAppearance } from "@/lib/appearance";
 import { useCart } from "@/stores/cart";
 import { useCurrency } from "@/stores/currency";
 
@@ -22,13 +24,15 @@ function StoreHydration() {
 }
 
 export function AppProviders({ children }: { children: ReactNode }) {
+  const theme = useSyncExternalStore(subscribeAppearance, () => currentAppearance().theme, () => "dark" as const);
   return (
     <AuthProvider>
+      <AppearanceSync />
       <StoreHydration />
       {children}
       <CookieConsent />
       <Toaster
-        theme="dark"
+        theme={theme}
         position="top-center"
         offset={84}
         toastOptions={{

@@ -21,7 +21,7 @@ export function LogoMark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-[28%] bg-gradient-to-br from-[#3d8bff] to-[#8b5cff] text-white shadow-[0_6px_20px_-6px_rgba(124,108,255,0.7)]",
+        "relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-[28%] bg-gradient-to-br from-electric to-accent text-on-accent shadow-[0_6px_20px_-6px_color-mix(in_oklab,var(--color-accent)_70%,transparent)]",
         className,
       )}
       aria-hidden

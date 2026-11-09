@@ -127,7 +127,7 @@ export function PlayerBar() {
         role="region"
         aria-label="Audio player"
       >
-        <div className="glass-strong relative overflow-hidden rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] md:rounded-[1.4rem]">
+        <div className="glass-strong relative overflow-hidden rounded-2xl shadow-[0_30px_80px_-20px_color-mix(in_oklab,var(--color-shadow)_90%,transparent)] md:rounded-[1.4rem]">
           <ProgressLine className="absolute inset-x-0 top-0 md:hidden" />
 
           {/* Mobile */}
@@ -179,7 +179,7 @@ export function PlayerBar() {
                   type="button"
                   onClick={() => toggle()}
                   aria-label={isPlaying ? "Pause" : "Play"}
-                  className="relative grid h-11 w-11 place-items-center rounded-full bg-white text-ink-950 shadow-[0_8px_26px_-8px_rgba(255,255,255,0.6)] transition hover:scale-105 active:scale-95"
+                  className="relative grid h-11 w-11 place-items-center rounded-full bg-white text-ink-950 shadow-[0_8px_26px_-8px_color-mix(in_oklab,var(--color-white)_60%,transparent)] transition hover:scale-105 active:scale-95"
                 >
                   {buffering && <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-accent" />}
                   <PlayIcon className={cn("h-[18px] w-[18px] fill-current", !isPlaying && "translate-x-[1px]")} />
@@ -199,10 +199,10 @@ export function PlayerBar() {
                 <button
                   type="button"
                   onClick={license}
-                  className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-accent-gradient px-4 text-[13px] font-semibold text-white shadow-[0_8px_24px_-10px_rgba(124,108,255,0.9)] transition hover:brightness-110"
+                  className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-accent-gradient px-4 text-[13px] font-semibold text-on-accent shadow-[0_8px_24px_-10px_color-mix(in_oklab,var(--color-accent)_90%,transparent)] transition hover:brightness-110"
                 >
                   <ShoppingBag className="h-3.5 w-3.5" />
-                  {current.min_price_eur === 0 ? "Free download" : <Price eur={current.min_price_eur} pln={current.min_price_pln} prefix="from" className="[&>span]:text-white/70" />}
+                  {current.min_price_eur === 0 ? "Free download" : <Price eur={current.min_price_eur} pln={current.min_price_pln} prefix="from" className="[&>span]:text-on-accent/70" />}
                 </button>
               )}
               <div className="hidden xl:block">
@@ -267,7 +267,7 @@ export function PlayerBar() {
                 setExpanded(false);
                 license();
               }}
-              className="mt-auto inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-accent-gradient font-semibold text-white"
+              className="mt-auto inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-accent-gradient font-semibold text-on-accent"
             >
               <ShoppingBag className="h-4 w-4" /> License this beat · <Price eur={current.min_price_eur} pln={current.min_price_pln} prefix="from" />
             </button>

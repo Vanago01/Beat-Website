@@ -7,9 +7,9 @@ const base =
 
 const variants = {
   primary:
-    "bg-white text-ink-950 hover:bg-ink-100 shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_10px_32px_-12px_rgba(255,255,255,0.45)]",
+    "bg-white text-ink-950 hover:bg-ink-100 shadow-[0_0_0_1px_color-mix(in_oklab,var(--color-white)_12%,transparent),0_10px_32px_-12px_color-mix(in_oklab,var(--color-white)_45%,transparent)]",
   accent:
-    "bg-accent-gradient text-white hover:brightness-110 shadow-[0_12px_40px_-12px_rgba(124,108,255,0.8)]",
+    "bg-accent-gradient text-on-accent hover:brightness-110 shadow-[0_12px_40px_-12px_color-mix(in_oklab,var(--color-accent)_80%,transparent)]",
   secondary: "glass text-ink-50 hover:bg-white/[0.08] hover:border-white/15",
   outline: "border border-white/15 text-ink-50 hover:border-white/30 hover:bg-white/[0.04]",
   ghost: "text-ink-200 hover:bg-white/[0.06] hover:text-ink-50",

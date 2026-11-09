@@ -197,7 +197,7 @@ export function ReviewsSection({ beatId, initial, ratingAvg, ratingCount }: { be
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="font-display text-2xl font-bold tracking-tight">Reviews</h2>
-          <p className="mt-1 flex items-center gap-2 text-sm text-ink-300">
+          <div className="mt-1 flex items-center gap-2 text-sm text-ink-300">
             {ratingCount > 0 ? (
               <>
                 <Stars value={Math.round(ratingAvg ?? 0)} size="sm" />
@@ -206,7 +206,7 @@ export function ReviewsSection({ beatId, initial, ratingAvg, ratingCount }: { be
             ) : (
               "No reviews yet — only verified buyers can review."
             )}
-          </p>
+          </div>
         </div>
       </div>
 

@@ -7,9 +7,13 @@ import { cn } from "@/lib/utils";
 const CX = 110;
 const CY = 110;
 
+// Rounded so the server and the browser produce identical SVG paths (their
+// Math.sin/cos can differ in the last digits, which breaks hydration).
+const round = (n: number) => Math.round(n * 1000) / 1000;
+
 function point(r: number, deg: number) {
   const rad = (deg * Math.PI) / 180;
-  return [CX + r * Math.cos(rad), CY + r * Math.sin(rad)] as const;
+  return [round(CX + r * Math.cos(rad)), round(CY + r * Math.sin(rad))] as const;
 }
 
 function sector(r0: number, r1: number, a0: number, a1: number) {
@@ -40,8 +44,8 @@ export function KeyWheel({ value, onChange }: { value: number[]; onChange: (grou
       <svg viewBox="0 0 220 220" className="w-full max-w-[260px] select-none" role="group" aria-label="Musical key">
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#998cff" />
-            <stop offset="100%" stopColor="#4f42cf" />
+            <stop offset="0%" style={{ stopColor: "var(--color-accent-400)" }} />
+            <stop offset="100%" style={{ stopColor: "var(--color-accent-700)" }} />
           </linearGradient>
         </defs>
         {CIRCLE_OF_FIFTHS.map((group, i) => {
@@ -73,30 +77,28 @@ export function KeyWheel({ value, onChange }: { value: number[]; onChange: (grou
                 d={sector(66, 106, a0, a1)}
                 style={on ? { fill: `url(#${gradientId})` } : undefined}
                 className={cn(
-                  "transition-all duration-200",
+                  "stroke-white/[0.08] transition-all duration-200",
                   !on && "fill-white/[0.04] group-hover/key:fill-white/[0.12] group-focus-visible/key:fill-white/[0.16]",
                 )}
-                stroke="rgba(255,255,255,0.08)"
               />
               <path
                 d={sector(38, 64, a0, a1)}
                 className={cn(
-                  "transition-all duration-200",
+                  "stroke-white/[0.06] transition-all duration-200",
                   on ? "fill-accent-700/90" : "fill-white/[0.02] group-hover/key:fill-white/[0.08] group-focus-visible/key:fill-white/[0.12]",
                 )}
-                stroke="rgba(255,255,255,0.06)"
               />
-              <text x={mx} y={my} textAnchor="middle" dominantBaseline="central" className={cn("font-display text-[13px] font-bold", on ? "fill-white" : "fill-ink-100")}>
+              <text x={mx} y={my} textAnchor="middle" dominantBaseline="central" className={cn("font-display text-[13px] font-bold", on ? "fill-on-accent" : "fill-ink-100")}>
                 {k.major}
               </text>
-              <text x={nx} y={ny} textAnchor="middle" dominantBaseline="central" className={cn("font-mono text-[8.5px]", on ? "fill-white" : "fill-ink-300")}>
+              <text x={nx} y={ny} textAnchor="middle" dominantBaseline="central" className={cn("font-mono text-[8.5px]", on ? "fill-on-accent" : "fill-ink-300")}>
                 {k.minor}m
               </text>
             </g>
           );
         })}
-        <circle cx={CX} cy={CY} r="34" className="fill-ink-900" stroke="rgba(255,255,255,0.08)" />
-        <text x={CX} y={CY - 5} textAnchor="middle" dominantBaseline="central" className="fill-white font-display text-[15px] font-bold">
+        <circle cx={CX} cy={CY} r="34" className="fill-ink-900 stroke-white/[0.08]" />
+        <text x={CX} y={CY - 5} textAnchor="middle" dominantBaseline="central" className="fill-ink-50 font-display text-[15px] font-bold">
           {value.length || "Any"}
         </text>
         <text x={CX} y={CY + 10} textAnchor="middle" dominantBaseline="central" className="fill-ink-400 font-mono text-[7px] uppercase tracking-widest">

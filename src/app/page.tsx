@@ -40,7 +40,7 @@ export default async function HomePage() {
       {!hasBeats && (
         <Section className="mt-20">
           <div className="glass relative overflow-hidden rounded-[2rem] p-10 text-center md:p-16">
-            <div className="absolute inset-0 -z-10 opacity-50 [background:radial-gradient(circle_at_50%_0%,rgba(124,108,255,0.35),transparent_60%)]" />
+            <div className="absolute inset-0 -z-10 opacity-50 [background:radial-gradient(circle_at_50%_0%,color-mix(in_oklab,var(--color-accent)_35%,transparent),transparent_60%)]" />
             <Upload className="mx-auto h-8 w-8 text-accent-300" />
             <h2 className="mt-5 font-display text-3xl font-bold tracking-tight md:text-5xl">Be the first sound on the platform.</h2>
             <p className="mx-auto mt-4 max-w-lg text-ink-300">

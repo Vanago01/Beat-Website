@@ -53,7 +53,7 @@ async function LibraryList({ highlight }: { highlight?: string }) {
             id={p.id}
             className={cn(
               "glass flex flex-col gap-5 rounded-3xl p-4 md:flex-row md:items-center md:p-5",
-              highlight === p.id && "border-accent/50 shadow-[0_0_0_4px_rgba(124,108,255,0.15)]",
+              highlight === p.id && "border-accent/50 shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-accent)_15%,transparent)]",
               revoked && "opacity-60",
             )}
           >

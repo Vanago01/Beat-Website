@@ -24,15 +24,15 @@ function HeroBackdrop() {
   });
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden>
-      <div className="absolute left-1/2 top-[-18%] h-[46rem] w-[46rem] -translate-x-1/2 rounded-full opacity-[0.35] blur-3xl [background:conic-gradient(from_180deg,#7c6cff,#3d8bff,#050507,#7c6cff)] animate-spin-slow lg:left-[68%]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent_0%,#050507_72%)]" />
-      <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,0.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.6)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_70%)]" />
+      <div className="absolute left-1/2 top-[-18%] h-[46rem] w-[46rem] -translate-x-1/2 rounded-full opacity-[0.35] blur-3xl [background:conic-gradient(from_180deg,var(--color-accent),var(--color-electric),var(--color-ink-950),var(--color-accent))] animate-spin-slow lg:left-[68%]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent_0%,var(--color-ink-950)_72%)]" />
+      <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(color-mix(in_oklab,var(--color-white)_60%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_oklab,var(--color-white)_60%,transparent)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_70%)]" />
       <svg viewBox="0 0 960 120" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 h-28 w-full opacity-[0.22]">
         <defs>
           <linearGradient id="hero-bars" x1="0" x2="1">
-            <stop offset="0" stopColor="#7c6cff" stopOpacity="0" />
-            <stop offset="0.5" stopColor="#b7aeff" />
-            <stop offset="1" stopColor="#3d8bff" stopOpacity="0" />
+            <stop offset="0" style={{ stopColor: "var(--color-accent)" }} stopOpacity="0" />
+            <stop offset="0.5" style={{ stopColor: "var(--color-accent-300)" }} />
+            <stop offset="1" style={{ stopColor: "var(--color-electric)" }} stopOpacity="0" />
           </linearGradient>
         </defs>
         {bars.map((h, i) => (
@@ -75,7 +75,7 @@ export function Hero({
           </p>
 
           <Form action="/beats" className="mt-9 max-w-xl">
-            <div className="glass flex items-center gap-2 rounded-full p-1.5 pl-5 shadow-[0_20px_60px_-25px_rgba(124,108,255,0.6)] transition focus-within:border-accent/50 focus-within:ring-4 focus-within:ring-accent/15">
+            <div className="glass flex items-center gap-2 rounded-full p-1.5 pl-5 shadow-[0_20px_60px_-25px_color-mix(in_oklab,var(--color-accent)_60%,transparent)] transition focus-within:border-accent/50 focus-within:ring-4 focus-within:ring-accent/15">
               <Search className="h-5 w-5 shrink-0 text-ink-300" />
               <input
                 name="q"
@@ -127,11 +127,11 @@ export function Hero({
             <FeaturedBeat beat={featured} queue={queue} label={featured.is_featured ? "Featured beat" : "Trending now"} />
           ) : (
             <div className="glass-strong relative grid aspect-[4/5] place-items-center overflow-hidden rounded-[2rem] p-10 text-center">
-              <div className="absolute inset-0 opacity-40 [background:radial-gradient(circle_at_50%_35%,rgba(124,108,255,0.55),transparent_60%)]" />
+              <div className="absolute inset-0 opacity-40 [background:radial-gradient(circle_at_50%_35%,color-mix(in_oklab,var(--color-accent)_55%,transparent),transparent_60%)]" />
               <div className="relative">
                 <div className="mx-auto mb-8 grid h-40 w-40 place-items-center rounded-full border border-white/10">
                   <div className="grid h-28 w-28 place-items-center rounded-full border border-white/10">
-                    <div className="h-14 w-14 animate-float rounded-full bg-white shadow-[0_0_60px_rgba(255,255,255,0.4)]" />
+                    <div className="h-14 w-14 animate-float rounded-full bg-white shadow-[0_0_60px_color-mix(in_oklab,var(--color-white)_40%,transparent)]" />
                   </div>
                 </div>
                 <p className="font-display text-2xl font-bold">The stage is set.</p>

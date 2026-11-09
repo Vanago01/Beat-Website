@@ -110,7 +110,7 @@ export function Waveform({
     <svg viewBox={`0 0 ${width} 100`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
       {data.map((v, i) => {
         const h = v * 100;
-        return <rect key={i} x={i * 4} y={(100 - h) / 2} width={barW} height={h} rx={1} fill={fill} />;
+        return <rect key={i} x={i * 4} y={(100 - h) / 2} width={barW} height={h} rx={1} style={{ fill }} />;
       })}
     </svg>
   );
@@ -147,14 +147,14 @@ export function Waveform({
       onPointerLeave={() => setHover(null)}
       onClick={(e) => e.stopPropagation()}
     >
-      {svg("rgb(255 255 255 / 0.16)")}
+      {svg("color-mix(in oklab, var(--color-white) 16%, transparent)")}
       <div className="absolute inset-0" style={{ clipPath: "inset(0 calc((1 - var(--p)) * 100%) 0 0)" }}>
         <svg viewBox={`0 0 ${width} 100`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
           <defs>
             <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0%" stopColor="#b7aeff" />
-              <stop offset="55%" stopColor="#7c6cff" />
-              <stop offset="100%" stopColor="#ffffff" />
+              <stop offset="0%" style={{ stopColor: "var(--color-accent-300)" }} />
+              <stop offset="55%" style={{ stopColor: "var(--color-accent)" }} />
+              <stop offset="100%" style={{ stopColor: "var(--color-white)" }} />
             </linearGradient>
           </defs>
           {data.map((v, i) => {

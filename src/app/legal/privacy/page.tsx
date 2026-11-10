@@ -29,8 +29,8 @@ export default function PrivacyPage() {
       <p>Under the GDPR you may request access to, correction or deletion of your personal data, and object to certain processing. Profile data can be edited at any time from your account.</p>
       <h2>Cookies</h2>
       <p>
-        We use necessary cookies and local storage to keep you signed in, protect your account and remember your cart. Preferences such as your display
-        currency are only stored with your consent. We don&apos;t use advertising or tracking cookies. See the <Link href="/legal/cookies">cookie policy</Link> for the full list
+        We use necessary cookies and local storage to keep you signed in, protect your account, remember your cart and the currency or look you
+        pick. Preferences such as the player volume are only stored with your consent. We don&apos;t use advertising or tracking cookies. See the <Link href="/legal/cookies">cookie policy</Link> for the full list
         and to change your choice.
       </p>
     </LegalPage>

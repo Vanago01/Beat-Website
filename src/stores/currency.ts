@@ -1,9 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import type { Currency } from "@/lib/constants";
-import { PREFERENCE_KEYS, preferenceStorage } from "@/lib/consent";
+import { CURRENCY_KEY } from "@/lib/consent";
 
 interface CurrencyState {
   currency: Currency;
@@ -11,7 +11,30 @@ interface CurrencyState {
   setCurrency: (c: Currency) => void;
 }
 
-// Remembered on this device only if the visitor allowed preference cookies.
+/**
+ * Remembered on this device once the visitor picks a currency themselves
+ * (like the theme). The automatic first-visit guess is never stored.
+ */
+const choiceStorage: StateStorage = {
+  getItem: (name) => {
+    try {
+      return window.localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name, value) => {
+    try {
+      if ((JSON.parse(value) as { state?: { chosen?: boolean } }).state?.chosen) window.localStorage.setItem(name, value);
+    } catch {}
+  },
+  removeItem: (name) => {
+    try {
+      window.localStorage.removeItem(name);
+    } catch {}
+  },
+};
+
 export const useCurrency = create<CurrencyState>()(
   persist(
     (set) => ({
@@ -19,6 +42,6 @@ export const useCurrency = create<CurrencyState>()(
       chosen: false,
       setCurrency: (currency) => set({ currency, chosen: true }),
     }),
-    { name: PREFERENCE_KEYS.currency, version: 1, skipHydration: true, storage: createJSONStorage(() => preferenceStorage) },
+    { name: CURRENCY_KEY, version: 1, skipHydration: true, storage: createJSONStorage(() => choiceStorage) },
   ),
 );

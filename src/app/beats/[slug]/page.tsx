@@ -10,6 +10,7 @@ import { BeatCard } from "@/components/beats/beat-card";
 import { BeatHeroPlayer, BeatLicenses, ReviewsSection, ShareButtons } from "@/components/beats/beat-detail-client";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageButton } from "@/components/messages/message-button";
+import { CurrencySwitch } from "@/components/layout/currency-switch";
 import { Badge, SectionHeading, Skeleton } from "@/components/ui/misc";
 import { coverUrl } from "@/lib/storage";
 import { env } from "@/lib/env";
@@ -200,7 +201,10 @@ async function BeatDetail({ params }: { params: PageProps<"/beats/[slug]">["para
               </div>
 
               <section className="mt-10" id="licenses">
-                <h2 className="mb-5 font-display text-2xl font-bold tracking-tight">Licensing</h2>
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="font-display text-2xl font-bold tracking-tight">Licensing</h2>
+                  <CurrencySwitch />
+                </div>
                 <BeatLicenses beat={beat} licenses={licenses} />
               </section>
 

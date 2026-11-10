@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LegalPage } from "@/components/layout/prose";
 import { CookieSettingsButton } from "@/components/legal/cookie-consent";
 import { authCookieName, env } from "@/lib/env";
-import { CONSENT_COOKIE, PREFERENCE_KEYS } from "@/lib/consent";
+import { CONSENT_COOKIE, CURRENCY_KEY, PREFERENCE_KEYS } from "@/lib/consent";
 import { ACCENT_KEY, THEME_KEY } from "@/lib/appearance";
 
 export const metadata: Metadata = { title: "Cookie policy" };
@@ -15,7 +15,7 @@ const ROWS: { name: string; kind: string; purpose: string; category: string; dur
   { name: "nw-cart", kind: "Local storage", purpose: "Keeps the beats in your cart.", category: "Necessary", duration: "Until you empty the cart or clear site data" },
   { name: THEME_KEY, kind: "Local storage", purpose: "Remembers the theme (dark or light) you picked in Settings. Only stored when you choose one.", category: "Necessary", duration: "Until you change it or clear site data" },
   { name: ACCENT_KEY, kind: "Local storage", purpose: "Remembers the colour you picked in Settings. Only stored when you choose one.", category: "Necessary", duration: "Until you change it or clear site data" },
-  { name: PREFERENCE_KEYS.currency, kind: "Local storage", purpose: "Remembers your display currency (EUR, PLN or USD).", category: "Preferences", duration: "Until you withdraw consent or clear site data" },
+  { name: CURRENCY_KEY, kind: "Local storage", purpose: "Remembers the display currency you picked (EUR, PLN or USD). Only stored when you choose one.", category: "Necessary", duration: "Until you change it or clear site data" },
   { name: PREFERENCE_KEYS.volume, kind: "Local storage", purpose: "Remembers the player volume.", category: "Preferences", duration: "Until you withdraw consent or clear site data" },
   { name: PREFERENCE_KEYS.exploreView, kind: "Local storage", purpose: "Remembers grid or list view on Explore.", category: "Preferences", duration: "Until you withdraw consent or clear site data" },
 ];

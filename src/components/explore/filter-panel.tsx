@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { RangeSlider } from "./range-slider";
+import { CurrencySwitch } from "@/components/layout/currency-switch";
 import { KeyWheel } from "./key-wheel";
 import { Chip, Switch } from "@/components/ui/controls";
 import { BPM_MAX, BPM_MIN, MOODS, type Currency } from "@/lib/constants";
@@ -151,7 +152,10 @@ export function FilterPanel({
           minLabel="Minimum price"
           maxLabel="Maximum price"
         />
-        <p className="mt-3 text-[11px] text-ink-500">Lowest available license price, in {currency.toUpperCase()}.</p>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-[11px] leading-snug text-ink-500">Lowest license price</p>
+          <CurrencySwitch />
+        </div>
         <div className="mt-5 space-y-3.5">
           <label className="flex cursor-pointer items-center justify-between gap-3">
             <span>

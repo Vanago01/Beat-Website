@@ -9,7 +9,6 @@ import { Switch } from "@/components/ui/controls";
 import { Modal } from "@/components/ui/overlay";
 import { env } from "@/lib/env";
 import { CONSENT_EVENT, PREFERENCE_KEYS, readConsent, savePreference, writeConsent, type Consent } from "@/lib/consent";
-import { useCurrency } from "@/stores/currency";
 import { usePlayer } from "@/stores/player";
 
 const useCookieDialog = create<{ open: boolean; show: () => void; hide: () => void }>((set) => ({
@@ -30,8 +29,6 @@ export function CookieSettingsButton({ className, children = "Cookie settings" }
 
 /** Once preferences are allowed, keep what the visitor already picked. */
 function rememberCurrentPreferences() {
-  const { currency, chosen, setCurrency } = useCurrency.getState();
-  if (chosen) setCurrency(currency);
   savePreference(PREFERENCE_KEYS.volume, String(usePlayer.getState().volume));
 }
 
@@ -86,7 +83,7 @@ export function CookieConsent() {
                 <h2 className="font-display text-base font-bold tracking-tight">Cookies on {env.siteName}</h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-ink-300">
                   We use necessary cookies to keep you signed in, protect your account and remember your cart. With your
-                  permission we also remember preferences like your currency and player volume. No advertising or tracking
+                  permission we also remember preferences like your player volume. No advertising or tracking
                   cookies.{" "}
                   <Link href="/legal/cookies" className="text-white underline underline-offset-4 hover:text-accent-200">
                     Cookie policy
@@ -128,12 +125,12 @@ export function CookieConsent() {
         <div className="space-y-3">
           <Category
             title="Necessary"
-            description="Sign-in, account security, your cart and this cookie choice. The site can't work without them, so they're always on."
+            description="Sign-in, account security, your cart, this cookie choice, and the currency and look you pick. The site can't work without them, so they're always on."
             control={<Switch checked onChange={() => {}} disabled label="Necessary cookies, always on" />}
           />
           <Category
             title="Preferences"
-            description="Remembers your display currency, player volume and grid or list view on this device."
+            description="Remembers your player volume and grid or list view on this device."
             control={<Switch checked={preferences} onChange={setPreferences} label="Preference cookies" />}
           />
           <p className="pt-1 text-xs leading-relaxed text-ink-400">

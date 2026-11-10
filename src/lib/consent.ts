@@ -4,9 +4,11 @@ import type { StateStorage } from "zustand/middleware";
  * Cookie consent (EU ePrivacy / GDPR, Polish Electronic Communications Law).
  *
  * Necessary storage (sign-in session, security, cart, this choice) is always
- * allowed. "Preferences" (display currency, player volume, grid/list view) is
- * only written to the device after the visitor allows it. The site uses no
- * advertising or tracking cookies.
+ * allowed, and so are settings the visitor picks on purpose (display currency,
+ * theme): they are only stored once chosen, to show the site the way it was
+ * asked for. "Preferences" (player volume, grid/list view) are only written to
+ * the device after the visitor allows it. The site uses no advertising or
+ * tracking cookies.
  */
 export const CONSENT_COOKIE = "vb-consent";
 const CONSENT_VERSION = 1;
@@ -14,7 +16,10 @@ const CONSENT_MAX_AGE = 60 * 60 * 24 * 365; // 12 months
 export const CONSENT_EVENT = "vb-consent-change";
 
 /** Local-storage keys that are only kept while "preferences" is allowed. */
-export const PREFERENCE_KEYS = { currency: "nw-currency", volume: "nw-volume", exploreView: "nw-explore-view" } as const;
+export const PREFERENCE_KEYS = { volume: "nw-volume", exploreView: "nw-explore-view" } as const;
+
+/** Stored only when the visitor picks it themselves (necessary for showing their choice). */
+export const CURRENCY_KEY = "nw-currency";
 
 export interface Consent {
   preferences: boolean;

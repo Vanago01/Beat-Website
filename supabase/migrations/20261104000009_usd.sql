@@ -14,6 +14,12 @@
 -- Run after files 1–8. Safe to run more than once.
 -- =============================================================================
 
+-- The SQL editor runs this whole file as one transaction. Check the "beat is
+-- complete" rules after each statement instead of at the very end, so the
+-- license table can still be changed after its rows are updated below
+-- (otherwise: "cannot ALTER TABLE because it has pending trigger events").
+set constraints all immediate;
+
 -- --------------------------------------------------------------- currency --
 alter type public.currency_code add value if not exists 'usd';
 

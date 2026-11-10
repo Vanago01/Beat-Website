@@ -73,16 +73,27 @@ export async function transferOrderShare(opts: {
     { idempotencyKey: opts.idempotencyKey },
   );
 
-  const admin = createSupabaseAdminClient();
-  const paidAt = new Date().toISOString();
-  for (const p of parts) {
-    await admin
-      .from("seller_earnings")
-      .update({ status: "paid", stripe_transfer_id: transfer.id, paid_at: paidAt, transfer_amount: p.amount, transfer_currency: p.currency })
-      .eq("id", p.id)
-      .eq("status", "pending");
-  }
+  for (const p of parts) await recordTransfer([p.id], transfer.id, { amount: p.amount, currency: p.currency });
   return { amount, currency };
+}
+
+/**
+ * Marks earnings as paid by a transfer, with what was actually sent. If the
+ * database doesn't have the transfer columns yet (update 9 not installed), it
+ * still records the payout without them: an earning that looks unpaid after
+ * a successful transfer could otherwise be paid out a second time.
+ */
+async function recordTransfer(ids: string[], transferId: string, sent: { amount: number | null; currency: string }) {
+  const admin = createSupabaseAdminClient();
+  const paid = { status: "paid" as const, stripe_transfer_id: transferId, paid_at: new Date().toISOString() };
+  const { error } = await admin
+    .from("seller_earnings")
+    .update({ ...paid, transfer_amount: sent.amount, transfer_currency: sent.currency })
+    .in("id", ids)
+    .eq("status", "pending");
+  if (!error) return;
+  const retry = await admin.from("seller_earnings").update(paid).in("id", ids).eq("status", "pending");
+  if (retry.error) console.error(`[payouts] transfer ${transferId} succeeded but could not be recorded`, retry.error);
 }
 
 /**
@@ -134,11 +145,7 @@ export async function payoutPendingEarnings(sellerId: string) {
           { amount, currency, destination: account.stripe_account_id, metadata: { seller_id: sellerId, order_id: orderId } },
           { idempotencyKey: `payout-${orderId}-${sellerId}-${key}` },
         );
-        await admin
-          .from("seller_earnings")
-          .update({ status: "paid", stripe_transfer_id: transfer.id, paid_at: new Date().toISOString(), transfer_amount: null, transfer_currency: currency })
-          .in("id", group.rows.map((r) => r.id))
-          .eq("status", "pending");
+        await recordTransfer(group.rows.map((r) => r.id), transfer.id, { amount: null, currency });
         paid.set(currency, (paid.get(currency) ?? 0) + amount);
       }
     } catch (err) {

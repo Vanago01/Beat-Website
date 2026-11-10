@@ -54,11 +54,12 @@ export function CartView() {
             <li key={i.beatId} className="glass flex items-center gap-4 rounded-3xl p-3 pr-5">
               <BeatCover path={i.coverPath} title={i.title} seed={i.beatId} className="h-20 w-20 shrink-0 rounded-2xl" sizes="80px" showTitle={false} />
               <div className="min-w-0 flex-1">
-                <Link href={`/beats/${i.slug}`} className="block truncate font-display text-lg font-bold hover:underline">
+                <Link href={i.kind === "pack" ? `/packs/${i.slug}` : `/beats/${i.slug}`} className="block truncate font-display text-lg font-bold hover:underline">
                   {i.title}
                 </Link>
                 <p className="truncate text-sm text-ink-300">prod. {i.producerName}</p>
                 <p className="mt-1 text-xs text-accent-300">
+                  {i.kind === "pack" && <>Beat pack · {i.beatsCount} beats · </>}
                   {i.licenseName} · {LICENSE_META[i.licenseType]?.files}
                 </p>
               </div>

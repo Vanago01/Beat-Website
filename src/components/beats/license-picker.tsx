@@ -15,6 +15,7 @@ import { claimFreeLicense, startCheckout } from "@/actions/checkout";
 import { licenseFiles, licenseHighlights } from "@/lib/licenses";
 import { cn } from "@/lib/utils";
 import type { BeatLicense } from "@/lib/types";
+import type { PackLicense } from "@/lib/packs";
 import type { LicenseType } from "@/lib/constants";
 import type { LicenseModalBeat } from "@/stores/license-modal";
 
@@ -24,12 +25,16 @@ export function LicensePicker({
   owned = [],
   onDone,
   compact,
+  pack,
 }: {
+  /** The beat — or, with `pack`, the beat pack — being licensed. */
   beat: LicenseModalBeat;
-  licenses: BeatLicense[];
+  licenses: (BeatLicense | PackLicense)[];
   owned?: LicenseType[];
   onDone?: () => void;
   compact?: boolean;
+  /** Licensing a beat pack: one license covers every beat in it. */
+  pack?: { beatsCount: number };
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,6 +51,7 @@ export function LicensePicker({
   const selected = sorted.find((l) => l.id === selectedId) ?? sorted[0];
 
   const isOwnBeat = !!user && !!beat.producer_id && user.id === beat.producer_id;
+  const kind = pack ? "pack" : "beat";
   const soldOut = !!beat.exclusive_sold_at;
 
   if (soldOut) {
@@ -59,7 +65,7 @@ export function LicensePicker({
   }
 
   if (!sorted.length) {
-    return <p className="text-sm text-ink-300">No licenses are available for this beat right now.</p>;
+    return <p className="text-sm text-ink-300">No licenses are available for this {kind} right now.</p>;
   }
 
   const requireLogin = () => {
@@ -70,6 +76,8 @@ export function LicensePicker({
   const addToCart = () => {
     if (!selected) return;
     add({
+      kind,
+      beatsCount: pack?.beatsCount,
       beatId: beat.id,
       licenseId: selected.id,
       licenseType: selected.type,
@@ -93,7 +101,9 @@ export function LicensePicker({
     if (!selected) return;
     if (!user) return requireLogin();
     startTransition(async () => {
-      const res = await startCheckout({ licenseIds: [selected.id], currency });
+      const res = await startCheckout(
+        pack ? { licenseIds: [], packLicenseIds: [selected.id], currency } : { licenseIds: [selected.id], currency },
+      );
       if (!res.ok) {
         toast.error("Checkout failed", { description: res.error });
         return;
@@ -197,7 +207,7 @@ export function LicensePicker({
 
       <div className="flex flex-col gap-2.5 sm:flex-row">
         {isOwnBeat ? (
-          <p className="w-full rounded-full border border-white/10 py-3 text-center text-sm text-ink-300">This is your beat</p>
+          <p className="w-full rounded-full border border-white/10 py-3 text-center text-sm text-ink-300">This is your {kind}</p>
         ) : selectedOwned ? (
           <Link href="/account/library" onClick={onDone} className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full" })}>
             <Download className="h-4 w-4" /> You own this license — open library

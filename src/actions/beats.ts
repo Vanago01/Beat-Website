@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BPM_MAX, BPM_MIN, LICENSE_ORDER, MAX_MOODS, isValidMood, normalizeMood } from "@/lib/constants";
 import type { ActionResult } from "@/lib/types";
+import { isPackCover } from "@/lib/storage";
 
 const path = z.string().max(512).nullable().optional();
 const limit = z.number().int().min(0).max(1_000_000_000).nullable();
@@ -133,7 +134,8 @@ export async function deleteBeat(id: string): Promise<ActionResult<{ archived: b
 
   // Best-effort file cleanup (RLS lets owners/admins remove their objects).
   await Promise.all([
-    beat.cover_path ? supabase.storage.from("covers").remove([beat.cover_path]) : null,
+    // A pack cover is shared with the pack and its other beats: keep it.
+    beat.cover_path && !isPackCover(beat.cover_path) ? supabase.storage.from("covers").remove([beat.cover_path]) : null,
     beat.preview_path ? supabase.storage.from("previews").remove([beat.preview_path]) : null,
     supabase.storage.from("beat-files").remove([beat.mp3_path, beat.wav_path, beat.stems_path].filter(Boolean) as string[]),
   ]);

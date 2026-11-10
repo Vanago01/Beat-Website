@@ -21,6 +21,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDuration } from "@/lib/format";
 import { BPM_MAX, BPM_MIN, DEFAULT_LICENSES, LICENSE_ORDER, NOTE_NAMES, type LicenseDraft, type PriceRates } from "@/lib/constants";
 import type { BeatLicense, BeatRow } from "@/lib/types";
+import { isPackCover } from "@/lib/storage";
 
 type Kind = "cover" | "preview" | "mp3" | "wav" | "stems";
 
@@ -32,7 +33,7 @@ const SPEC: Record<Kind, { bucket: Bucket; accept: string; max: number; types: R
   stems: { bucket: "beat-files", accept: ".zip,.rar,.7z,application/zip", max: 500 * 1024 ** 2, types: /\.(zip|rar|7z)$/i, label: "Stems" },
 };
 
-function mergeLicenses(saved: unknown, rates: PriceRates): LicenseDraft[] {
+export function mergeLicenses(saved: unknown, rates: PriceRates): LicenseDraft[] {
   const list = Array.isArray(saved) ? (saved as Partial<LicenseDraft>[]) : [];
   return LICENSE_ORDER.map((type) => {
     const base = DEFAULT_LICENSES.find((d) => d.type === type)!;
@@ -114,7 +115,8 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
   const discard = (kind: Kind) => {
     aborters.current[kind]?.abort();
     const current = files[kind];
-    if (current?.path) {
+    // A beat pack's cover is shared by the pack and its beats: never delete it from here.
+    if (current?.path && !isPackCover(current.path)) {
       if (current.existing) replaced.current.push({ bucket: SPEC[kind].bucket, path: current.path });
       else getSupabaseBrowserClient().storage.from(SPEC[kind].bucket).remove([current.path]).then(() => undefined);
     }

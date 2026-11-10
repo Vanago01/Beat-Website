@@ -34,7 +34,11 @@ export function useCheckout() {
       return;
     }
     startTransition(async () => {
-      const res = await startCheckout({ licenseIds: items.map((i) => i.licenseId), currency });
+      const res = await startCheckout({
+        licenseIds: items.filter((i) => i.kind !== "pack").map((i) => i.licenseId),
+        packLicenseIds: items.filter((i) => i.kind === "pack").map((i) => i.licenseId),
+        currency,
+      });
       if (!res.ok) {
         toast.error("Checkout failed", { description: res.error });
         return;
@@ -86,11 +90,14 @@ export function CartDrawer() {
               <li key={i.beatId} className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-2.5">
                 <BeatCover path={i.coverPath} title={i.title} seed={i.beatId} className="h-14 w-14 shrink-0 rounded-xl" sizes="56px" showTitle={false} />
                 <div className="min-w-0 flex-1">
-                  <Link href={`/beats/${i.slug}`} onClick={() => setOpen(false)} className="block truncate text-sm font-semibold hover:underline">
+                  <Link href={i.kind === "pack" ? `/packs/${i.slug}` : `/beats/${i.slug}`} onClick={() => setOpen(false)} className="block truncate text-sm font-semibold hover:underline">
                     {i.title}
                   </Link>
                   <p className="truncate text-xs text-ink-300">{i.producerName}</p>
-                  <p className="mt-1 text-xs text-accent-300">{i.licenseName}</p>
+                  <p className="mt-1 text-xs text-accent-300">
+                    {i.kind === "pack" ? `Beat pack · ${i.beatsCount ?? ""} beats · ` : ""}
+                    {i.licenseName}
+                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <span className="text-sm font-semibold tabular-nums">

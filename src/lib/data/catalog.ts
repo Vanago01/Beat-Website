@@ -5,6 +5,7 @@ import { createSupabasePublicClient } from "../supabase/public";
 import { DEFAULT_GENRES } from "../constants";
 import type { Database } from "../database.types";
 import type { BeatCard, BeatLicense, GenreStat, PlatformSettings, ProducerSummary, Profile, SearchResult } from "../types";
+import type { PackCardRow, PackLicense } from "../packs";
 
 export type SearchArgs = Database["public"]["Functions"]["search_beats"]["Args"];
 
@@ -157,4 +158,64 @@ export async function getProducers(query: string | null, limit = 24, offset = 0)
     p_offset: offset,
   });
   return ((data as unknown as SearchResult<ProducerSummary>) ?? EMPTY) as SearchResult<ProducerSummary>;
+}
+
+// ------------------------------------------------------------- beat packs ---
+
+export interface PublicPack {
+  pack: PackCardRow;
+  licenses: PackLicense[];
+  /** The beats in the pack, in the producer's order. */
+  beats: BeatCard[];
+  /** Each beat's own license prices, to show what the pack saves. */
+  beatLicenses: Pick<BeatLicense, "beat_id" | "type" | "price_eur" | "price_pln" | "price_usd">[];
+  producer: Pick<Profile, "id" | "username" | "producer_name" | "display_name" | "avatar_path" | "is_verified">;
+}
+
+/** Published packs whose beats are all available, newest first. */
+export async function getPublishedPacks(limit = 24, producerId?: string): Promise<PackCardRow[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("packs", "beats");
+  let query = createSupabasePublicClient()
+    .from("pack_cards")
+    .select("*")
+    .eq("status", "published")
+    .eq("available", true)
+    .order("published_at", { ascending: false })
+    .limit(limit);
+  if (producerId) query = query.eq("producer_id", producerId);
+  const { data } = await query;
+  return data ?? [];
+}
+
+export async function getPublicPack(slug: string): Promise<PublicPack | null> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("packs", "beats", `pack:${slug}`);
+
+  const supabase = createSupabasePublicClient();
+  const { data: pack } = await supabase.from("pack_cards").select("*").eq("slug", slug).eq("status", "published").maybeSingle();
+  if (!pack?.id || !pack.producer_id) return null;
+
+  const [{ data: items }, { data: licenses }, { data: producer }] = await Promise.all([
+    supabase.from("beat_pack_items").select("beat_id, position").eq("pack_id", pack.id).order("position"),
+    supabase.from("beat_pack_licenses").select("*").eq("pack_id", pack.id).eq("enabled", true).order("sort_order"),
+    supabase.from("profiles").select("id, username, producer_name, display_name, avatar_path, is_verified").eq("id", pack.producer_id).maybeSingle(),
+  ]);
+  if (!producer) return null;
+
+  const ids = (items ?? []).map((i) => i.beat_id);
+  const [cards, beatLicenses] = ids.length
+    ? await Promise.all([
+        supabase.from("beat_cards").select("*").in("id", ids),
+        supabase.from("beat_licenses").select("beat_id, type, price_eur, price_pln, price_usd").in("beat_id", ids).eq("enabled", true),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const order = new Map(ids.map((id, i) => [id, i]));
+  const beats = (cards.data ?? [])
+    .map(({ search_vector: _sv, ...card }) => card as unknown as BeatCard)
+    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+
+  return { pack, licenses: licenses ?? [], beats, beatLicenses: beatLicenses.data ?? [], producer };
 }

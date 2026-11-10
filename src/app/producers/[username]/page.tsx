@@ -3,7 +3,8 @@ import { Suspense } from "react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { BadgeCheck, CalendarDays, MapPin } from "lucide-react";
-import { getPublicProducer, searchBeatsCached } from "@/lib/data/catalog";
+import { getPublicProducer, getPublishedPacks, searchBeatsCached } from "@/lib/data/catalog";
+import { PackCard } from "@/components/packs/pack-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/misc";
 import { SocialIcon } from "@/components/layout/social-icon";
@@ -45,7 +46,7 @@ async function Producer({ params }: { params: PageProps<"/producers/[username]">
   if (!data) notFound();
   const { profile: p, stats } = data;
   const name = p.producer_name || p.display_name || p.username;
-  const beats = await searchBeatsCached({ p_producer_id: p.id, p_sort: "newest", p_limit: 24 });
+  const [beats, packs] = await Promise.all([searchBeatsCached({ p_producer_id: p.id, p_sort: "newest", p_limit: 24 }), getPublishedPacks(12, p.id)]);
   const socials = (p.social_links ?? {}) as Record<string, unknown>;
   const links = SOCIAL_FIELDS.map((f) => ({ ...f, url: safeUrl(socials[f.key]) })).filter((l) => l.url);
   const banner = p.banner_path ? avatarUrl(p.banner_path) : null;
@@ -119,7 +120,19 @@ async function Producer({ params }: { params: PageProps<"/producers/[username]">
               </div>
             )}
           </aside>
-          <ProducerBeats producerId={p.id} initial={beats} />
+          <div className="min-w-0 space-y-12">
+            {packs.length > 0 && (
+              <section>
+                <h2 className="mb-5 font-display text-2xl font-bold tracking-tight">Beat packs</h2>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 xl:grid-cols-4">
+                  {packs.map((pk) => (
+                    <PackCard key={pk.id} pack={pk} />
+                  ))}
+                </div>
+              </section>
+            )}
+            <ProducerBeats producerId={p.id} initial={beats} />
+          </div>
         </div>
       </div>
     </>

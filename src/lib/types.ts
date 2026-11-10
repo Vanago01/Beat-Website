@@ -86,6 +86,9 @@ export interface GenreStat {
 }
 
 export interface CartItem {
+  /** A single beat (default) or a beat pack. */
+  kind?: "beat" | "pack";
+  /** The beat's id, or the pack's id for a pack. One license per beat or pack. */
   beatId: string;
   licenseId: string;
   licenseType: LicenseType;
@@ -98,6 +101,8 @@ export interface CartItem {
   slug: string;
   coverPath: string | null;
   producerName: string;
+  /** Packs only. */
+  beatsCount?: number;
   addedAt: number;
 }
 
@@ -128,6 +133,10 @@ export interface LicenseSnapshot {
   currency: Currency;
   purchased_at?: string;
   order_number?: number;
+  /** Bought as part of a beat pack. */
+  pack_title?: string;
+  pack_slug?: string;
+  pack_beats?: number;
 }
 
 export type ActionResult<T = undefined> =

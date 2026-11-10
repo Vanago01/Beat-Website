@@ -674,4 +674,203 @@ select test.ok((public.apply_order_refund(:'rev_order', 1000) -> 'transfers_to_r
   'refunds reverse the converted amount that was transferred');
 rollback;
 
+-- ---------------------------------------------------------------------------
+-- Beat packs
+-- (some checks below run as the server's service role)
+grant usage on schema test to service_role;
+grant execute on function test.ok(boolean, text) to service_role;
+
+-- 34. Seller B uploads two beats (the second without a WAV); an admin approves them.
+begin;
+select test.act_as(:'sb');
+select (public.save_beat(
+  jsonb_build_object('id', '55555555-5555-4555-8555-555555555551', 'title', 'Pack One', 'genre', 'trap', 'bpm', 140,
+    'key_note', 0, 'key_mode', 'minor',
+    'preview_path', :'sb' || '/55555555-5555-4555-8555-555555555551/preview.mp3',
+    'mp3_path', :'sb' || '/55555555-5555-4555-8555-555555555551/full.mp3',
+    'wav_path', :'sb' || '/55555555-5555-4555-8555-555555555551/full.wav'),
+  jsonb_build_array(jsonb_build_object('type', 'basic', 'name', 'Basic', 'price_eur', 2999, 'price_pln', 12900, 'price_usd', 3499, 'includes_mp3', true)),
+  'published')).status as pb1 \gset
+select (public.save_beat(
+  jsonb_build_object('id', '55555555-5555-4555-8555-555555555552', 'title', 'Pack Two', 'genre', 'drill', 'bpm', 142,
+    'key_note', 2, 'key_mode', 'minor',
+    'preview_path', :'sb' || '/55555555-5555-4555-8555-555555555552/preview.mp3',
+    'mp3_path', :'sb' || '/55555555-5555-4555-8555-555555555552/full.mp3'),
+  jsonb_build_array(jsonb_build_object('type', 'basic', 'name', 'Basic', 'price_eur', 2999, 'price_pln', 12900, 'price_usd', 3499, 'includes_mp3', true)),
+  'published')).status as pb2 \gset
+commit;
+begin;
+select test.act_as(:'owner', 'aal2');
+update public.beats set status = 'published'
+where id in ('55555555-5555-4555-8555-555555555551', '55555555-5555-4555-8555-555555555552');
+commit;
+select test.ok(:'pb1' = 'pending' and (select count(*) = 2 from public.beats
+  where id in ('55555555-5555-4555-8555-555555555551', '55555555-5555-4555-8555-555555555552') and status = 'published'),
+  'pack test beats are live after review');
+
+-- 35. A pack from a seller's own beats goes to review, and its cover is used for every beat.
+begin;
+select test.act_as(:'sb');
+select (public.save_pack(
+  jsonb_build_object('id', '66666666-6666-4666-8666-666666666666', 'title', 'Night Pack', 'description', 'Two dark beats',
+    'cover_path', :'sb' || '/packs/66666666-6666-4666-8666-666666666666/cover.jpg'),
+  array['55555555-5555-4555-8555-555555555551', '55555555-5555-4555-8555-555555555552']::uuid[],
+  jsonb_build_array(jsonb_build_object('type', 'basic', 'name', 'Basic MP3 (pack)', 'price_eur', 4999, 'price_pln', 21900,
+    'price_usd', 5999, 'includes_mp3', true)),
+  'published', true)).status as pack_status \gset
+commit;
+select test.ok(:'pack_status' = 'pending', 'publishing a pack sends it to review when approval is on');
+select test.ok((select count(*) = 2 from public.beats
+  where id in ('55555555-5555-4555-8555-555555555551', '55555555-5555-4555-8555-555555555552')
+    and cover_path = :'sb' || '/packs/66666666-6666-4666-8666-666666666666/cover.jpg'), 'the pack cover is used for every beat in it');
+begin;
+select test.act_as(null);
+select test.ok((select count(*) = 0 from public.pack_cards), 'packs in review are hidden from visitors');
+rollback;
+
+-- 36. Packs only contain the producer's own beats, at least 2, with the files their licenses promise.
+begin;
+select test.act_as(:'sb');
+set constraints all immediate;
+do $$ begin
+  perform public.save_pack(jsonb_build_object('title', 'Borrowed'),
+    array['11111111-1111-4111-8111-111111111111', '55555555-5555-4555-8555-555555555551']::uuid[], '[]'::jsonb, 'draft', false);
+  perform test.ok(false, 'a pack cannot contain another producer''s beat');
+exception when insufficient_privilege then
+  perform test.ok(true, 'a pack cannot contain another producer''s beat');
+end $$;
+do $$ begin
+  perform public.save_pack(jsonb_build_object('title', 'Solo'), array['55555555-5555-4555-8555-555555555551']::uuid[],
+    jsonb_build_array(jsonb_build_object('type', 'basic', 'name', 'Basic', 'price_eur', 999, 'price_pln', 3900, 'price_usd', 1199, 'includes_mp3', true)),
+    'published', false);
+  perform test.ok(false, 'a pack needs at least 2 beats to be published');
+exception when raise_exception then
+  perform test.ok(true, 'a pack needs at least 2 beats to be published');
+end $$;
+do $$ begin
+  perform public.save_pack(jsonb_build_object('title', 'WAV pack'),
+    array['55555555-5555-4555-8555-555555555551', '55555555-5555-4555-8555-555555555552']::uuid[],
+    jsonb_build_array(jsonb_build_object('type', 'premium', 'name', 'Premium', 'price_eur', 999, 'price_pln', 3900, 'price_usd', 1199,
+      'includes_mp3', true, 'includes_wav', true)),
+    'published', false);
+  perform test.ok(false, 'a pack license cannot promise files a beat doesn''t have');
+exception when raise_exception then
+  perform test.ok(true, 'a pack license cannot promise files a beat doesn''t have');
+end $$;
+do $$ begin
+  update public.beat_packs set sales_count = 99 where id = '66666666-6666-4666-8666-666666666666';
+  perform test.ok(false, 'producers cannot change pack sales or moderation fields');
+exception when insufficient_privilege then
+  perform test.ok(true, 'producers cannot change pack sales or moderation fields');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 0 from public.beat_packs where id = '66666666-6666-4666-8666-666666666666'), 'other producers cannot see a pack in review');
+do $$ declare n int; begin
+  update public.beat_packs set title = 'Hijacked' where id = '66666666-6666-4666-8666-666666666666';
+  get diagnostics n = row_count;
+  perform test.ok(n = 0, 'other producers cannot edit a pack');
+end $$;
+rollback;
+
+-- 37. An admin approves the pack: visitors see it, complete and priced.
+begin;
+select test.act_as(:'owner', 'aal2');
+update public.beat_packs set status = 'published' where id = '66666666-6666-4666-8666-666666666666';
+commit;
+begin;
+select test.act_as(null);
+select test.ok((select available and beats_count = 2 and min_price_eur = 4999 and min_price_usd = 5999
+  from public.pack_cards where id = '66666666-6666-4666-8666-666666666666'), 'approved pack is public, complete and priced');
+select test.ok((select count(*) = 2 from public.beat_pack_items where pack_id = '66666666-6666-4666-8666-666666666666')
+  and (select count(*) = 1 from public.beat_pack_licenses where pack_id = '66666666-6666-4666-8666-666666666666'),
+  'visitors see the beats and licenses of a pack');
+rollback;
+
+-- 38. Buying a pack: one order line, a license for every beat, one earning for the producer.
+begin;
+set local role service_role;
+select (public.create_pending_order(:'buyer', 'buyerc@test.local', 'usd', '{}'::uuid[],
+  array[(select id from public.beat_pack_licenses where pack_id = '66666666-6666-4666-8666-666666666666' and type = 'basic')])
+  ->> 'order_id') as pack_order \gset
+commit;
+select test.ok((select total = 5999 and currency = 'usd' from public.orders where id = :'pack_order'), 'pack order priced from the pack license');
+select test.ok((select pack_id = '66666666-6666-4666-8666-666666666666' and beat_id is null
+  and jsonb_array_length(license_snapshot -> 'beats') = 2 from public.order_items where order_id = :'pack_order'),
+  'the order line lists the beats in the pack');
+begin;
+set local role service_role;
+select (public.fulfill_order(:'pack_order', 'pi_pack', 'ch_pack', 'cs_pack') ->> 'fulfilled') as pack_fulfilled \gset
+commit;
+select test.ok(:'pack_fulfilled' = 'true' and (select count(*) = 2 from public.purchases
+  where order_id = :'pack_order' and includes_mp3 and not includes_wav and license_snapshot ->> 'pack_title' = 'Night Pack'),
+  'buying a pack gives a license for every beat in it');
+select test.ok((select count(*) = 1 and sum(net) = 4799 from public.seller_earnings where order_id = :'pack_order'),
+  'the producer earns once for the pack (after the 20% fee)');
+select test.ok((select sales_count = 1 from public.beat_packs where id = '66666666-6666-4666-8666-666666666666'), 'the pack sale is counted');
+begin;
+select test.act_as(:'buyer');
+select test.ok((select count(*) = 2 from public.purchases where order_id = :'pack_order'), 'the buyer sees every beat of the pack in their library');
+rollback;
+
+-- 39. Producers can't buy their own pack, and a pack isn't sold while a beat is offline.
+begin;
+set local role service_role;
+do $$ begin
+  perform public.create_pending_order(current_setting('test.sb')::uuid, 'sellerb@test.local', 'eur', '{}'::uuid[],
+    array[(select id from public.beat_pack_licenses where pack_id = '66666666-6666-4666-8666-666666666666' and type = 'basic')]);
+  perform test.ok(false, 'producers cannot buy their own pack');
+exception when raise_exception then
+  perform test.ok(true, 'producers cannot buy their own pack');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sb');
+update public.beats set status = 'draft' where id = '55555555-5555-4555-8555-555555555552';
+commit;
+begin;
+select test.act_as(null);
+select test.ok((select not available from public.pack_cards where id = '66666666-6666-4666-8666-666666666666'),
+  'a pack is unavailable while one of its beats is offline');
+rollback;
+begin;
+set local role service_role;
+do $$ begin
+  perform public.create_pending_order(current_setting('test.buyer')::uuid, 'buyerc@test.local', 'eur', '{}'::uuid[],
+    array[(select id from public.beat_pack_licenses where pack_id = '66666666-6666-4666-8666-666666666666' and type = 'basic')]);
+  perform test.ok(false, 'an unavailable pack cannot be bought');
+exception when raise_exception then
+  perform test.ok(true, 'an unavailable pack cannot be bought');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sb');
+update public.beats set status = 'published' where id = '55555555-5555-4555-8555-555555555552';
+commit;
+
+-- 40. Refunding a pack revokes every beat license in it.
+begin;
+set local role service_role;
+select (public.apply_order_refund(:'pack_order', 5999) ->> 'full') as pack_refunded \gset
+commit;
+select test.ok(:'pack_refunded' = 'true'
+  and (select bool_and(revoked_at is not null) from public.purchases where order_id = :'pack_order')
+  and (select sales_count = 0 from public.beat_packs where id = '66666666-6666-4666-8666-666666666666'),
+  'refunding a pack revokes every beat license and the sale');
+
+-- 41. Two-factor: a password-only session can't touch a producer's packs.
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('77777777-7777-4777-8777-777777777777', :'sb', 'test authenticator', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP');
+begin;
+select test.act_as(:'sb');
+select test.ok((select count(*) = 0 from public.beat_packs where producer_id = :'sb'), '2FA user: password-only session cannot see their packs');
+do $$ declare n int; begin
+  update public.beat_packs set title = 'Changed' where id = '66666666-6666-4666-8666-666666666666';
+  get diagnostics n = row_count;
+  perform test.ok(n = 0, '2FA user: password-only session cannot edit their packs');
+end $$;
+rollback;
+delete from auth.mfa_factors where id = '77777777-7777-4777-8777-777777777777';
+
 \echo '--- all security tests passed ---'

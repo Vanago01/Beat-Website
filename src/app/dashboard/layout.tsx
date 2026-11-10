@@ -4,6 +4,7 @@ const TABS = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/beats", label: "My beats" },
   { href: "/dashboard/beats/new", label: "Upload beat" },
+  { href: "/dashboard/packs", label: "Beat packs" },
   { href: "/dashboard/sales", label: "Sales" },
   { href: "/dashboard/payouts", label: "Payouts" },
 ];

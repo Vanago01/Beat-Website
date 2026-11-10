@@ -4,6 +4,8 @@ import { ExploreView, ResultsSkeleton } from "@/components/explore/explore-view"
 import { Skeleton } from "@/components/ui/misc";
 import { getGenres, searchBeatsCached } from "@/lib/data/catalog";
 import { filtersKey, parseFilters, toSearchArgs } from "@/lib/filters";
+import Link from "next/link";
+import { ArrowRight, Layers } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Explore beats",
@@ -41,6 +43,10 @@ export default function ExplorePage({ searchParams }: PageProps<"/beats">) {
         <p className="max-w-xl text-ink-300">
           Dial in the exact tempo, key and vibe. Every filter works together instantly — preview anything with one click.
         </p>
+        <Link href="/packs" className="group inline-flex w-fit items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-ink-200 transition hover:border-white/20 hover:text-white">
+          <Layers className="h-4 w-4 text-accent-300" /> Looking for several beats? Browse beat packs
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        </Link>
       </header>
       <Suspense fallback={<ExploreFallback />}>
         <Results searchParams={searchParams} />

@@ -37,13 +37,17 @@ export const useCart = create<CartState>()(
       clear: () => set({ items: [] }),
       setOpen: (open) => set({ open }),
       refreshPrices: async () => {
-        const ids = get().items.map((i) => i.licenseId);
-        if (!ids.length) return;
-        const { data } = await getSupabaseBrowserClient()
-          .from("beat_licenses")
-          .select("id, price_eur, price_pln, price_usd")
-          .in("id", ids);
-        if (!data?.length) return;
+        const items = get().items;
+        const beatIds = items.filter((i) => i.kind !== "pack").map((i) => i.licenseId);
+        const packIds = items.filter((i) => i.kind === "pack").map((i) => i.licenseId);
+        if (!beatIds.length && !packIds.length) return;
+        const client = getSupabaseBrowserClient();
+        const [beats, packs] = await Promise.all([
+          beatIds.length ? client.from("beat_licenses").select("id, price_eur, price_pln, price_usd").in("id", beatIds) : null,
+          packIds.length ? client.from("beat_pack_licenses").select("id, price_eur, price_pln, price_usd").in("id", packIds) : null,
+        ]);
+        const data = [...(beats?.data ?? []), ...(packs?.data ?? [])];
+        if (!data.length) return;
         const prices = new Map(data.map((l) => [l.id, l]));
         set((s) => ({
           items: s.items.map((i) => {

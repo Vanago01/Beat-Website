@@ -37,6 +37,12 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 - Upload form: resumable uploads (cover, tagged preview, MP3, WAV, stems ZIP), tap-tempo, key picker, moods, tags, per-tier prices in EUR, PLN & USD with suggested conversion, editable usage terms, reusable license defaults.
 - Stripe Connect Express payouts: automatic transfer of the seller’s share after each sale.
 
+**Beat packs**
+- Producers bundle 2–50 of their own beats into a pack: pick beats they already uploaded and/or upload new ones right in the pack editor. One cover for the pack, optionally used for every beat in it.
+- One price per license for the whole pack (EUR, PLN, USD). Buyers get that license for every beat in the pack, with the files and a PDF license agreement for each one. Every beat stays for sale on its own too.
+- Pack pages (tracklist, “cheaper than buying one by one”), a Beat packs page, packs on the homepage and producer profiles, and a review queue in Admin → Packs.
+- A pack is only on sale while all of its beats are available.
+
 **Messages**
 - Direct messages between any two members: inbox with unread counts, live delivery (Supabase Realtime, with automatic fallback to checking every 20 seconds), “Seen”, links, a notification while browsing elsewhere, and an unread badge in the navbar.
 - “Message” buttons on producer profiles and beat pages; block / unblock (also under Account → Settings); “Delete conversation” hides it for you only.
@@ -46,7 +52,7 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 
 **Administration** (`/admin`, only for admin accounts)
 - Analytics: revenue (EUR/PLN/USD), sales, users, platform earnings, monthly revenue chart, most popular & best-selling beats, recent purchases.
-- Beat moderation queue (approve / reject with reason / feature / lock / edit / delete), user roles & verified badges, orders with one-click refunds, seller payouts, platform settings (fee %, approval workflow, seller signups, EUR→PLN rate), genre management.
+- Beat moderation queue (approve / reject with reason / feature / lock / edit / delete), beat pack review queue, user roles & verified badges, orders with one-click refunds, seller payouts, platform settings (fee %, approval workflow, seller signups, EUR→PLN rate), genre management.
 
 ---
 
@@ -63,11 +69,12 @@ Authorization is enforced **in the database**, never only in the UI:
 | Storage | Purchased files live in a **private** bucket; buyers receive 60-second signed URLs after an ownership check. |
 | Stripe | Webhooks are signature-verified; fulfilment is idempotent (safe on retries and on the success-page fallback). Exclusive-license races are detected and the second buyer is refunded automatically. |
 | Two-factor authentication | Optional TOTP for everyone (Account → Settings), **required for administrators**: admin powers only exist in sessions that passed two-factor sign-in (`is_admin()` checks the session's `aal2` level). For anyone who set it up, a password-only session gets nothing from the database or storage until the code is entered. |
+| Beat packs | A pack can only contain the producer's own beats, and its price is computed in the database at checkout. A pack with an unavailable beat can't be bought; refunding a pack revokes the license of every beat in it. |
 | Messages | Only the two people in a conversation can read it (administrators can't either). Messages are written only through `send_message()`: 1–2,000 characters, at most 20 a minute and 500 a day per person, and 30 new conversations a day. A block stops messages in both directions and isn't visible to the blocked person. |
 | HTTP headers | Content-Security-Policy (scripts only from the site, no plugins/framing/foreign form targets, network and media limited to the site and Supabase), HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, a restrictive `Permissions-Policy`, `nosniff`. |
 | Cookies | Only necessary cookies by default; preferences (currency, volume, view) are stored after consent from the cookie banner. No advertising or tracking cookies. Policy at `/legal/cookies`. |
 
-`supabase/tests/security_tests.sql` contains 115 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits…).
+`supabase/tests/security_tests.sql` contains 139 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs…).
 
 ---
 
@@ -120,7 +127,7 @@ SUPABASE_SECRET_KEY=<local secret key> npm run test:db
    npx supabase db push
    ```
    This creates all tables, policies, functions, storage buckets and storage policies.
-   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 9). Every file can safely be run again.
+   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 10). Every file can safely be run again.
    File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`).
 3. **Authentication → URL Configuration**: set *Site URL* to your domain (e.g. `https://yourdomain.com`) and add `https://yourdomain.com/**` to *Redirect URLs*.
 4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes. Under **Multi-Factor**, keep **TOTP (App Authenticator)** enabled.
@@ -199,7 +206,7 @@ Create a [Resend](https://resend.com) API key, verify your sending domain, and s
 ```
 src/
   app/                 routes (marketplace, account, dashboard = producer studio, admin, api)
-  actions/             server actions (beats, checkout, profile, seller, admin, reviews)
+  actions/             server actions (beats, packs, checkout, profile, seller, admin, reviews)
   components/          UI (player, beats, explore filters, studio, admin, layout, ui primitives)
   lib/
     data/catalog.ts    cached public queries ("use cache" + tags)

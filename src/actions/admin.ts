@@ -219,3 +219,38 @@ export async function payoutSeller(sellerId: string): Promise<ActionResult<{ mes
     return { ok: true, data: { message: paid ? `Transferred ${paid}` : "Nothing to pay out." } };
   });
 }
+
+/** Approves (with its beats waiting for review), rejects or unpublishes a beat pack. */
+export async function moderatePack(id: string, action: "approve" | "reject" | "unpublish", reason?: string): Promise<ActionResult> {
+  return guard(async () => {
+    if (!uuid.safeParse(id).success) return { ok: false, error: "Invalid pack" };
+    const supabase = await createSupabaseServerClient();
+    if (action === "approve") {
+      // The pack's beats that were submitted with it go live together with it.
+      const { data: items } = await supabase.from("beat_pack_items").select("beat_id").eq("pack_id", id);
+      const beatIds = (items ?? []).map((i) => i.beat_id);
+      if (beatIds.length) {
+        const { error } = await supabase.from("beats").update({ status: "published" }).in("id", beatIds).eq("status", "pending");
+        if (error) return { ok: false, error: error.message };
+      }
+    }
+    const patch =
+      action === "approve"
+        ? { status: "published" as const }
+        : action === "unpublish"
+          ? { status: "draft" as const }
+          : { status: "rejected" as const, rejection_reason: (reason ?? "").trim().slice(0, 1000) || "Did not meet our quality guidelines." };
+    const { data, error } = await supabase.from("beat_packs").update(patch).eq("id", id).select("slug, title, producer_id").maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: "Pack not found" };
+    updateTag("packs");
+    updateTag(`pack:${data.slug}`);
+    await invalidateBeat(data.slug, data.producer_id);
+    if (action === "approve") {
+      await notifyProducer(data.producer_id, `“${data.title}” is live`, "Your beat pack was approved 🎉", `<strong>${escapeHtml(data.title)}</strong> and its beats are now live in the marketplace.`);
+    } else if (action === "reject") {
+      await notifyProducer(data.producer_id, `“${data.title}” needs changes`, "Your beat pack wasn't approved yet", `Reason: ${escapeHtml(patch.rejection_reason ?? "")}<br><br>You can edit the pack and resubmit it from your studio.`);
+    }
+    return { ok: true };
+  });
+}

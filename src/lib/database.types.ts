@@ -57,6 +57,90 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"beat_pack_items": {
+                  Row: {
+                    "beat_id": string,"pack_id": string,"position": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "beat_id": string,"pack_id": string,"position"?: number
+                  }
+                  Update: {
+                    "beat_id"?: string,"pack_id"?: string,"position"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "beat_pack_items_beat_id_fkey"
+      columns: ["beat_id"]
+isOneToOne: false
+      referencedRelation: "beat_cards"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_pack_items_beat_id_fkey"
+      columns: ["beat_id"]
+isOneToOne: false
+      referencedRelation: "beats"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_pack_items_pack_id_fkey"
+      columns: ["pack_id"]
+isOneToOne: false
+      referencedRelation: "beat_packs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_pack_items_pack_id_fkey"
+      columns: ["pack_id"]
+isOneToOne: false
+      referencedRelation: "pack_cards"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"beat_pack_licenses": {
+                  Row: {
+                    "allow_for_profit": boolean,"allow_live_performances": boolean,"created_at": string,"distribution_limit": number | null,"enabled": boolean,"id": string,"includes_mp3": boolean,"includes_stems": boolean,"includes_wav": boolean,"music_videos": number | null,"name": string,"pack_id": string,"price_eur": number,"price_pln": number,"price_usd": number,"radio_stations": number | null,"sort_order": number,"streams_limit": number | null,"terms": string | null,"type": Database["public"]['Enums']["license_type"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "allow_for_profit"?: boolean,"allow_live_performances"?: boolean,"created_at"?: string,"distribution_limit"?: number | null,"enabled"?: boolean,"id"?: string,"includes_mp3"?: boolean,"includes_stems"?: boolean,"includes_wav"?: boolean,"music_videos"?: number | null,"name": string,"pack_id": string,"price_eur": number,"price_pln": number,"price_usd": number,"radio_stations"?: number | null,"sort_order"?: number,"streams_limit"?: number | null,"terms"?: string | null,"type": Database["public"]['Enums']["license_type"],"updated_at"?: string
+                  }
+                  Update: {
+                    "allow_for_profit"?: boolean,"allow_live_performances"?: boolean,"created_at"?: string,"distribution_limit"?: number | null,"enabled"?: boolean,"id"?: string,"includes_mp3"?: boolean,"includes_stems"?: boolean,"includes_wav"?: boolean,"music_videos"?: number | null,"name"?: string,"pack_id"?: string,"price_eur"?: number,"price_pln"?: number,"price_usd"?: number,"radio_stations"?: number | null,"sort_order"?: number,"streams_limit"?: number | null,"terms"?: string | null,"type"?: Database["public"]['Enums']["license_type"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "beat_pack_licenses_pack_id_fkey"
+      columns: ["pack_id"]
+isOneToOne: false
+      referencedRelation: "beat_packs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_pack_licenses_pack_id_fkey"
+      columns: ["pack_id"]
+isOneToOne: false
+      referencedRelation: "pack_cards"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"beat_packs": {
+                  Row: {
+                    "approved_at": string | null,"cover_path": string | null,"created_at": string,"description": string | null,"id": string,"is_featured": boolean,"producer_id": string,"published_at": string | null,"rejection_reason": string | null,"sales_count": number,"slug": string,"status": Database["public"]['Enums']["beat_status"],"submitted_at": string | null,"title": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "approved_at"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"is_featured"?: boolean,"producer_id": string,"published_at"?: string | null,"rejection_reason"?: string | null,"sales_count"?: number,"slug": string,"status"?: Database["public"]['Enums']["beat_status"],"submitted_at"?: string | null,"title": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "approved_at"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"is_featured"?: boolean,"producer_id"?: string,"published_at"?: string | null,"rejection_reason"?: string | null,"sales_count"?: number,"slug"?: string,"status"?: Database["public"]['Enums']["beat_status"],"submitted_at"?: string | null,"title"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "beat_packs_producer_id_fkey"
+      columns: ["producer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"beats": {
                   Row: {
                     "admin_locked": boolean,"approved_at": string | null,"bpm": number,"cover_path": string | null,"created_at": string,"description": string | null,"duration_seconds": number | null,"exclusive_buyer_id": string | null,"exclusive_sold_at": string | null,"favorites_count": number,"featured_at": string | null,"genre": string,"has_exclusive": boolean,"has_free": boolean,"id": string,"is_featured": boolean,"key_group": number | null,"key_mode": string,"key_note": number,"min_price_eur": number | null,"min_price_pln": number | null,"min_price_usd": number | null,"moods": (string)[],"mp3_path": string | null,"plays_count": number,"preview_path": string | null,"producer_id": string,"published_at": string | null,"rating_avg": number | null,"rating_count": number,"rejection_reason": string | null,"sales_count": number,"search_vector": unknown,"slug": string,"status": Database["public"]['Enums']["beat_status"],"stems_path": string | null,"submitted_at": string | null,"tags": (string)[],"title": string,"updated_at": string,"wav_path": string | null,"waveform": Json | null
@@ -221,14 +305,14 @@ isOneToOne: false
                   ]
                 },"order_items": {
                   Row: {
-                    "beat_id": string | null,"beat_title": string,"buyer_id": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"id": string,"license_id": string | null,"license_name": string,"license_snapshot": NonNullable<Json>,"license_type": Database["public"]['Enums']["license_type"],"order_id": string,"platform_fee": number,"price": number,"producer_name": string,"seller_amount": number,"seller_id": string | null
+                    "beat_id": string | null,"beat_title": string,"buyer_id": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"id": string,"license_id": string | null,"license_name": string,"license_snapshot": NonNullable<Json>,"license_type": Database["public"]['Enums']["license_type"],"order_id": string,"pack_id": string | null,"pack_license_id": string | null,"platform_fee": number,"price": number,"producer_name": string,"seller_amount": number,"seller_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "beat_id"?: string | null,"beat_title": string,"buyer_id"?: string | null,"created_at"?: string,"currency": Database["public"]['Enums']["currency_code"],"id"?: string,"license_id"?: string | null,"license_name": string,"license_snapshot"?: NonNullable<Json>,"license_type": Database["public"]['Enums']["license_type"],"order_id": string,"platform_fee"?: number,"price": number,"producer_name": string,"seller_amount"?: number,"seller_id"?: string | null
+                    "beat_id"?: string | null,"beat_title": string,"buyer_id"?: string | null,"created_at"?: string,"currency": Database["public"]['Enums']["currency_code"],"id"?: string,"license_id"?: string | null,"license_name": string,"license_snapshot"?: NonNullable<Json>,"license_type": Database["public"]['Enums']["license_type"],"order_id": string,"pack_id"?: string | null,"pack_license_id"?: string | null,"platform_fee"?: number,"price": number,"producer_name": string,"seller_amount"?: number,"seller_id"?: string | null
                   }
                   Update: {
-                    "beat_id"?: string | null,"beat_title"?: string,"buyer_id"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"license_id"?: string | null,"license_name"?: string,"license_snapshot"?: NonNullable<Json>,"license_type"?: Database["public"]['Enums']["license_type"],"order_id"?: string,"platform_fee"?: number,"price"?: number,"producer_name"?: string,"seller_amount"?: number,"seller_id"?: string | null
+                    "beat_id"?: string | null,"beat_title"?: string,"buyer_id"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"license_id"?: string | null,"license_name"?: string,"license_snapshot"?: NonNullable<Json>,"license_type"?: Database["public"]['Enums']["license_type"],"order_id"?: string,"pack_id"?: string | null,"pack_license_id"?: string | null,"platform_fee"?: number,"price"?: number,"producer_name"?: string,"seller_amount"?: number,"seller_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -260,6 +344,24 @@ isOneToOne: false
       columns: ["order_id"]
 isOneToOne: false
       referencedRelation: "orders"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_items_pack_id_fkey"
+      columns: ["pack_id"]
+isOneToOne: false
+      referencedRelation: "beat_packs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_items_pack_id_fkey"
+      columns: ["pack_id"]
+isOneToOne: false
+      referencedRelation: "pack_cards"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_items_pack_license_id_fkey"
+      columns: ["pack_license_id"]
+isOneToOne: false
+      referencedRelation: "beat_pack_licenses"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "order_items_seller_id_fkey"
@@ -362,7 +464,7 @@ isOneToOne: false
     },{
       foreignKeyName: "purchases_order_item_id_fkey"
       columns: ["order_item_id"]
-isOneToOne: true
+isOneToOne: false
       referencedRelation: "order_items"
       referencedColumns: ["id"]
     },{
@@ -518,6 +620,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"pack_cards": {
+                  Row: {
+                    "available": boolean | null,"available_count": number | null,"beats_count": number | null,"cover_path": string | null,"created_at": string,"description": string | null,"genres": (string)[] | null,"id": string,"is_featured": boolean,"min_price_eur": number | null,"min_price_pln": number | null,"min_price_usd": number | null,"producer_avatar_path": string | null,"producer_id": string,"producer_name": string | null,"producer_username": string,"producer_verified": boolean,"published_at": string | null,"rejection_reason": string | null,"sales_count": number,"slug": string,"status": Database["public"]['Enums']["beat_status"],"title": string
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "beat_packs_producer_id_fkey"
+      columns: ["producer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Functions: {
@@ -532,6 +648,9 @@ isOneToOne: false
                            },
 "assert_beat_publishable":
 { Args: { "p_beat_id": string }; Returns: undefined
+                           },
+"assert_pack_publishable":
+{ Args: { "p_pack_id": string }; Returns: undefined
                            },
 "beat_path_ok":
 { Args: { "p_path": string,"p_producer": string }; Returns: boolean
@@ -565,7 +684,7 @@ isOneToOne: false
 { Args: { "p_body": string }; Returns: string
                            },
 "create_pending_order":
-{ Args: { "p_buyer_email": string,"p_buyer_id": string,"p_currency": Database["public"]['Enums']["currency_code"],"p_license_ids": (string)[] }; Returns: Json
+{ Args: { "p_buyer_email": string,"p_buyer_id": string,"p_currency": Database["public"]['Enums']["currency_code"],"p_license_ids": (string)[],"p_pack_license_ids"?: (string)[] }; Returns: Json
                            },
 "delete_conversation":
 { Args: { "p_conversation": string }; Returns: undefined
@@ -680,6 +799,30 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"save_pack":
+{ Args: { "p_apply_cover"?: boolean,"p_beat_ids": (string)[],"p_licenses": Json,"p_pack": Json,"p_status"?: Database["public"]['Enums']["beat_status"] }; Returns: {
+              "approved_at": string | null,
+"cover_path": string | null,
+"created_at": string,
+"description": string | null,
+"id": string,
+"is_featured": boolean,
+"producer_id": string,
+"published_at": string | null,
+"rejection_reason": string | null,
+"sales_count": number,
+"slug": string,
+"status": Database["public"]['Enums']["beat_status"],
+"submitted_at": string | null,
+"title": string,
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "beat_packs"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "search_beats":
 { Args: { "p_bpm_max"?: number,"p_bpm_min"?: number,"p_currency"?: Database["public"]['Enums']["currency_code"],"p_exclude_id"?: string,"p_exclusive_only"?: boolean,"p_featured_only"?: boolean,"p_free_only"?: boolean,"p_genres"?: (string)[],"p_keys"?: (number)[],"p_limit"?: number,"p_moods"?: (string)[],"p_offset"?: number,"p_price_max"?: number,"p_price_min"?: number,"p_producer_id"?: string,"p_query"?: string,"p_sort"?: string }; Returns: Json
                            },
@@ -702,6 +845,9 @@ isOneToOne: false
 { Args: { "p_eur": number,"p_rate": number }; Returns: number
                            },
 "unique_beat_slug":
+{ Args: { "p_id": string,"p_title": string }; Returns: string
+                           },
+"unique_pack_slug":
 { Args: { "p_id": string,"p_title": string }; Returns: string
                            },
 "unread_conversation_count":

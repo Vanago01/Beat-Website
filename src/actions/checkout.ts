@@ -13,7 +13,9 @@ import { MIN_CHARGE, type Currency } from "@/lib/constants";
 import type { ActionResult } from "@/lib/types";
 
 const checkoutSchema = z.object({
-  licenseIds: z.array(z.uuid()).min(1, "Your cart is empty").max(50),
+  licenseIds: z.array(z.uuid()).max(50),
+  /** Beat pack licenses (one per pack). */
+  packLicenseIds: z.array(z.uuid()).max(50).optional().default([]),
   currency: z.enum(["eur", "pln", "usd"]),
 });
 
@@ -23,7 +25,8 @@ interface PendingOrder {
   currency: Currency;
   items: {
     id: string;
-    beat_id: string;
+    beat_id: string | null;
+    pack_id: string | null;
     license_id: string;
     beat_title: string;
     license_name: string;
@@ -34,7 +37,7 @@ interface PendingOrder {
   }[];
 }
 
-async function createOrder(licenseIds: string[], currency: Currency) {
+async function createOrder(licenseIds: string[], currency: Currency, packLicenseIds: string[] = []) {
   const viewer = await getViewer();
   if (!viewer) return { error: "Please sign in to continue." } as const;
   if (!viewer.email) return { error: "Your account needs a verified email address to purchase." } as const;
@@ -45,6 +48,9 @@ async function createOrder(licenseIds: string[], currency: Currency) {
     p_buyer_email: viewer.email,
     p_currency: currency,
     p_license_ids: licenseIds,
+    // Only sent when the cart has a pack, so beat checkouts keep working on a
+    // database that doesn't have beat packs yet (file 10 not applied).
+    ...(packLicenseIds.length ? { p_pack_license_ids: packLicenseIds } : {}),
   });
   if (error) return { error: error.message } as const;
   return { order: data as unknown as PendingOrder, viewer, admin } as const;
@@ -54,9 +60,10 @@ async function createOrder(licenseIds: string[], currency: Currency) {
 export async function startCheckout(input: z.input<typeof checkoutSchema>): Promise<ActionResult<{ url: string }>> {
   const parsed = checkoutSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid cart" };
-  const { licenseIds, currency } = parsed.data;
+  const { licenseIds, packLicenseIds, currency } = parsed.data;
+  if (licenseIds.length + packLicenseIds.length === 0) return { ok: false, error: "Your cart is empty" };
 
-  const created = await createOrder(licenseIds, currency);
+  const created = await createOrder(licenseIds, currency, packLicenseIds);
   if ("error" in created) return { ok: false, error: created.error! };
   const { order, viewer, admin } = created;
 
@@ -96,9 +103,9 @@ export async function startCheckout(input: z.input<typeof checkoutSchema>): Prom
                 unit_amount: i.price,
                 product_data: {
                   name: `${i.beat_title} — ${i.license_name}`,
-                  description: `Beat license · produced by ${i.producer_name}`,
+                  description: i.pack_id ? `Beat pack license · produced by ${i.producer_name}` : `Beat license · produced by ${i.producer_name}`,
                   images: image && image.startsWith("https://") ? [image] : undefined,
-                  metadata: { beat_id: i.beat_id, license_id: i.license_id },
+                  metadata: (i.pack_id ? { pack_id: i.pack_id, license_id: i.license_id } : { beat_id: i.beat_id ?? "", license_id: i.license_id }) as Record<string, string>,
                 },
               },
             };

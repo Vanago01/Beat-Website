@@ -66,6 +66,11 @@ async function LibraryList({ highlight }: { highlight?: string }) {
                 <p className="truncate text-sm text-ink-300">prod. {s.producer_name} · {s.bpm} BPM · {keyName(s.key_note, s.key_mode)}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Badge tone="accent">{s.license_name}</Badge>
+                  {s.pack_title && (
+                    <Link href={`/packs/${s.pack_slug ?? ""}`} className="text-xs text-ink-300 hover:text-white hover:underline">
+                      From the pack “{s.pack_title}”
+                    </Link>
+                  )}
                   <span className="font-mono text-[11px] text-ink-400">{p.license_number}</span>
                   <span className="text-[11px] text-ink-400">· {formatDate(p.created_at)}</span>
                   {revoked && (

@@ -11,6 +11,9 @@ export function publicUrl(bucket: PublicBucket, path: string | null | undefined)
 }
 
 export const coverUrl = (path?: string | null) => publicUrl("covers", path);
+
+/** Pack covers live in <producer>/packs/<pack>/ and can be shared by several beats. */
+export const isPackCover = (path?: string | null) => !!path && path.split("/")[1] === "packs";
 export const avatarUrl = (path?: string | null) => publicUrl("avatars", path);
 export const previewUrl = (path?: string | null) => publicUrl("previews", path);
 

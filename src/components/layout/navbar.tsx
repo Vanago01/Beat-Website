@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/beats", label: "Explore Beats" },
+  // Only shown in the top bar on wide screens (it would crowd it otherwise).
+  { href: "/packs", label: "Beat Packs", wide: true },
   { href: "/producers", label: "Producers" },
   { href: "/sell", label: "Sell Beats" },
 ];
@@ -239,6 +241,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
                 href={item.href}
                 className={cn(
                   "relative whitespace-nowrap rounded-full px-4 py-2 text-[13.5px] font-medium transition-colors",
+                  "wide" in item && item.wide && "hidden xl:inline-block",
                   isActive(pathname, item.href) ? "text-white" : "text-ink-300 hover:text-white",
                 )}
               >

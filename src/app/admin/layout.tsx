@@ -7,6 +7,7 @@ import { PageSkeleton } from "@/components/account/page-skeleton";
 const TABS = [
   { href: "/admin", label: "Analytics" },
   { href: "/admin/beats", label: "Beats" },
+  { href: "/admin/packs", label: "Packs" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/payouts", label: "Payouts" },

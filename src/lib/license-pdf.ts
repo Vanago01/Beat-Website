@@ -139,7 +139,14 @@ export async function buildLicensePdf(input: LicensePdfInput): Promise<Uint8Arra
     ["Title", `"${s.beat_title}"`],
     ["Tempo / key", `${s.bpm} BPM · ${keyName(s.key_note, s.key_mode, "long")}`],
     ["Files delivered", free ? "Tagged MP3" : [s.includes_mp3 && "MP3", s.includes_wav && "WAV", s.includes_stems && "Stems / trackouts"].filter(Boolean).join(", ")],
-    ["Fee paid", s.price === 0 ? "Free" : formatPrice(s.price, s.currency, { exact: true })],
+    [
+      "Fee paid",
+      s.price === 0
+        ? "Free"
+        : s.pack_title
+          ? `${formatPrice(s.price, s.currency, { exact: true })} for the beat pack "${s.pack_title}" (${s.pack_beats ?? ""} beats, one license each)`
+          : formatPrice(s.price, s.currency, { exact: true }),
+    ],
   ]);
   w.rule();
 

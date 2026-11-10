@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Flame, Sparkles, TrendingUp, Upload } from "lucide-react";
-import { getHomeData, getPlatformSettings } from "@/lib/data/catalog";
+import { getHomeData, getPlatformSettings, getPublishedPacks } from "@/lib/data/catalog";
+import { PackCard } from "@/components/packs/pack-card";
 import { Hero } from "@/components/home/hero";
 import { GenreMarquee } from "@/components/home/genre-marquee";
 import { Carousel } from "@/components/home/carousel";
@@ -25,7 +26,7 @@ function Section({ children, className = "" }: { children: React.ReactNode; clas
 }
 
 export default async function HomePage() {
-  const [data, settings] = await Promise.all([getHomeData(), getPlatformSettings()]);
+  const [data, settings, packs] = await Promise.all([getHomeData(), getPlatformSettings(), getPublishedPacks(5)]);
   const hero = data.featured[0] ?? data.trending[0] ?? data.newReleases[0] ?? null;
   const heroQueue = data.featured.length ? data.featured : data.trending;
   const moreFeatured = data.featured.slice(1);
@@ -102,6 +103,17 @@ export default async function HomePage() {
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:gap-x-5 lg:grid-cols-4">
             {data.newReleases.map((b) => (
               <BeatCard key={b.id} beat={b} queue={data.newReleases} />
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {packs.length > 0 && (
+        <Section className="mt-20 md:mt-28">
+          <SectionHeading eyebrow="Bundles" title="Beat Packs" action={<ViewAll href="/packs" />} />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 md:gap-x-5 lg:grid-cols-5">
+            {packs.map((p) => (
+              <PackCard key={p.id} pack={p} />
             ))}
           </div>
         </Section>

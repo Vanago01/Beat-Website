@@ -131,7 +131,13 @@ async function Producer({ params }: { params: PageProps<"/producers/[username]">
                 </div>
               </section>
             )}
-            <ProducerBeats producerId={p.id} initial={beats} />
+            {/* Beats in a pack on sale are only shown inside the pack. */}
+            {(beats.total > 0 || packs.length === 0) && (
+              <section>
+                {packs.length > 0 && <h2 className="mb-5 font-display text-2xl font-bold tracking-tight">Beats</h2>}
+                <ProducerBeats producerId={p.id} initial={beats} />
+              </section>
+            )}
           </div>
         </div>
       </div>

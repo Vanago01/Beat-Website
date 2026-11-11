@@ -261,7 +261,7 @@ export function PackForm({
               <h2 className="font-display text-lg font-bold">
                 Beats in this pack <span className="text-ink-400">· {beats.length}</span>
               </h2>
-              <p className="mt-1 text-sm text-ink-400">At least {PACK_MIN_BEATS}. Every beat stays for sale on its own too.</p>
+              <p className="mt-1 text-sm text-ink-400">At least {PACK_MIN_BEATS}. While the pack is on sale, its beats are only shown and sold inside it.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" size="sm" onClick={() => setPicker(new Set())} disabled={beats.length >= PACK_MAX_BEATS}>
@@ -388,7 +388,7 @@ export function PackForm({
           <p className="mb-2 font-medium text-ink-100">How packs work</p>
           <ul className="list-disc space-y-1 pl-4 text-xs">
             <li>Buyers pay once and get the chosen license for every beat, each with its own downloads and license agreement.</li>
-            <li>Each beat keeps its own page and prices.</li>
+            <li>While the pack is on sale, its beats aren&apos;t listed on their own (your profile, Explore, search): buyers find them in the pack and can buy the whole pack or a single beat at its own price.</li>
             <li>The pack is only on sale while all of its beats are.</li>
           </ul>
         </Card>
@@ -398,7 +398,7 @@ export function PackForm({
         open={picker !== null}
         onClose={() => setPicker(null)}
         title="Add your beats"
-        description={candidates.length ? "Pick the beats to put in this pack." : undefined}
+        description={candidates.length ? "Pick the beats to put in this pack. Once it's on sale, they're only shown inside the pack." : undefined}
         size="lg"
         footer={
           <div className="flex justify-end gap-2">

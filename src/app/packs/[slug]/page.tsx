@@ -52,7 +52,7 @@ async function PackDetail({ params }: { params: PageProps<"/packs/[slug]">["para
   const { slug } = await params;
   const data = await getPublicPack(slug);
   if (!data) notFound();
-  const { pack, licenses, beats, beatLicenses, producer } = data;
+  const { pack, licenses, beats, beatsOnlyHere, beatLicenses, producer } = data;
   const art = coverUrl(pack.cover_path);
   const name = pack.producer_name ?? producer.username;
 
@@ -168,9 +168,12 @@ async function PackDetail({ params }: { params: PageProps<"/packs/[slug]">["para
                   </h2>
                   <PlayPackButton beats={beats} />
                 </div>
+                {beatsOnlyHere && (
+                  <p className="-mt-1 mb-4 text-sm text-ink-400">These beats are only sold here: get the whole pack, or tap a price to license a single beat.</p>
+                )}
                 <div className="space-y-1">
                   {beats.map((b, i) => (
-                    <BeatRow key={b.id} beat={b} index={i} queue={beats} />
+                    <BeatRow key={b.id} beat={b} index={i} queue={beats} linkTitle={!beatsOnlyHere} />
                   ))}
                 </div>
               </section>

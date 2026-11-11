@@ -41,9 +41,10 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 **Beat packs**
 - Producers bundle 2–50 of their own beats into a pack: pick beats they already uploaded and/or upload new ones right in the pack editor. One cover for the pack, optionally used for every beat in it.
 - In the pack editor each beat's own prices and free download (tagged preview) can be set, like for a single beat; the pack's prices are compared with buying the beats one by one.
-- One price per license for the whole pack (EUR, PLN, USD). Buyers get that license for every beat in the pack, with the files and a PDF license agreement for each one. Every beat stays for sale on its own too.
+- One price per license for the whole pack (EUR, PLN, USD). Buyers get that license for every beat in the pack, with the files and a PDF license agreement for each one.
+- While a pack is on sale, its beats are only shown and sold inside it: they're not listed on the producer's profile, in Explore, on the homepage or in search (search finds the pack instead), and a beat's own page leads to its pack. On the pack page buyers can get the whole pack or license a single beat at its own price. When the pack goes off sale, its beats are listed on their own again.
 - Pack pages (tracklist, “cheaper than buying one by one”), a Beat packs page, packs on the homepage and producer profiles, and a review queue in Admin → Packs.
-- A pack is only on sale while all of its beats are available.
+- A pack is only on sale while it's published and all of its beats are available.
 
 **Messages**
 - Direct messages between any two members: inbox with unread counts, live delivery (Supabase Realtime, with automatic fallback to checking every 20 seconds), “Seen”, links, a notification while browsing elsewhere, and an unread badge in the navbar.
@@ -76,7 +77,7 @@ Authorization is enforced **in the database**, never only in the UI:
 | HTTP headers | Content-Security-Policy (scripts only from the site, no plugins/framing/foreign form targets, network and media limited to the site and Supabase), HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, a restrictive `Permissions-Policy`, `nosniff`. |
 | Cookies | Only necessary cookies by default; preferences (currency, volume, view) are stored after consent from the cookie banner. No advertising or tracking cookies. Policy at `/legal/cookies`. |
 
-`supabase/tests/security_tests.sql` contains 139 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs…).
+`supabase/tests/security_tests.sql` contains 145 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs…).
 
 ---
 
@@ -129,7 +130,7 @@ SUPABASE_SECRET_KEY=<local secret key> npm run test:db
    npx supabase db push
    ```
    This creates all tables, policies, functions, storage buckets and storage policies.
-   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 10). Every file can safely be run again.
+   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 11). Every file can safely be run again.
    File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`).
 3. **Authentication → URL Configuration**: set *Site URL* to your domain (e.g. `https://yourdomain.com`) and add `https://yourdomain.com/**` to *Redirect URLs*.
 4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes. Under **Multi-Factor**, keep **TOTP (App Authenticator)** enabled.

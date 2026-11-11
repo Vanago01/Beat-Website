@@ -77,6 +77,8 @@ export interface PublicBeat {
   beat: BeatCard & { description: string | null; tags: string[] };
   licenses: BeatLicense[];
   producer: Pick<Profile, "id" | "username" | "producer_name" | "display_name" | "avatar_path" | "is_verified" | "bio" | "social_links">;
+  /** Set while the beat is in a pack that's on sale: it's only shown and sold inside that pack. */
+  packSlug: string | null;
 }
 
 export async function getPublicBeat(slug: string): Promise<PublicBeat | null> {
@@ -88,7 +90,7 @@ export async function getPublicBeat(slug: string): Promise<PublicBeat | null> {
   const { data: card } = await supabase.from("beat_cards").select("*").eq("slug", slug).eq("status", "published").maybeSingle();
   if (!card) return null;
 
-  const [{ data: details }, { data: licenses }, { data: producer }] = await Promise.all([
+  const [{ data: details }, { data: licenses }, { data: producer }, { data: live }] = await Promise.all([
     supabase.from("beats").select("description").eq("id", card.id).maybeSingle(),
     supabase.from("beat_licenses").select("*").eq("beat_id", card.id).eq("enabled", true).order("sort_order"),
     supabase
@@ -96,6 +98,8 @@ export async function getPublicBeat(slug: string): Promise<PublicBeat | null> {
       .select("id, username, producer_name, display_name, avatar_path, is_verified, bio, social_links")
       .eq("id", card.producer_id)
       .maybeSingle(),
+    // Fails harmlessly (no pack) on a database without update 11.
+    supabase.from("live_pack_beats").select("pack_slug").eq("beat_id", card.id).order("published_at", { ascending: false }).limit(1),
   ]);
   if (!producer) return null;
 
@@ -104,6 +108,7 @@ export async function getPublicBeat(slug: string): Promise<PublicBeat | null> {
     beat: { ...(rest as unknown as BeatCard), description: details?.description ?? null },
     licenses: licenses ?? [],
     producer,
+    packSlug: live?.[0]?.pack_slug ?? null,
   };
 }
 
@@ -167,6 +172,8 @@ export interface PublicPack {
   licenses: PackLicense[];
   /** The beats in the pack, in the producer's order. */
   beats: BeatCard[];
+  /** True while the pack is on sale and its beats are only shown and sold inside it (database update 11). */
+  beatsOnlyHere: boolean;
   /** Each beat's own license prices, to show what the pack saves. */
   beatLicenses: Pick<BeatLicense, "beat_id" | "type" | "price_eur" | "price_pln" | "price_usd">[];
   producer: Pick<Profile, "id" | "username" | "producer_name" | "display_name" | "avatar_path" | "is_verified">;
@@ -198,10 +205,12 @@ export async function getPublicPack(slug: string): Promise<PublicPack | null> {
   const { data: pack } = await supabase.from("pack_cards").select("*").eq("slug", slug).eq("status", "published").maybeSingle();
   if (!pack?.id || !pack.producer_id) return null;
 
-  const [{ data: items }, { data: licenses }, { data: producer }] = await Promise.all([
+  const [{ data: items }, { data: licenses }, { data: producer }, { data: live }] = await Promise.all([
     supabase.from("beat_pack_items").select("beat_id, position").eq("pack_id", pack.id).order("position"),
     supabase.from("beat_pack_licenses").select("*").eq("pack_id", pack.id).eq("enabled", true).order("sort_order"),
     supabase.from("profiles").select("id, username, producer_name, display_name, avatar_path, is_verified").eq("id", pack.producer_id).maybeSingle(),
+    // Fails harmlessly (beats also sold on their own) on a database without update 11.
+    supabase.from("live_pack_beats").select("beat_id").eq("pack_id", pack.id).limit(1),
   ]);
   if (!producer) return null;
 
@@ -217,5 +226,5 @@ export async function getPublicPack(slug: string): Promise<PublicPack | null> {
     .map(({ search_vector: _sv, ...card }) => card as unknown as BeatCard)
     .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 
-  return { pack, licenses: licenses ?? [], beats, beatLicenses: beatLicenses.data ?? [], producer };
+  return { pack, licenses: licenses ?? [], beats, beatsOnlyHere: !!live?.length, beatLicenses: beatLicenses.data ?? [], producer };
 }

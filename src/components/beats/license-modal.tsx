@@ -54,9 +54,13 @@ export function LicenseModalHost() {
           <div className="flex items-center gap-4">
             <BeatCover path={beat.cover_path} title={beat.title} seed={beat.id} className="h-16 w-16 shrink-0 rounded-xl" sizes="64px" showTitle={false} />
             <div className="min-w-0">
-              <Link href={`/beats/${beat.slug}`} onClick={close} className="block truncate font-display text-lg font-bold hover:underline">
-                {beat.title}
-              </Link>
+              {beat.linkToBeat === false ? (
+                <p className="truncate font-display text-lg font-bold">{beat.title}</p>
+              ) : (
+                <Link href={`/beats/${beat.slug}`} onClick={close} className="block truncate font-display text-lg font-bold hover:underline">
+                  {beat.title}
+                </Link>
+              )}
               <p className="truncate text-sm text-ink-300">prod. {beat.producer_name}</p>
             </div>
           </div>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BadgeCheck, CornerDownLeft, Search, X } from "lucide-react";
+import { ArrowRight, BadgeCheck, CornerDownLeft, Layers, Search, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BeatCover } from "@/components/beats/cover";
@@ -12,6 +12,9 @@ import { Price } from "@/components/beats/price";
 import { keyName } from "@/lib/format";
 import { DEFAULT_GENRES } from "@/lib/constants";
 import type { BeatCard, ProducerSummary, SearchResult } from "@/lib/types";
+import type { Database } from "@/lib/database.types";
+
+type PackHit = Database["public"]["Functions"]["search_packs"]["Returns"][number];
 
 export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -19,6 +22,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
   const [query, setQuery] = useState("");
   const [beats, setBeats] = useState<BeatCard[]>([]);
   const [producers, setProducers] = useState<ProducerSummary[]>([]);
+  const [packs, setPacks] = useState<PackHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
 
@@ -41,6 +45,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
     if (!q) {
       setBeats([]);
       setProducers([]);
+      setPacks([]);
       setLoading(false);
       return;
     }
@@ -48,13 +53,16 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
     const supabase = getSupabaseBrowserClient();
     let cancelled = false;
     const t = setTimeout(async () => {
-      const [b, p] = await Promise.all([
+      const [b, p, k] = await Promise.all([
         supabase.rpc("search_beats", { p_query: q, p_sort: "relevance", p_limit: 6 }),
         supabase.rpc("get_producers", { p_query: q, p_limit: 3 }),
+        // Beats in a pack on sale are only found through their pack.
+        supabase.rpc("search_packs", { p_query: q, p_limit: 3 }),
       ]);
       if (cancelled) return;
       setBeats(((b.data as unknown as SearchResult<BeatCard>)?.items ?? []) as BeatCard[]);
       setProducers(((p.data as unknown as SearchResult<ProducerSummary>)?.items ?? []) as ProducerSummary[]);
+      setPacks(k.data ?? []);
       setActive(0);
       setLoading(false);
     }, 180);
@@ -67,10 +75,11 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
   const targets = useMemo(
     () => [
       ...beats.map((b) => `/beats/${b.slug}`),
+      ...packs.map((k) => `/packs/${k.slug}`),
       ...producers.map((p) => `/producers/${p.username}`),
       `/beats?q=${encodeURIComponent(query.trim())}`,
     ],
-    [beats, producers, query],
+    [beats, packs, producers, query],
   );
 
   const go = (href: string) => {
@@ -154,9 +163,32 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                   <Price eur={b.min_price_eur} pln={b.min_price_pln} usd={b.min_price_usd} className="text-sm font-semibold" />
                 </button>
               ))}
+              {packs.length > 0 && <p className="px-3 pb-1 pt-3 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-400">Beat packs</p>}
+              {packs.map((k, j) => {
+                const i = beats.length + j;
+                return (
+                  <button
+                    key={k.id}
+                    type="button"
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => go(`/packs/${k.slug}`)}
+                    className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition ${active === i ? "bg-white/[0.07]" : ""}`}
+                  >
+                    <BeatCover path={k.cover_path} title={k.title} seed={k.id} className="h-11 w-11 shrink-0 rounded-lg" sizes="44px" showTitle={false} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{k.title}</span>
+                      <span className="block truncate text-xs text-ink-300">
+                        {k.matched_beat ? <>Has “{k.matched_beat}” · </> : null}
+                        {k.producer_name} · {k.beats_count} beats
+                      </span>
+                    </span>
+                    <Layers className="h-4 w-4 shrink-0 text-ink-400" aria-hidden />
+                  </button>
+                );
+              })}
               {producers.length > 0 && <p className="px-3 pb-1 pt-3 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-400">Producers</p>}
               {producers.map((p, j) => {
-                const i = beats.length + j;
+                const i = beats.length + packs.length + j;
                 return (
                   <button
                     key={p.id}
@@ -177,7 +209,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                   </button>
                 );
               })}
-              {!loading && beats.length === 0 && producers.length === 0 && (
+              {!loading && beats.length === 0 && packs.length === 0 && producers.length === 0 && (
                 <p className="px-3 py-8 text-center text-sm text-ink-300">No results for “{query.trim()}”. Try a genre, mood or producer name.</p>
               )}
               <button

@@ -13,7 +13,8 @@ import { formatDuration, keyName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BeatCard } from "@/lib/types";
 
-export function BeatRow({ beat, index, queue }: { beat: BeatCard; index?: number; queue?: BeatCard[] }) {
+/** `linkTitle={false}`: no link to the beat's own page (e.g. inside a pack, where that page leads back to the pack). */
+export function BeatRow({ beat, index, queue, linkTitle = true }: { beat: BeatCard; index?: number; queue?: BeatCard[]; linkTitle?: boolean }) {
   const openLicenses = useLicenseModal((s) => s.openFor);
   const active = usePlayer((s) => s.current?.id === beat.id);
   const play = usePlayer((s) => s.play);
@@ -41,10 +42,17 @@ export function BeatRow({ beat, index, queue }: { beat: BeatCard; index?: number
       </div>
 
       <div className="min-w-0">
-        <Link href={`/beats/${beat.slug}`} className="flex items-center gap-2">
-          <NowPlayingBars beatId={beat.id} />
-          <span className="truncate text-sm font-semibold">{beat.title}</span>
-        </Link>
+        {linkTitle ? (
+          <Link href={`/beats/${beat.slug}`} className="flex items-center gap-2">
+            <NowPlayingBars beatId={beat.id} />
+            <span className="truncate text-sm font-semibold">{beat.title}</span>
+          </Link>
+        ) : (
+          <p className="flex items-center gap-2">
+            <NowPlayingBars beatId={beat.id} />
+            <span className="truncate text-sm font-semibold">{beat.title}</span>
+          </p>
+        )}
         <Link href={`/producers/${beat.producer_username}`} className="flex items-center gap-1 text-[13px] text-ink-300 hover:text-ink-50">
           <span className="truncate">{beat.producer_name}</span>
           {beat.producer_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-400" />}
@@ -91,6 +99,7 @@ export function BeatRow({ beat, index, queue }: { beat: BeatCard; index?: number
                 cover_path: beat.cover_path,
                 producer_name: beat.producer_name,
                 producer_id: beat.producer_id,
+                linkToBeat: linkTitle,
               })
             }
             className="inline-flex h-9 items-center gap-2 rounded-full bg-white/[0.06] px-3.5 text-[13px] font-semibold transition-all hover:bg-white hover:text-ink-950"

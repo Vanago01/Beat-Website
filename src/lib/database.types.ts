@@ -91,6 +91,12 @@ isOneToOne: false
       foreignKeyName: "beat_pack_items_pack_id_fkey"
       columns: ["pack_id"]
 isOneToOne: false
+      referencedRelation: "live_pack_beats"
+      referencedColumns: ["pack_id"]
+    },{
+      foreignKeyName: "beat_pack_items_pack_id_fkey"
+      columns: ["pack_id"]
+isOneToOne: false
       referencedRelation: "pack_cards"
       referencedColumns: ["id"]
     }
@@ -113,6 +119,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "beat_packs"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_pack_licenses_pack_id_fkey"
+      columns: ["pack_id"]
+isOneToOne: false
+      referencedRelation: "live_pack_beats"
+      referencedColumns: ["pack_id"]
     },{
       foreignKeyName: "beat_pack_licenses_pack_id_fkey"
       columns: ["pack_id"]
@@ -351,6 +363,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "beat_packs"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_items_pack_id_fkey"
+      columns: ["pack_id"]
+isOneToOne: false
+      referencedRelation: "live_pack_beats"
+      referencedColumns: ["pack_id"]
     },{
       foreignKeyName: "order_items_pack_id_fkey"
       columns: ["pack_id"]
@@ -620,6 +638,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"live_pack_beats": {
+                  Row: {
+                    "beat_id": string,"pack_id": string,"pack_slug": string,"pack_title": string,"producer_id": string,"published_at": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "beat_pack_items_beat_id_fkey"
+      columns: ["beat_id"]
+isOneToOne: false
+      referencedRelation: "beat_cards"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_pack_items_beat_id_fkey"
+      columns: ["beat_id"]
+isOneToOne: false
+      referencedRelation: "beats"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_packs_producer_id_fkey"
+      columns: ["producer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"pack_cards": {
                   Row: {
                     "available": boolean | null,"available_count": number | null,"beats_count": number | null,"cover_path": string | null,"created_at": string,"description": string | null,"genres": (string)[] | null,"id": string,"is_featured": boolean,"min_price_eur": number | null,"min_price_pln": number | null,"min_price_usd": number | null,"producer_avatar_path": string | null,"producer_id": string,"producer_name": string | null,"producer_username": string,"producer_verified": boolean,"published_at": string | null,"rejection_reason": string | null,"sales_count": number,"slug": string,"status": Database["public"]['Enums']["beat_status"],"title": string
@@ -825,6 +869,11 @@ isOneToOne: false
       } },
 "search_beats":
 { Args: { "p_bpm_max"?: number,"p_bpm_min"?: number,"p_currency"?: Database["public"]['Enums']["currency_code"],"p_exclude_id"?: string,"p_exclusive_only"?: boolean,"p_featured_only"?: boolean,"p_free_only"?: boolean,"p_genres"?: (string)[],"p_keys"?: (number)[],"p_limit"?: number,"p_moods"?: (string)[],"p_offset"?: number,"p_price_max"?: number,"p_price_min"?: number,"p_producer_id"?: string,"p_query"?: string,"p_sort"?: string }; Returns: Json
+                           },
+"search_packs":
+{ Args: { "p_limit"?: number,"p_query": string }; Returns: {
+              "beats_count": number,"cover_path": string,"id": string,"matched_beat": string,"producer_name": string,"slug": string,"title": string
+            }[]
                            },
 "seller_dashboard":
 { Args: Record<PropertyKey, never>; Returns: Json

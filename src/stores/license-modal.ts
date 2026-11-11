@@ -10,6 +10,8 @@ export interface LicenseModalBeat {
   producer_name: string;
   producer_id?: string;
   exclusive_sold_at?: string | null;
+  /** false: don't link the title to the beat's page (opened from inside a pack). */
+  linkToBeat?: boolean;
 }
 
 interface LicenseModalState {

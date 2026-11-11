@@ -873,4 +873,45 @@ end $$;
 rollback;
 delete from auth.mfa_factors where id = '77777777-7777-4777-8777-777777777777';
 
+-- 42. While a pack is on sale, its beats are only listed inside it.
+begin;
+select test.act_as(null);
+select test.ok((select count(*) = 2 from public.live_pack_beats where pack_id = '66666666-6666-4666-8666-666666666666'),
+  'the beats of a pack on sale are pack-only');
+select test.ok((public.search_beats(p_producer_id => :'sb') ->> 'total')::int = 0,
+  'pack-only beats are not listed on the producer profile');
+select test.ok(not exists (
+  select 1 from jsonb_array_elements(public.search_beats(p_query => 'Pack', p_limit => 100) -> 'items') e
+  where e ->> 'id' in ('55555555-5555-4555-8555-555555555551', '55555555-5555-4555-8555-555555555552')),
+  'pack-only beats are not found in Explore or search');
+rollback;
+begin;
+select test.act_as(:'sb');
+update public.beats set status = 'draft' where id = '55555555-5555-4555-8555-555555555552';
+commit;
+begin;
+select test.act_as(null);
+select test.ok((select count(*) = 0 from public.live_pack_beats where pack_id = '66666666-6666-4666-8666-666666666666'),
+  'a pack off sale has no pack-only beats');
+select test.ok((public.search_beats(p_producer_id => :'sb') ->> 'total')::int = 1,
+  'beats of a pack off sale are listed on their own again');
+rollback;
+begin;
+select test.act_as(:'sb');
+update public.beats set status = 'published' where id = '55555555-5555-4555-8555-555555555552';
+commit;
+begin;
+select test.act_as(:'owner', 'aal2');
+update public.beat_packs set status = 'draft' where id = '66666666-6666-4666-8666-666666666666';
+commit;
+begin;
+select test.act_as(null);
+select test.ok((public.search_beats(p_producer_id => :'sb') ->> 'total')::int = 2,
+  'an unpublished pack doesn''t hide its beats');
+rollback;
+begin;
+select test.act_as(:'owner', 'aal2');
+update public.beat_packs set status = 'published' where id = '66666666-6666-4666-8666-666666666666';
+commit;
+
 \echo '--- all security tests passed ---'

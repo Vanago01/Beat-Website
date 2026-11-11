@@ -44,7 +44,7 @@ const TONE: Record<BeatStatus, "success" | "warning" | "danger" | "default" | "o
   archived: "outline",
 };
 
-export function BeatsManager({ beats, canSelfPublish }: { beats: ManagedBeat[]; canSelfPublish: boolean }) {
+export function BeatsManager({ beats, canSelfPublish, packOnly = {} }: { beats: ManagedBeat[]; canSelfPublish: boolean; packOnly?: Record<string, { title: string; slug: string }> }) {
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | BeatStatus>("all");
   const [confirm, setConfirm] = useState<ManagedBeat | null>(null);
@@ -136,6 +136,14 @@ export function BeatsManager({ beats, canSelfPublish }: { beats: ManagedBeat[]; 
                       <Badge tone={TONE[b.status]}>{sold ? "Sold exclusively" : BEAT_STATUS_LABEL[b.status]}</Badge>
                     </div>
                     {b.status === "rejected" && b.rejection_reason && <p className="mt-1 text-xs text-danger">Reason: {b.rejection_reason}</p>}
+                    {packOnly[b.id] && (
+                      <p className="mt-1 truncate text-xs text-ink-300">
+                        Only sold in the pack{" "}
+                        <Link href={`/packs/${packOnly[b.id].slug}`} className="text-accent-300 hover:underline">
+                          “{packOnly[b.id].title}”
+                        </Link>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <span className="hidden lg:block">
@@ -157,8 +165,8 @@ export function BeatsManager({ beats, canSelfPublish }: { beats: ManagedBeat[]; 
                       <MenuItem onClick={() => { close(); router.push(`/dashboard/beats/${b.id}/edit`); }}>
                         <Pencil className="h-4 w-4 text-ink-300" /> Edit beat
                       </MenuItem>
-                      <MenuItem onClick={() => { close(); router.push(`/beats/${b.slug}`); }}>
-                        <Eye className="h-4 w-4 text-ink-300" /> {b.status === "published" ? "View in marketplace" : "Preview page"}
+                      <MenuItem onClick={() => { close(); router.push(packOnly[b.id] ? `/packs/${packOnly[b.id].slug}` : `/beats/${b.slug}`); }}>
+                        <Eye className="h-4 w-4 text-ink-300" /> {packOnly[b.id] ? "View its pack" : b.status === "published" ? "View in marketplace" : "Preview page"}
                       </MenuItem>
                       {!sold && !b.admin_locked && b.status === "published" && (
                         <MenuItem onClick={() => { close(); changeStatus(b, "draft"); }}>

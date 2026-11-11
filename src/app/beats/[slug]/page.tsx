@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BadgeCheck, Clock, Crown, Eye, Headphones, Heart, Music2, ShoppingBag } from "lucide-react";
 import { getBeatReviews, getPublicBeat, searchBeatsCached } from "@/lib/data/catalog";
 import { getBeatForViewer } from "@/lib/data/viewer";
@@ -22,6 +22,8 @@ export async function generateMetadata({ params }: PageProps<"/beats/[slug]">): 
   const data = await getPublicBeat(slug);
   if (!data) return { title: "Beat" };
   const { beat } = data;
+  // Only sold inside its pack: the page sends visitors there.
+  if (data.packSlug) return { title: beat.title, robots: { index: false }, alternates: { canonical: `/packs/${data.packSlug}` } };
   const title = `${beat.title} — ${beat.genre_name ?? beat.genre} beat by ${beat.producer_name}`;
   const description = `${beat.bpm} BPM · ${keyName(beat.key_note, beat.key_mode, "long")} · ${beat.genre_name}. Preview and license "${beat.title}" instantly.`;
   const image = coverUrl(beat.cover_path);
@@ -54,6 +56,8 @@ function DetailSkeleton() {
 async function BeatDetail({ params }: { params: PageProps<"/beats/[slug]">["params"] }) {
   const { slug } = await params;
   let data = await getPublicBeat(slug);
+  // While the beat is in a pack that's on sale, it's only shown (and sold) there.
+  if (data?.packSlug) redirect(`/packs/${data.packSlug}`);
   let previewStatus: BeatStatus | null = null;
   if (!data) {
     const viewerData = await getBeatForViewer(slug);

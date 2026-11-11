@@ -27,6 +27,7 @@ export async function getBeatForViewer(slug: string): Promise<(PublicBeat & { st
     beat: { ...(rest as unknown as BeatCard), description: details?.description ?? null },
     licenses: licenses ?? [],
     producer,
+    packSlug: null,
     status: card.status,
   };
 }

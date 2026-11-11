@@ -28,6 +28,24 @@ export function suggestUsd(eurMinor: number, rate: number) {
   return (whole + ((19 - (whole % 10)) % 10)) * 100;
 }
 
+/**
+ * What stops a beat's licenses from being saved: no license at all, a paid
+ * license under the minimum price, or one that delivers files the beat
+ * doesn't have. (The free download delivers the tagged preview.)
+ */
+export function beatLicenseProblems(licenses: LicenseDraft[], has: { mp3: boolean; wav: boolean; stems: boolean }): string[] {
+  const problems: string[] = [];
+  const enabled = licenses.filter((l) => l.enabled);
+  if (!enabled.length) problems.push("Turn on at least one license or the free download.");
+  for (const l of enabled) {
+    if (l.type === "free") continue;
+    if (l.price_eur < 50 || l.price_pln < 200 || l.price_usd < 50) problems.push(`Set a price for ${l.name} (min €0.50 / 2 zł / $0.50).`);
+    const missing = [l.includes_mp3 && !has.mp3 && "MP3", l.includes_wav && !has.wav && "WAV", l.includes_stems && !has.stems && "stems"].filter(Boolean);
+    if (missing.length) problems.push(`${l.name} needs the ${missing.join(" + ")} file. Upload it or turn the license off.`);
+  }
+  return problems;
+}
+
 function LimitInput({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
   const unlimited = value === null;
   return (
@@ -76,7 +94,8 @@ export function LicenseEditor({
   const patch = (type: string, p: Partial<LicenseDraft>) => onChange(licenses.map((l) => (l.type === type ? { ...l, ...p } : l)));
 
   return (
-    <div className="space-y-2.5">
+    // Lays itself out by the space it has (a wide card or a narrow pop-up), not the screen width.
+    <div className="@container space-y-2.5">
       {licenses.map((l) => {
         const meta = LICENSE_META[l.type];
         const expanded = open === l.type;
@@ -84,7 +103,7 @@ export function LicenseEditor({
         const missing = l.enabled && !free && ((l.includes_mp3 && !available.mp3) || (l.includes_wav && !available.wav) || (l.includes_stems && !available.stems));
         return (
           <div key={l.type} className={cn("rounded-2xl border transition-colors", l.enabled ? "border-white/[0.12] bg-white/[0.03]" : "border-white/[0.06] bg-transparent")}>
-            <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+            <div className="flex flex-col gap-3 p-4 @3xl:flex-row @3xl:items-center">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <Switch checked={l.enabled} onChange={(enabled) => patch(l.type, { enabled })} label={`Enable ${meta.label}`} />
                 <div className="min-w-0">
@@ -96,7 +115,7 @@ export function LicenseEditor({
                 </div>
               </div>
               {!free && (
-                <div className={cn("grid grid-cols-3 gap-2 md:w-[24rem]", !l.enabled && "pointer-events-none opacity-40")}>
+                <div className={cn("grid grid-cols-3 gap-2 @3xl:w-[24rem]", !l.enabled && "pointer-events-none opacity-40")}>
                   <MoneyInput
                     ariaLabel={`${meta.label} price in EUR`}
                     prefix="€"
@@ -129,11 +148,11 @@ export function LicenseEditor({
                   />
                 </div>
               )}
-              {free && <p className={cn("text-sm font-semibold text-ink-200 md:w-[24rem] md:text-right", !l.enabled && "opacity-40")}>Free · tagged MP3</p>}
+              {free && <p className={cn("text-sm font-semibold text-ink-200 @3xl:w-[24rem] @3xl:text-right", !l.enabled && "opacity-40")}>Free · tagged MP3</p>}
               <button
                 type="button"
                 onClick={() => setOpen(expanded ? null : l.type)}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-white/10 px-3.5 text-xs text-ink-200 transition hover:border-white/25 md:w-28"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-white/10 px-3.5 text-xs text-ink-200 transition hover:border-white/25 @3xl:w-28"
                 aria-expanded={expanded}
               >
                 Terms <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
@@ -145,7 +164,7 @@ export function LicenseEditor({
               </p>
             )}
             {expanded && (
-              <div className="grid gap-5 border-t border-white/[0.06] p-4 md:grid-cols-2">
+              <div className="grid gap-5 border-t border-white/[0.06] p-4 @2xl:grid-cols-2">
                 <div className="space-y-4">
                   <div>
                     <p className="mb-1.5 text-xs text-ink-300">License name (shown to buyers)</p>

@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ImagePlus, Info, Library, Plus, Send, Sparkles, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ImagePlus, Info, Library, Plus, Send, Sparkles, Tag, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { FileSlot, type FileState } from "./form-parts";
 import { LicenseEditor, charmPln, suggestUsd } from "./license-editor";
 import { QuickBeatForm } from "./quick-beat-form";
+import { BeatPricesModal, priceSummary, type BeatPrice } from "./beat-prices";
 import { BeatCover } from "@/components/beats/cover";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
@@ -17,7 +18,7 @@ import { savePack } from "@/actions/packs";
 import { buildPath, uploadSmall } from "@/lib/upload";
 import { coverUrl } from "@/lib/storage";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { keyName } from "@/lib/format";
+import { formatPrice, keyName } from "@/lib/format";
 import { BEAT_STATUS_LABEL, type BeatStatus, type LicenseDraft, type PriceRates } from "@/lib/constants";
 import { DEFAULT_PACK_LICENSES, PACK_LICENSE_TYPES, PACK_MAX_BEATS, PACK_MIN_BEATS, beatsLabel, type PackLicense } from "@/lib/packs";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,8 @@ export interface PackBeat {
   has_wav: boolean;
   has_stems: boolean;
   exclusive_sold_at: string | null;
+  /** The beat's own licenses (what it costs on its own, free download). */
+  prices: BeatPrice[];
 }
 
 export interface EditablePack {
@@ -109,6 +112,7 @@ export function PackForm({
   const [licenses, setLicenses] = useState<LicenseDraft[]>(() => initialLicenses(packLicenses, rates));
   const [picker, setPicker] = useState<Set<string> | null>(null);
   const [uploadingBeat, setUploadingBeat] = useState(false);
+  const [pricing, setPricing] = useState<PackBeat | null>(null);
   const [pending, startTransition] = useTransition();
   const coverAbort = useRef<AbortController | null>(null);
 
@@ -307,6 +311,7 @@ export function PackForm({
                         </span>
                       ))}
                     </p>
+                    <BeatPriceLine beat={b} onEdit={() => setPricing(b)} />
                   </div>
                   <div className="flex shrink-0 items-center">
                     <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="grid h-8 w-8 place-items-center rounded-full text-ink-300 hover:bg-white/[0.08] disabled:opacity-30" aria-label={`Move ${b.title} up`}>
@@ -331,6 +336,7 @@ export function PackForm({
             One price per license for the whole pack: buyers get that license for every beat in it. PLN and USD are suggested from EUR — override any of them.
           </p>
           <LicenseEditor licenses={licenses} onChange={setLicenses} rates={rates} available={available} />
+          <PackVsSingles beats={beats} licenses={licenses} />
         </Card>
       </div>
 
@@ -444,7 +450,14 @@ export function PackForm({
         )}
       </Modal>
 
-      <Modal open={uploadingBeat} onClose={() => setUploadingBeat(false)} title="Upload a new beat" description="It's added to this pack and saved under My beats." size="lg">
+      <BeatPricesModal
+        beat={pricing}
+        rates={rates}
+        onClose={() => setPricing(null)}
+        onSaved={(id, prices) => setLibrary((list) => list.map((x) => (x.id === id ? { ...x, prices } : x)))}
+      />
+
+      <Modal open={uploadingBeat} onClose={() => setUploadingBeat(false)} title="Upload a new beat" description="It's added to this pack and saved under My beats." size="xl">
         {uploadingBeat && (
           <QuickBeatForm
             producerId={producerId}
@@ -466,3 +479,47 @@ export function PackForm({
   );
 }
 
+/** A beat's own prices in the pack editor, with the button to change them. */
+function BeatPriceLine({ beat, onEdit }: { beat: PackBeat; onEdit: () => void }) {
+  const { free, from } = priceSummary(beat.prices);
+  return (
+    <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      {free && <Badge tone="success" className="h-5 px-2 text-[10px]">Free download</Badge>}
+      <span className="text-ink-300">{from ? `On its own from ${from}` : free ? "No paid licenses" : "No licenses on"}</span>
+      {beat.exclusive_sold_at ? null : (
+        <button type="button" onClick={onEdit} className="inline-flex items-center gap-1 font-medium text-accent-300 underline-offset-4 hover:underline" aria-label={`Prices and free download for ${beat.title}`}>
+          <Tag className="h-3 w-3" /> Prices &amp; free download
+        </button>
+      )}
+    </p>
+  );
+}
+
+/** Each pack price next to what the same license costs for the beats one by one. */
+function PackVsSingles({ beats, licenses }: { beats: PackBeat[]; licenses: LicenseDraft[] }) {
+  if (beats.length < PACK_MIN_BEATS) return null;
+  const lines = licenses
+    .filter((l) => l.enabled && l.price_eur > 0)
+    .flatMap((l) => {
+      const singles = beats.map((b) => b.prices.find((p) => p.type === l.type && p.enabled)?.price_eur);
+      // Only comparable when every beat offers this license on its own.
+      if (singles.some((p) => p == null)) return [];
+      return [{ name: l.name, pack: l.price_eur, sum: singles.reduce<number>((a, p) => a + (p ?? 0), 0) }];
+    });
+  if (!lines.length) return null;
+  return (
+    <ul className="mt-4 space-y-1.5 text-xs">
+      {lines.map((x) =>
+        x.pack < x.sum ? (
+          <li key={x.name} className="flex gap-2 text-success">
+            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {x.name}: buyers save {Math.round((1 - x.pack / x.sum) * 100)}% compared with {formatPrice(x.sum, "eur")} for the beats one by one.
+          </li>
+        ) : (
+          <li key={x.name} className="flex gap-2 text-warning">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {x.name}: the pack costs more than buying these beats one by one ({formatPrice(x.sum, "eur")}).
+          </li>
+        ),
+      )}
+    </ul>
+  );
+}

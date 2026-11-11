@@ -3,7 +3,7 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { BPM_MAX, BPM_MIN, LICENSE_ORDER, MAX_MOODS, isValidMood, normalizeMood } from "@/lib/constants";
+import { BPM_MAX, BPM_MIN, LICENSE_ORDER, MAX_MOODS, isValidMood, normalizeMood, type LicenseType } from "@/lib/constants";
 import type { ActionResult } from "@/lib/types";
 import { isPackCover } from "@/lib/storage";
 
@@ -94,6 +94,62 @@ export async function saveBeat(input: SaveBeatInput): Promise<ActionResult<{ id:
   const { data: producer } = await supabase.from("profiles").select("username").eq("id", row.producer_id).maybeSingle();
   invalidate(row.slug, producer?.username);
   return { ok: true, data: { id: row.id, slug: row.slug, status: row.status } };
+}
+
+const licensesOnlySchema = z.object({
+  beatId: z.uuid(),
+  licenses: z.array(licenseSchema).min(1).max(6),
+});
+
+/**
+ * Saves only a beat's licenses: prices, free download and terms (used by the
+ * pack editor). Everything else about the beat stays as it is.
+ */
+export async function saveBeatLicenses(input: z.input<typeof licensesOnlySchema>): Promise<ActionResult> {
+  const parsed = licensesOnlySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Please check the prices." };
+  const { beatId, licenses } = parsed.data;
+  if (new Set(licenses.map((l) => l.type)).size !== licenses.length) return { ok: false, error: "Each license type can only be added once." };
+
+  const supabase = await createSupabaseServerClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const uid = claims?.claims?.sub;
+  if (!uid) return { ok: false, error: "Your session expired — please sign in again." };
+
+  const { data: beat } = await supabase.from("beats").select("id, slug, producer_id, admin_locked").eq("id", beatId).maybeSingle();
+  if (!beat || beat.producer_id !== uid) return { ok: false, error: "Beat not found or you don't have permission." };
+  if (beat.admin_locked) return { ok: false, error: "This beat has been locked by an administrator." };
+
+  // One statement, so the database checks the beat's licenses as a whole
+  // (files for every enabled license, at least one license if it's live).
+  const { error } = await supabase.from("beat_licenses").upsert(
+    licenses.map((l, i) => ({
+      beat_id: beatId,
+      type: l.type as LicenseType,
+      name: l.name,
+      enabled: l.enabled,
+      price_eur: l.price_eur,
+      price_pln: l.price_pln,
+      price_usd: l.price_usd,
+      includes_mp3: l.includes_mp3,
+      includes_wav: l.includes_wav,
+      includes_stems: l.includes_stems,
+      distribution_limit: l.distribution_limit,
+      streams_limit: l.streams_limit,
+      music_videos: l.music_videos,
+      radio_stations: l.radio_stations,
+      allow_live_performances: l.allow_live_performances,
+      allow_for_profit: l.allow_for_profit,
+      terms: l.terms.trim() ? l.terms : null,
+      sort_order: i + 1,
+    })),
+    { onConflict: "beat_id,type" },
+  );
+  if (error) return { ok: false, error: friendly(error.message) };
+
+  const { data: producer } = await supabase.from("profiles").select("username").eq("id", beat.producer_id).maybeSingle();
+  invalidate(beat.slug, producer?.username);
+  return { ok: true };
 }
 
 export async function setBeatStatus(id: string, status: "draft" | "pending" | "published" | "archived"): Promise<ActionResult<{ status: string }>> {

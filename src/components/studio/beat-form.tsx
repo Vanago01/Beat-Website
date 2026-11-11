@@ -45,6 +45,20 @@ export function mergeLicenses(saved: unknown, rates: PriceRates): LicenseDraft[]
   });
 }
 
+/** A saved beat's licenses as editable drafts: every tier, those never saved switched off. */
+export function licensesFromSaved(
+  existing: (Omit<Partial<LicenseDraft>, "terms"> & { type: string; terms?: string | null })[],
+  rates: PriceRates,
+): LicenseDraft[] {
+  return mergeLicenses(
+    LICENSE_ORDER.map((type) => {
+      const l = existing.find((x) => x.type === type);
+      return l ? { ...l, terms: l.terms ?? "" } : { ...DEFAULT_LICENSES.find((d) => d.type === type)!, enabled: false };
+    }),
+    rates,
+  );
+}
+
 export interface BeatFormProps {
   producerId: string;
   beat?: BeatRow | null;
@@ -72,15 +86,7 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
   const [duration, setDuration] = useState<number | null>(beat?.duration_seconds ?? null);
   const [analyzing, setAnalyzing] = useState(false);
   const [licenses, setLicenses] = useState<LicenseDraft[]>(() =>
-    existingLicenses?.length
-      ? mergeLicenses(
-          LICENSE_ORDER.map((type) => {
-            const l = existingLicenses.find((x) => x.type === type);
-            return l ? { ...l, terms: l.terms ?? "" } : { ...DEFAULT_LICENSES.find((d) => d.type === type)!, enabled: false };
-          }),
-          rates,
-        )
-      : mergeLicenses(licenseDefaults, rates),
+    existingLicenses?.length ? licensesFromSaved(existingLicenses, rates) : mergeLicenses(licenseDefaults, rates),
   );
   // Pre-checked only for a producer's first upload; afterwards saving defaults is opt-in.
   const [saveDefaults, setSaveDefaults] = useState(!beat && !Array.isArray(licenseDefaults));

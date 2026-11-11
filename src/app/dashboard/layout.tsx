@@ -2,9 +2,9 @@ import { Tabs } from "@/components/account/account-tabs";
 
 const TABS = [
   { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/beats", label: "My beats" },
-  { href: "/dashboard/beats/new", label: "Upload beat" },
-  { href: "/dashboard/packs", label: "Beat packs" },
+  // Beats and beat packs live together: "My beats" lists both, "Upload" creates either.
+  { href: "/dashboard/beats", label: "My beats", match: ["/dashboard/packs"] },
+  { href: "/dashboard/beats/new", label: "Upload", match: ["/dashboard/packs/new"] },
   { href: "/dashboard/sales", label: "Sales" },
   { href: "/dashboard/payouts", label: "Payouts" },
 ];

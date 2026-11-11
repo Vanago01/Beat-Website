@@ -5,13 +5,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-type TabItem = { href: string; label: string };
+/** `match`: other paths that also belong to this tab (e.g. /dashboard/packs under "My beats"). */
+type TabItem = { href: string; label: string; match?: string[] };
 
 function TabsView({ items, pathname }: { items: TabItem[]; pathname: string | null }) {
-  // The most specific matching tab wins (e.g. /dashboard/beats/new → "Upload beat").
-  const activeHref = items
-    .filter((t) => pathname && (t.href === pathname || (t.href !== items[0].href && pathname.startsWith(`${t.href}/`))))
-    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  // The most specific match wins (e.g. /dashboard/beats/new → "Upload", not "My beats").
+  // The first tab (the section's home) only matches its own page.
+  const score = (t: TabItem, i: number) =>
+    Math.max(
+      -1,
+      ...[t.href, ...(t.match ?? [])].map((p) =>
+        pathname && (p === pathname || (i > 0 && pathname.startsWith(`${p}/`))) ? p.length : -1,
+      ),
+    );
+  const best = items.map((t, i) => ({ href: t.href, s: score(t, i) })).filter((x) => x.s >= 0).sort((a, b) => b.s - a.s)[0];
+  const activeHref = best?.href;
   return (
     <nav className="no-scrollbar -mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0" aria-label="Section">
       {items.map((t) => {

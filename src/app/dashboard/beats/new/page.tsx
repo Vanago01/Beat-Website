@@ -4,8 +4,9 @@ import { requireSeller } from "@/lib/auth";
 import { getGenres, getPlatformSettings } from "@/lib/data/catalog";
 import { BeatForm } from "@/components/studio/beat-form";
 import { PageSkeleton } from "@/components/account/page-skeleton";
+import { UploadChooser } from "@/components/studio/studio-switch";
 
-export const metadata: Metadata = { title: "Upload beat", robots: { index: false } };
+export const metadata: Metadata = { title: "Upload", robots: { index: false } };
 
 async function NewBeat() {
   const viewer = await requireSeller("/dashboard/beats/new");
@@ -27,6 +28,7 @@ async function NewBeat() {
 export default function NewBeatPage() {
   return (
     <>
+      <UploadChooser active="beat" />
       <div className="mb-6">
         <h2 className="font-display text-2xl font-bold">Upload a new beat</h2>
         <p className="mt-1 text-sm text-ink-300">Files upload as soon as you choose them. Save a draft any time.</p>

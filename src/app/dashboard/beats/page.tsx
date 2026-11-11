@@ -6,6 +6,7 @@ import { getPlatformSettings } from "@/lib/data/catalog";
 import { BeatsManager, type ManagedBeat } from "@/components/studio/beats-manager";
 import { PageSkeleton } from "@/components/account/page-skeleton";
 import { EmptyState } from "@/components/ui/misc";
+import { LibrarySwitch } from "@/components/studio/studio-switch";
 
 export const metadata: Metadata = { title: "My beats", robots: { index: false } };
 
@@ -27,8 +28,11 @@ async function MyBeats() {
 
 export default function MyBeatsPage() {
   return (
-    <Suspense fallback={<PageSkeleton />}>
-      <MyBeats />
-    </Suspense>
+    <>
+      <LibrarySwitch active="beats" />
+      <Suspense fallback={<PageSkeleton />}>
+        <MyBeats />
+      </Suspense>
+    </>
   );
 }

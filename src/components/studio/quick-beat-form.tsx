@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FileArchive, FileAudio, Music, Waves } from "lucide-react";
+import { FileArchive, FileAudio, Info, Music, Waves } from "lucide-react";
 import { toast } from "sonner";
 import { FileSlot, TapTempo, type FileState } from "./form-parts";
 import { mergeLicenses } from "./beat-form";
+import { LicenseEditor, beatLicenseProblems } from "./license-editor";
+import { toBeatPrices } from "./beat-prices";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -13,7 +15,7 @@ import { saveBeat } from "@/actions/beats";
 import { analyzeAudio } from "@/lib/audio-analysis";
 import { buildPath, uploadResumable, type Bucket } from "@/lib/upload";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { BPM_MAX, BPM_MIN, NOTE_NAMES, type PriceRates } from "@/lib/constants";
+import { BPM_MAX, BPM_MIN, NOTE_NAMES, type LicenseDraft, type PriceRates } from "@/lib/constants";
 import type { PackBeat } from "./pack-form";
 
 type Kind = "preview" | "mp3" | "wav" | "stems";
@@ -26,9 +28,9 @@ const SPEC: Record<Kind, { bucket: Bucket; accept: string; max: number; types: R
 };
 
 /**
- * Uploads one new beat for a pack: the essentials only (title, genre, tempo,
- * key and files). It gets the pack's cover and the producer's default
- * licenses for the files provided, and is saved as a draft that goes live
+ * Uploads one new beat for a pack: title, genre, tempo, key, files and its
+ * own prices and free download (prefilled with the producer's usual
+ * licenses). It gets the pack's cover and is saved as a draft that goes live
  * with the pack. Everything else can be edited later like any beat.
  */
 export function QuickBeatForm({
@@ -57,6 +59,10 @@ export function QuickBeatForm({
   const [files, setFiles] = useState<Partial<Record<Kind, FileState | null>>>({});
   const [waveform, setWaveform] = useState<number[] | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
+  const [licenses, setLicenses] = useState<LicenseDraft[]>(() => mergeLicenses(licenseDefaults, rates));
+  // License switches the producer flipped themselves. The others follow the
+  // files: a license that needs a WAV or stems stays off until they're uploaded.
+  const [flipped, setFlipped] = useState<ReadonlySet<string>>(() => new Set());
   const [saving, setSaving] = useState(false);
   const aborters = useRef<Partial<Record<Kind, AbortController>>>({});
   const raw = useRef<Partial<Record<Kind, File>>>({});
@@ -123,6 +129,17 @@ export function QuickBeatForm({
 
   const done = (kind: Kind) => files[kind]?.status === "done" && !!files[kind]?.path;
   const uploading = Object.values(files).some((f) => f?.status === "uploading");
+  const has = { mp3: done("mp3"), wav: done("wav"), stems: done("stems") };
+  const fits = (l: LicenseDraft) => (!l.includes_mp3 || has.mp3) && (!l.includes_wav || has.wav) && (!l.includes_stems || has.stems);
+  const shown = licenses.map((l) => (l.type === "free" || flipped.has(l.type) ? l : { ...l, enabled: l.enabled && fits(l) }));
+  const changeLicenses = (next: LicenseDraft[]) => {
+    const now = next.filter((l, i) => l.enabled !== shown[i]?.enabled).map((l) => l.type);
+    const all = now.length ? new Set([...flipped, ...now]) : flipped;
+    if (now.length) setFlipped(all);
+    // Untouched switches keep the producer's usual setting, so they come on once the files are in.
+    setLicenses(next.map((l, i) => (all.has(l.type) ? l : { ...l, enabled: licenses[i].enabled })));
+  };
+  const licenseProblems = beatLicenseProblems(shown, has);
 
   const save = async () => {
     const problem =
@@ -138,17 +155,8 @@ export function QuickBeatForm({
                 ? "Upload the untagged MP3 (every pack license includes it)."
                 : uploading
                   ? "Wait for the uploads to finish."
-                  : null;
+                  : (licenseProblems[0] ?? null);
     if (problem) return void toast.error(problem);
-
-    // The producer's usual licenses, switched on only where the files exist.
-    const has = { mp3: done("mp3"), wav: done("wav"), stems: done("stems") };
-    const licenses = mergeLicenses(licenseDefaults, rates).map((l) => ({
-      ...l,
-      terms: l.terms ?? "",
-      enabled:
-        l.type !== "free" && l.enabled && (!l.includes_mp3 || has.mp3) && (!l.includes_wav || has.wav) && (!l.includes_stems || has.stems),
-    }));
 
     setSaving(true);
     const res = await saveBeat({
@@ -170,7 +178,7 @@ export function QuickBeatForm({
         duration_seconds: duration,
         waveform,
       },
-      licenses,
+      licenses: shown.map((l) => ({ ...l, terms: l.terms ?? "" })),
       status: "draft",
       saveDefaults: false,
     });
@@ -191,6 +199,7 @@ export function QuickBeatForm({
       has_wav: has.wav,
       has_stems: has.stems,
       exclusive_sold_at: null,
+      prices: toBeatPrices(shown),
     });
   };
 
@@ -240,9 +249,27 @@ export function QuickBeatForm({
         </Field>
       </div>
 
+      <div>
+        <h3 className="font-display text-base font-bold">Prices &amp; free download</h3>
+        <p className="mb-3 mt-1 text-xs leading-relaxed text-ink-400">
+          What this beat costs on its own, filled in with your usual prices. Licenses switch on as you upload the files they deliver.
+          Turn on Free Download to let people download the tagged preview for free.
+        </p>
+        <LicenseEditor licenses={shown} onChange={changeLicenses} rates={rates} available={has} />
+        {/* Shown once the required files are in, so it doesn't nag while uploading. */}
+        {licenseProblems.length > 0 && done("preview") && done("mp3") && (
+          <ul className="mt-3 space-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 text-xs text-ink-300">
+            {licenseProblems.map((p) => (
+              <li key={p} className="flex gap-2">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" /> {p}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <p className="text-xs leading-relaxed text-ink-400">
-        The beat gets the pack&apos;s cover and your usual licenses for the files you uploaded, and goes live together with the pack.
-        You can add moods, tags and a description later under My beats.
+        The beat gets the pack&apos;s cover and goes live together with the pack. You can add moods, tags and a description later under My beats.
       </p>
 
       <div className="flex justify-end gap-2">

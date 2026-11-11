@@ -5,8 +5,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PacksManager } from "@/components/studio/packs-manager";
 import { PageSkeleton } from "@/components/account/page-skeleton";
 import { EmptyState } from "@/components/ui/misc";
+import { LibrarySwitch } from "@/components/studio/studio-switch";
 
-export const metadata: Metadata = { title: "Beat packs", robots: { index: false } };
+export const metadata: Metadata = { title: "My beat packs", robots: { index: false } };
 
 async function MyPacks() {
   const viewer = await requireSeller("/dashboard/packs");
@@ -26,8 +27,11 @@ async function MyPacks() {
 
 export default function MyPacksPage() {
   return (
-    <Suspense fallback={<PageSkeleton />}>
-      <MyPacks />
-    </Suspense>
+    <>
+      <LibrarySwitch active="packs" />
+      <Suspense fallback={<PageSkeleton />}>
+        <MyPacks />
+      </Suspense>
+    </>
   );
 }

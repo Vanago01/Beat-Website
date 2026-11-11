@@ -5,8 +5,9 @@ import { getGenres, getPlatformSettings } from "@/lib/data/catalog";
 import { getPackLibrary } from "@/lib/data/studio-packs";
 import { PackForm } from "@/components/studio/pack-form";
 import { PageSkeleton } from "@/components/account/page-skeleton";
+import { UploadChooser } from "@/components/studio/studio-switch";
 
-export const metadata: Metadata = { title: "New beat pack", robots: { index: false } };
+export const metadata: Metadata = { title: "Upload a beat pack", robots: { index: false } };
 
 async function NewPack() {
   const viewer = await requireSeller("/dashboard/packs/new");
@@ -26,6 +27,7 @@ async function NewPack() {
 export default function NewPackPage() {
   return (
     <>
+      <UploadChooser active="pack" />
       <div className="mb-6">
         <h2 className="font-display text-2xl font-bold">New beat pack</h2>
         <p className="mt-1 text-sm text-ink-300">Bundle several beats with one cover and one price per license.</p>

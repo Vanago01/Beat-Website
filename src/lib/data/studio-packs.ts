@@ -8,7 +8,9 @@ export async function getPackLibrary(producerId: string): Promise<PackBeat[]> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("beats")
-    .select("id, title, status, cover_path, bpm, key_note, key_mode, genre, preview_path, mp3_path, wav_path, stems_path, exclusive_sold_at")
+    .select(
+      "id, title, status, cover_path, bpm, key_note, key_mode, genre, preview_path, mp3_path, wav_path, stems_path, exclusive_sold_at, beat_licenses(type, enabled, price_eur)",
+    )
     .eq("producer_id", producerId)
     .order("created_at", { ascending: false })
     .limit(500);
@@ -26,5 +28,6 @@ export async function getPackLibrary(producerId: string): Promise<PackBeat[]> {
     has_wav: !!b.wav_path,
     has_stems: !!b.stems_path,
     exclusive_sold_at: b.exclusive_sold_at,
+    prices: (b.beat_licenses ?? []).map((l) => ({ type: l.type, enabled: l.enabled, price_eur: l.price_eur })),
   }));
 }

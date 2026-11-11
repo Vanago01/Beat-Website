@@ -34,11 +34,13 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 
 **Selling**
 - “Become a seller” onboarding, producer studio with analytics (earnings chart, plays, top beats, recent sales).
+- Studio → **Upload**: choose between one beat and a beat pack. **My beats** lists both (Beats | Beat packs).
 - Upload form: resumable uploads (cover, tagged preview, MP3, WAV, stems ZIP), tap-tempo, key picker, moods, tags, per-tier prices in EUR, PLN & USD with suggested conversion, editable usage terms, reusable license defaults.
 - Stripe Connect Express payouts: automatic transfer of the seller’s share after each sale.
 
 **Beat packs**
 - Producers bundle 2–50 of their own beats into a pack: pick beats they already uploaded and/or upload new ones right in the pack editor. One cover for the pack, optionally used for every beat in it.
+- In the pack editor each beat's own prices and free download (tagged preview) can be set, like for a single beat; the pack's prices are compared with buying the beats one by one.
 - One price per license for the whole pack (EUR, PLN, USD). Buyers get that license for every beat in the pack, with the files and a PDF license agreement for each one. Every beat stays for sale on its own too.
 - Pack pages (tracklist, “cheaper than buying one by one”), a Beat packs page, packs on the homepage and producer profiles, and a review queue in Admin → Packs.
 - A pack is only on sale while all of its beats are available.

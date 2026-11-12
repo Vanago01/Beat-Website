@@ -53,6 +53,12 @@ export interface BeatCard {
   producer_name: string;
   producer_avatar_path: string | null;
   producer_verified: boolean;
+  /** The co-producer of a collaboration (database update 12). */
+  collaborator_id?: string | null;
+  collaborator_username?: string | null;
+  collaborator_name?: string | null;
+  collaborator_avatar_path?: string | null;
+  collaborator_verified?: boolean | null;
 }
 
 export interface SearchResult<T> {

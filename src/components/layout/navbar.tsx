@@ -29,6 +29,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useCart } from "@/stores/cart";
 import { useMessages } from "@/stores/messages";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -91,7 +92,29 @@ function MessagesButton({ pathname }: { pathname: string | null }) {
   );
 }
 
-function AccountMenu({ pathname }: { pathname: string | null }) {
+/** Collaboration invites waiting for the signed-in producer (badge on the account menu). */
+function useCollabInviteCount(userId: string | undefined, pathname: string | null) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    // Checked again on every page change, so answering an invite clears the badge.
+    void getSupabaseBrowserClient()
+      .from("beat_collaborations")
+      .select("id", { count: "exact", head: true })
+      .eq("collaborator_id", userId)
+      .eq("status", "pending")
+      .then(({ count: n, error }) => {
+        if (!cancelled) setCount(error ? 0 : (n ?? 0));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, pathname]);
+  return userId ? count : 0;
+}
+
+function AccountMenu({ pathname, invites = 0 }: { pathname: string | null; invites?: number }) {
   const { user, profile, loading, isSeller, isAdmin, signOut } = useAuth();
   const unread = useMessages((s) => s.unread);
   const router = useRouter();
@@ -125,10 +148,11 @@ function AccountMenu({ pathname }: { pathname: string | null }) {
           onClick={toggle}
           aria-expanded={open}
           aria-haspopup="menu"
-          aria-label="Account menu"
-          className={cn("rounded-full ring-2 transition", open ? "ring-accent/60" : "ring-transparent hover:ring-white/20")}
+          aria-label={invites > 0 ? `Account menu, ${invites} collaboration invite${invites === 1 ? "" : "s"}` : "Account menu"}
+          className={cn("relative rounded-full ring-2 transition", open ? "ring-accent/60" : "ring-transparent hover:ring-white/20")}
         >
           <Avatar path={profile?.avatar_path} name={name} size={38} />
+          {invites > 0 && <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-ink-950 bg-accent" aria-hidden />}
         </button>
       )}
     >
@@ -164,6 +188,11 @@ function AccountMenu({ pathname }: { pathname: string | null }) {
           {isSeller ? (
             <MenuItem onClick={() => go("/dashboard", close)}>
               <LayoutDashboard className="h-4 w-4 text-ink-300" /> Producer studio
+              {invites > 0 && (
+                <span className="ml-auto rounded-full bg-accent px-1.5 text-[11px] font-bold leading-5 text-on-accent" title="Collaboration invites">
+                  {badgeText(invites)}
+                </span>
+              )}
             </MenuItem>
           ) : (
             <MenuItem onClick={() => go("/sell", close)}>
@@ -197,6 +226,7 @@ function AccountMenu({ pathname }: { pathname: string | null }) {
 function NavbarView({ pathname }: { pathname: string | null }) {
   const { user, isSeller, isAdmin, signOut } = useAuth();
   const unread = useMessages((s) => s.unread);
+  const invites = useCollabInviteCount(isSeller ? user?.id : undefined, pathname);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -286,7 +316,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
             </Link>
             <CartButton />
             <div className="ml-1">
-              <AccountMenu pathname={pathname} />
+              <AccountMenu pathname={pathname} invites={invites} />
             </div>
             <button
               type="button"
@@ -348,6 +378,11 @@ function NavbarView({ pathname }: { pathname: string | null }) {
               {isSeller && (
                 <Link href="/dashboard" className={buttonVariants({ variant: "ghost", className: "w-full" })}>
                   Producer studio
+                  {invites > 0 && (
+                    <span className="rounded-full bg-accent px-1.5 text-[11px] font-bold leading-5 text-on-accent" title="Collaboration invites">
+                      {badgeText(invites)}
+                    </span>
+                  )}
                 </Link>
               )}
               {isAdmin && (

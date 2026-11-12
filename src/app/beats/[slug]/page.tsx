@@ -182,6 +182,23 @@ async function BeatDetail({ params }: { params: PageProps<"/beats/[slug]">["para
                     <span className="block text-xs text-ink-400">@{producer.username}</span>
                   </span>
                 </Link>
+                {beat.collaborator_username && (
+                  <>
+                    <span className="text-ink-500" aria-hidden>
+                      &amp;
+                    </span>
+                    <Link href={`/producers/${beat.collaborator_username}`} className="group inline-flex items-center gap-3" aria-label={`Co-producer: ${beat.collaborator_name}`}>
+                      <Avatar path={beat.collaborator_avatar_path ?? null} name={beat.collaborator_name ?? ""} size={40} />
+                      <span>
+                        <span className="flex items-center gap-1.5 font-semibold group-hover:underline">
+                          {beat.collaborator_name}
+                          {beat.collaborator_verified && <BadgeCheck className="h-4 w-4 text-accent-400" />}
+                        </span>
+                        <span className="block text-xs text-ink-400">@{beat.collaborator_username}</span>
+                      </span>
+                    </Link>
+                  </>
+                )}
                 <MessageButton profileId={beat.producer_id} returnTo={`/beats/${beat.slug}`} variant="outline" size="xs" label="Message producer" />
               </div>
 

@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { FileArchive, FileAudio, ImagePlus, Info, Music, Send, Sparkles, Waves } from "lucide-react";
 import { toast } from "sonner";
 import { FileSlot, MoodPicker, TagInput, TapTempo, type FileState } from "./form-parts";
+import { CollabCard } from "./collaborations";
+import { inviteCollaborator } from "@/actions/collaborations";
+import type { Collaboration } from "@/lib/data/collaborations";
 import { LicenseEditor, suggestUsd } from "./license-editor";
 import { Waveform } from "@/components/player/waveform";
 import { Button } from "@/components/ui/button";
@@ -69,9 +72,24 @@ export interface BeatFormProps {
   canSelfPublish: boolean;
   isAdmin?: boolean;
   returnTo: string;
+  /** Show the Collaboration card (the producer's own beats). */
+  showCollaboration?: boolean;
+  collaboration?: Collaboration | null;
 }
 
-export function BeatForm({ producerId, beat, licenses: existingLicenses, licenseDefaults, genres, rates, canSelfPublish, isAdmin, returnTo }: BeatFormProps) {
+export function BeatForm({
+  producerId,
+  beat,
+  licenses: existingLicenses,
+  licenseDefaults,
+  genres,
+  rates,
+  canSelfPublish,
+  isAdmin,
+  returnTo,
+  showCollaboration,
+  collaboration,
+}: BeatFormProps) {
   const router = useRouter();
   const [beatId] = useState(() => beat?.id ?? crypto.randomUUID());
   const [title, setTitle] = useState(beat?.title ?? "");
@@ -92,6 +110,8 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
   const [saveDefaults, setSaveDefaults] = useState(!beat && !Array.isArray(licenseDefaults));
   const [pending, startTransition] = useTransition();
   const [localCover, setLocalCover] = useState<string | null>(null);
+  // New beat: a collaborator to invite once the beat is saved.
+  const [collabInvite, setCollabInvite] = useState("");
 
   const initialFile = (kind: Kind, path: string | null | undefined): FileState | null =>
     path ? { status: "done", progress: 1, name: `Current ${SPEC[kind].label.toLowerCase()} file`, size: 0, path, existing: true } : null;
@@ -229,6 +249,12 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
       await Promise.all([...byBucket].map(([b, paths]) => getSupabaseBrowserClient().storage.from(b).remove(paths)));
       replaced.current = [];
       dirty.current = false;
+
+      if (!beat && collabInvite.trim().replace(/^@/, "").length >= 2) {
+        const inv = await inviteCollaborator(res.data.id, collabInvite);
+        if (inv.ok) toast.success(`Invite sent to @${inv.data.username}`, { description: "Sales are split 50/50 once they accept." });
+        else toast.error("The beat was saved, but the invite wasn't sent", { description: inv.error });
+      }
 
       const s = res.data.status;
       toast.success(
@@ -401,6 +427,16 @@ export function BeatForm({ producerId, beat, licenses: existingLicenses, license
             </div>
           )}
         </Card>
+        {showCollaboration && (
+          <CollabCard
+            beatId={beat ? beat.id : null}
+            producerId={producerId}
+            collaboration={collaboration ?? null}
+            value={collabInvite}
+            onValueChange={setCollabInvite}
+            locked={!!beat?.exclusive_sold_at || !!beat?.admin_locked}
+          />
+        )}
       </aside>
     </div>
   );

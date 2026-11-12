@@ -21,6 +21,7 @@ async function NewBeat() {
       isAdmin={isAdmin}
       licenseDefaults={viewer.profile.license_defaults}
       returnTo="/dashboard/beats"
+      showCollaboration
     />
   );
 }

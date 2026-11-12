@@ -914,4 +914,191 @@ select test.act_as(:'owner', 'aal2');
 update public.beat_packs set status = 'published' where id = '66666666-6666-4666-8666-666666666666';
 commit;
 
+-- 43. Collaborations: a producer invites another producer to one of their beats.
+begin;
+select test.act_as(:'sb');
+select (public.invite_collaborator('55555555-5555-4555-8555-555555555551', '@SellerA') ->> 'id') as collab_id \gset
+commit;
+select test.ok((select status = 'pending' and owner_id = :'sb' and collaborator_id = :'sa' and share_percent = 50
+  from public.beat_collaborations where id = :'collab_id'), 'a producer invites another producer (50/50)');
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  perform public.invite_collaborator('55555555-5555-4555-8555-555555555551', 'sellera');
+  perform test.ok(false, 'one open invite per beat');
+exception when raise_exception then perform test.ok(true, 'one open invite per beat');
+end $$;
+do $$ begin
+  perform public.invite_collaborator('55555555-5555-4555-8555-555555555552', 'sellerb');
+  perform test.ok(false, 'producers cannot invite themselves');
+exception when raise_exception then perform test.ok(true, 'producers cannot invite themselves');
+end $$;
+do $$ begin
+  perform public.invite_collaborator('55555555-5555-4555-8555-555555555552', 'buyerc');
+  perform test.ok(false, 'only producers can be invited');
+exception when raise_exception then perform test.ok(true, 'only producers can be invited');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa');
+do $$ begin
+  perform public.invite_collaborator('55555555-5555-4555-8555-555555555552', 'buyerc');
+  perform test.ok(false, 'nobody can invite collaborators to someone else''s beat');
+exception when insufficient_privilege then perform test.ok(true, 'nobody can invite collaborators to someone else''s beat');
+end $$;
+select test.ok((select count(*) = 1 from public.beat_collaborations where id = :'collab_id'), 'the invited producer sees the invite');
+rollback;
+begin;
+select test.act_as(:'buyer');
+select test.ok((select count(*) = 0 from public.beat_collaborations), 'other users don''t see invites');
+do $$ declare n int; begin
+  update public.beat_collaborations set status = 'accepted';
+  get diagnostics n = row_count;
+  perform test.ok(n = 0, 'invites can''t be changed directly');
+exception when insufficient_privilege then perform test.ok(true, 'invites can''t be changed directly');
+end $$;
+rollback;
+begin;
+select test.act_as(null);
+select test.ok((select count(*) = 0 from public.beat_collaborations), 'visitors don''t see open invites');
+rollback;
+
+-- 44. Only the invited producer can accept; credit is public; the owner can't cut them out.
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  perform public.respond_to_collaboration((select id from public.beat_collaborations where status = 'pending' limit 1), true);
+  perform test.ok(false, 'the owner cannot accept their own invite');
+exception when raise_exception then perform test.ok(true, 'the owner cannot accept their own invite');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa');
+select test.ok((public.respond_to_collaboration(:'collab_id', true) ->> 'status') = 'accepted', 'the invited producer accepts');
+commit;
+begin;
+select test.act_as(null);
+select test.ok((select collaborator_username = 'sellera' from public.beat_cards where id = '55555555-5555-4555-8555-555555555551'),
+  'visitors see both producers of the beat');
+rollback;
+begin;
+select test.act_as(:'owner', 'aal2');
+update public.beat_packs set status = 'draft' where id = '66666666-6666-4666-8666-666666666666';
+commit;
+begin;
+select test.act_as(null);
+select test.ok(exists (select 1 from jsonb_array_elements(public.search_beats(p_producer_id => :'sa') -> 'items') e
+  where e ->> 'id' = '55555555-5555-4555-8555-555555555551'), 'a co-produced beat is listed on the collaborator''s profile too');
+rollback;
+begin;
+select test.act_as(:'owner', 'aal2');
+update public.beat_packs set status = 'published' where id = '66666666-6666-4666-8666-666666666666';
+commit;
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  perform public.end_collaboration((select id from public.beat_collaborations where status = 'accepted' limit 1));
+  perform test.ok(false, 'the owner cannot end an accepted collaboration');
+exception when raise_exception then perform test.ok(true, 'the owner cannot end an accepted collaboration');
+end $$;
+rollback;
+
+-- 45. A pack with a co-produced beat: that beat's part of the pack is split.
+begin;
+set local role service_role;
+select (public.create_pending_order(:'buyer', 'buyerc@test.local', 'eur', '{}'::uuid[],
+  array[(select id from public.beat_pack_licenses where pack_id = '66666666-6666-4666-8666-666666666666' and type = 'basic')])
+  ->> 'order_id') as collab_pack_order \gset
+select public.fulfill_order(:'collab_pack_order', 'pi_cp', 'ch_cp', 'cs_cp');
+commit;
+select test.ok((select count(*) = 2 and sum(se.net) = max(oi.seller_amount)
+    and sum(se.net) filter (where se.seller_id = :'sa') = floor(max(oi.seller_amount) / 4.0)
+  from public.seller_earnings se join public.order_items oi on oi.id = se.order_item_id
+  where se.order_id = :'collab_pack_order'), 'a pack sale gives the collaborator half of their beat''s part');
+
+-- 46. Selling a co-produced beat splits the producers' money in half.
+-- (The buyer already has Pack One's Basic license from the pack: sell its Premium one.)
+begin;
+select test.act_as(:'sb');
+insert into public.beat_licenses (beat_id, type, name, price_eur, price_pln, price_usd, includes_mp3, includes_wav)
+values ('55555555-5555-4555-8555-555555555551', 'premium', 'Premium', 4999, 21900, 5799, true, true);
+commit;
+begin;
+set local role service_role;
+select (public.create_pending_order(:'buyer', 'buyerc@test.local', 'eur',
+  array[(select id from public.beat_licenses where beat_id = '55555555-5555-4555-8555-555555555551' and type = 'premium')])
+  ->> 'order_id') as collab_order \gset
+select public.fulfill_order(:'collab_order', 'pi_c', 'ch_c', 'cs_c');
+commit;
+select test.ok((select count(*) = 2
+    and sum(se.net) = max(oi.seller_amount)
+    and sum(se.gross) = max(oi.price)
+    and sum(se.platform_fee) = max(oi.platform_fee)
+    and sum(se.net) filter (where se.seller_id = :'sa') = floor(max(oi.seller_amount) / 2.0)
+    and sum(se.net) filter (where se.seller_id = :'sb') = ceil(max(oi.seller_amount) / 2.0)
+  from public.seller_earnings se join public.order_items oi on oi.id = se.order_item_id
+  where se.order_id = :'collab_order'), 'a sale of a co-produced beat is split 50/50');
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 1 from public.seller_earnings where order_id = :'collab_order'), 'each producer sees only their own earning');
+select test.ok(exists (select 1 from jsonb_array_elements(public.seller_sales() -> 'items') e
+  where e ->> 'split_with' = 'sellerb'
+    and (e ->> 'seller_amount')::int = (select net from public.seller_earnings where order_id = :'collab_order')),
+  'the collaborator''s Sales page lists the sale at their share');
+select test.ok((public.seller_dashboard() ->> 'sales_count')::int >= 2, 'the collaborator''s studio counts the sales');
+rollback;
+select order_number as collab_order_number from public.orders where id = :'collab_order' \gset
+begin;
+select test.act_as(:'sb');
+select test.ok((select (e ->> 'seller_amount')::int = (select net from public.seller_earnings where order_id = :'collab_order' and seller_id = :'sb')
+    and e ->> 'split_with' = 'sellera'
+  from jsonb_array_elements(public.seller_sales() -> 'items') e where e ->> 'order_number' = :'collab_order_number'),
+  'the owner''s Sales page shows their half and who they split it with');
+rollback;
+
+-- 47. A refund reverses both producers' earnings.
+begin;
+set local role service_role;
+select public.apply_order_refund(:'collab_order', (select total from public.orders where id = :'collab_order'));
+commit;
+select test.ok((select bool_and(status = 'reversed') and count(*) = 2 from public.seller_earnings where order_id = :'collab_order'),
+  'refunding a shared sale reverses both earnings');
+
+-- 48. The collaborator can leave; later sales aren't split; the owner can cancel an open invite.
+begin;
+select test.act_as(:'sa');
+select test.ok((public.end_collaboration(:'collab_id') ->> 'status') = 'ended', 'the collaborator can leave');
+commit;
+begin;
+set local role service_role;
+select (public.create_pending_order(:'buyer', 'buyerc@test.local', 'usd',
+  array[(select id from public.beat_licenses where beat_id = '55555555-5555-4555-8555-555555555551' and type = 'premium')])
+  ->> 'order_id') as solo_order \gset
+select public.fulfill_order(:'solo_order', 'pi_s', 'ch_s', 'cs_s');
+commit;
+select test.ok((select count(*) = 1 from public.seller_earnings where order_id = :'solo_order'), 'after the collaborator leaves, sales aren''t split');
+begin;
+select test.act_as(:'sb');
+select (public.invite_collaborator('55555555-5555-4555-8555-555555555551', 'sellera') ->> 'id') as collab2_id \gset
+select test.ok((public.end_collaboration(:'collab2_id') ->> 'status') = 'cancelled', 'the owner can cancel an open invite');
+commit;
+
+-- 49. Two-factor: a password-only session can't see or answer invites.
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('88888888-8888-4888-8888-888888888888', :'sa', 'test authenticator', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP');
+begin;
+select test.act_as(:'sb');
+select (public.invite_collaborator('55555555-5555-4555-8555-555555555551', 'sellera') ->> 'id') as collab3_id \gset
+commit;
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 0 from public.beat_collaborations), '2FA user: password-only session cannot see invites');
+do $$ begin
+  perform public.respond_to_collaboration((select id from public.beat_collaborations limit 1), true);
+  perform test.ok(false, '2FA user: password-only session cannot accept invites');
+exception when others then perform test.ok(true, '2FA user: password-only session cannot accept invites');
+end $$;
+rollback;
+delete from auth.mfa_factors where id = '88888888-8888-4888-8888-888888888888';
+
 \echo '--- all security tests passed ---'

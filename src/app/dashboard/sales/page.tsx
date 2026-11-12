@@ -21,6 +21,8 @@ interface Sale {
   price: number;
   platform_fee: number;
   seller_amount: number;
+  /** The other producer of a shared (collaboration) sale. */
+  split_with?: string | null;
   currency: Currency;
   order_status: string;
   order_number: number;
@@ -76,6 +78,11 @@ async function Sales() {
                       <span className="block truncate font-medium">{s.beat_title}</span>
                     )}
                     <span className="text-xs text-ink-400">{s.license_name} · #{s.order_number}</span>
+                    {s.split_with && (
+                      <span className="block text-xs text-accent-300">
+                        {s.beat_id ? `Split 50/50 with @${s.split_with}` : `Co-produced beat's part split 50/50 with @${s.split_with}`}
+                      </span>
+                    )}
                   </div>
                 </div>
               </td>

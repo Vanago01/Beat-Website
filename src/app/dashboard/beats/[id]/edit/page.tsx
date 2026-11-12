@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getGenres, getPlatformSettings } from "@/lib/data/catalog";
 import { BeatForm } from "@/components/studio/beat-form";
 import { PageSkeleton } from "@/components/account/page-skeleton";
+import { getMyCollaborations } from "@/lib/data/collaborations";
 
 export const metadata: Metadata = { title: "Edit beat", robots: { index: false } };
 
@@ -23,6 +24,8 @@ async function EditBeat({ params }: { params: PageProps<"/dashboard/beats/[id]/e
   const isAdmin = viewer.profile.role === "admin";
   // RLS already hides other producers' unpublished beats; also block editing published ones.
   if (!beat || (beat.producer_id !== viewer.id && !isAdmin)) notFound();
+  const own = beat.producer_id === viewer.id;
+  const collaboration = own ? ((await getMyCollaborations()).find((c) => c.role === "owner" && c.beat.id === beat.id) ?? null) : null;
 
   return (
     <BeatForm
@@ -34,6 +37,8 @@ async function EditBeat({ params }: { params: PageProps<"/dashboard/beats/[id]/e
       canSelfPublish={isAdmin || !(settings?.require_beat_approval ?? true) || !!beat.approved_at}
       isAdmin={isAdmin}
       returnTo={isAdmin && beat.producer_id !== viewer.id ? "/admin/beats" : "/dashboard/beats"}
+      showCollaboration={own}
+      collaboration={collaboration}
     />
   );
 }

@@ -53,10 +53,20 @@ export function BeatRow({ beat, index, queue, linkTitle = true }: { beat: BeatCa
             <span className="truncate text-sm font-semibold">{beat.title}</span>
           </p>
         )}
-        <Link href={`/producers/${beat.producer_username}`} className="flex items-center gap-1 text-[13px] text-ink-300 hover:text-ink-50">
-          <span className="truncate">{beat.producer_name}</span>
-          {beat.producer_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-400" />}
-        </Link>
+        <p className="flex min-w-0 items-center gap-1 text-[13px] text-ink-300">
+          <Link href={`/producers/${beat.producer_username}`} className="flex min-w-0 items-center gap-1 hover:text-ink-50">
+            <span className="truncate">{beat.producer_name}</span>
+            {beat.producer_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-400" />}
+          </Link>
+          {beat.collaborator_username && (
+            <>
+              <span className="shrink-0 text-ink-500">&amp;</span>
+              <Link href={`/producers/${beat.collaborator_username}`} className="flex min-w-0 items-center gap-1 hover:text-ink-50">
+                <span className="truncate">{beat.collaborator_name}</span>
+              </Link>
+            </>
+          )}
+        </p>
         <p className="mt-0.5 font-mono text-[10px] tracking-wider text-ink-400 lg:hidden">
           {beat.bpm} BPM · {keyName(beat.key_note, beat.key_mode)} · {beat.genre_name ?? beat.genre}
         </p>

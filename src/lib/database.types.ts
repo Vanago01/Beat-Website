@@ -5,7 +5,45 @@ export type Database = {
   
   "public": {
           Tables: {
-            "beat_daily_stats": {
+            "beat_collaborations": {
+                  Row: {
+                    "beat_id": string,"collaborator_id": string,"created_at": string,"ended_at": string | null,"id": string,"owner_id": string,"responded_at": string | null,"share_percent": number,"status": Database["public"]['Enums']["collab_status"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "beat_id": string,"collaborator_id": string,"created_at"?: string,"ended_at"?: string | null,"id"?: string,"owner_id": string,"responded_at"?: string | null,"share_percent"?: number,"status"?: Database["public"]['Enums']["collab_status"]
+                  }
+                  Update: {
+                    "beat_id"?: string,"collaborator_id"?: string,"created_at"?: string,"ended_at"?: string | null,"id"?: string,"owner_id"?: string,"responded_at"?: string | null,"share_percent"?: number,"status"?: Database["public"]['Enums']["collab_status"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "beat_collaborations_beat_id_fkey"
+      columns: ["beat_id"]
+isOneToOne: false
+      referencedRelation: "beat_cards"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_collaborations_beat_id_fkey"
+      columns: ["beat_id"]
+isOneToOne: false
+      referencedRelation: "beats"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_collaborations_collaborator_id_fkey"
+      columns: ["collaborator_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "beat_collaborations_owner_id_fkey"
+      columns: ["owner_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"beat_daily_stats": {
                   Row: {
                     "beat_id": string,"day": string,"plays": number,"sales": number
                   }
@@ -547,14 +585,14 @@ isOneToOne: true
                   ]
                 },"seller_earnings": {
                   Row: {
-                    "beat_id": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"gross": number,"id": string,"net": number,"order_id": string,"order_item_id": string,"paid_at": string | null,"platform_fee": number,"seller_id": string,"status": Database["public"]['Enums']["earning_status"],"stripe_transfer_id": string | null,"transfer_amount": number | null,"transfer_currency": string | null
+                    "beat_id": string | null,"collab_of": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"gross": number,"id": string,"net": number,"order_id": string,"order_item_id": string,"paid_at": string | null,"platform_fee": number,"seller_id": string,"status": Database["public"]['Enums']["earning_status"],"stripe_transfer_id": string | null,"transfer_amount": number | null,"transfer_currency": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "beat_id"?: string | null,"created_at"?: string,"currency": Database["public"]['Enums']["currency_code"],"gross": number,"id"?: string,"net": number,"order_id": string,"order_item_id": string,"paid_at"?: string | null,"platform_fee": number,"seller_id": string,"status"?: Database["public"]['Enums']["earning_status"],"stripe_transfer_id"?: string | null,"transfer_amount"?: number | null,"transfer_currency"?: string | null
+                    "beat_id"?: string | null,"collab_of"?: string | null,"created_at"?: string,"currency": Database["public"]['Enums']["currency_code"],"gross": number,"id"?: string,"net": number,"order_id": string,"order_item_id": string,"paid_at"?: string | null,"platform_fee": number,"seller_id": string,"status"?: Database["public"]['Enums']["earning_status"],"stripe_transfer_id"?: string | null,"transfer_amount"?: number | null,"transfer_currency"?: string | null
                   }
                   Update: {
-                    "beat_id"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"gross"?: number,"id"?: string,"net"?: number,"order_id"?: string,"order_item_id"?: string,"paid_at"?: string | null,"platform_fee"?: number,"seller_id"?: string,"status"?: Database["public"]['Enums']["earning_status"],"stripe_transfer_id"?: string | null,"transfer_amount"?: number | null,"transfer_currency"?: string | null
+                    "beat_id"?: string | null,"collab_of"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"gross"?: number,"id"?: string,"net"?: number,"order_id"?: string,"order_item_id"?: string,"paid_at"?: string | null,"platform_fee"?: number,"seller_id"?: string,"status"?: Database["public"]['Enums']["earning_status"],"stripe_transfer_id"?: string | null,"transfer_amount"?: number | null,"transfer_currency"?: string | null
                   }
                   Relationships: [
                     {
@@ -570,6 +608,12 @@ isOneToOne: false
       referencedRelation: "beats"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "seller_earnings_collab_of_fkey"
+      columns: ["collab_of"]
+isOneToOne: false
+      referencedRelation: "seller_earnings"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "seller_earnings_order_id_fkey"
       columns: ["order_id"]
 isOneToOne: false
@@ -578,7 +622,7 @@ isOneToOne: false
     },{
       foreignKeyName: "seller_earnings_order_item_id_fkey"
       columns: ["order_item_id"]
-isOneToOne: true
+isOneToOne: false
       referencedRelation: "order_items"
       referencedColumns: ["id"]
     },{
@@ -620,11 +664,17 @@ isOneToOne: false
           Views: {
             "beat_cards": {
                   Row: {
-                    "bpm": number,"cover_path": string | null,"created_at": string,"duration_seconds": number | null,"exclusive_sold_at": string | null,"favorites_count": number,"featured_at": string | null,"genre": string,"genre_name": string | null,"has_exclusive": boolean,"has_free": boolean,"id": string,"is_featured": boolean,"key_group": number | null,"key_mode": string,"key_note": number,"min_price_eur": number | null,"min_price_pln": number | null,"min_price_usd": number | null,"moods": (string)[],"plays_count": number,"preview_path": string | null,"producer_avatar_path": string | null,"producer_id": string,"producer_name": string | null,"producer_username": string,"producer_verified": boolean,"published_at": string | null,"rating_avg": number | null,"rating_count": number,"sales_count": number,"search_vector": unknown,"slug": string,"status": Database["public"]['Enums']["beat_status"],"tags": (string)[],"title": string,"waveform": Json | null
+                    "bpm": number,"collaborator_avatar_path": string | null,"collaborator_id": string | null,"collaborator_name": string | null,"collaborator_username": string | null,"collaborator_verified": boolean | null,"cover_path": string | null,"created_at": string,"duration_seconds": number | null,"exclusive_sold_at": string | null,"favorites_count": number,"featured_at": string | null,"genre": string,"genre_name": string | null,"has_exclusive": boolean,"has_free": boolean,"id": string,"is_featured": boolean,"key_group": number | null,"key_mode": string,"key_note": number,"min_price_eur": number | null,"min_price_pln": number | null,"min_price_usd": number | null,"moods": (string)[],"plays_count": number,"preview_path": string | null,"producer_avatar_path": string | null,"producer_id": string,"producer_name": string | null,"producer_username": string,"producer_verified": boolean,"published_at": string | null,"rating_avg": number | null,"rating_count": number,"sales_count": number,"search_vector": unknown,"slug": string,"status": Database["public"]['Enums']["beat_status"],"tags": (string)[],"title": string,"waveform": Json | null
                   }
                   ComputedFields: never
                   Relationships: [
                     {
+      foreignKeyName: "beat_collaborations_collaborator_id_fkey"
+      columns: ["collaborator_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "beats_genre_fkey"
       columns: ["genre"]
 isOneToOne: false
@@ -733,6 +783,9 @@ isOneToOne: false
 "delete_conversation":
 { Args: { "p_conversation": string }; Returns: undefined
                            },
+"end_collaboration":
+{ Args: { "p_id": string }; Returns: Json
+                           },
 "escape_like":
 { Args: { "value": string }; Returns: string
                            },
@@ -759,6 +812,9 @@ isOneToOne: false
 "immutable_array_to_string":
 { Args: { "arr": (string)[],"sep": string }; Returns: string
                            },
+"invite_collaborator":
+{ Args: { "p_beat_id": string,"p_username": string }; Returns: Json
+                           },
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
@@ -783,6 +839,9 @@ isOneToOne: false
 "mfa_satisfied":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"my_collaborations":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "prefix_tsquery":
 { Args: { "q": string }; Returns: unknown
                            },
@@ -791,6 +850,9 @@ isOneToOne: false
                            },
 "refresh_beat_price_summary":
 { Args: { "p_beat_id": string }; Returns: undefined
+                           },
+"respond_to_collaboration":
+{ Args: { "p_accept": boolean,"p_id": string }; Returns: Json
                            },
 "save_beat":
 { Args: { "p_beat": Json,"p_licenses": Json,"p_save_defaults"?: boolean,"p_status"?: Database["public"]['Enums']["beat_status"] }; Returns: {
@@ -910,7 +972,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "beat_status": "draft"|"pending"|"published"|"rejected"|"archived","currency_code": "eur"|"pln"|"usd","earning_status": "pending"|"paid"|"retained"|"reversed","license_type": "free"|"basic"|"premium"|"trackout"|"unlimited"|"exclusive","order_status": "pending"|"paid"|"failed"|"canceled"|"refunded"|"partially_refunded","user_role": "buyer"|"seller"|"admin"
+            "beat_status": "draft"|"pending"|"published"|"rejected"|"archived","collab_status": "pending"|"accepted"|"declined"|"cancelled"|"ended","currency_code": "eur"|"pln"|"usd","earning_status": "pending"|"paid"|"retained"|"reversed","license_type": "free"|"basic"|"premium"|"trackout"|"unlimited"|"exclusive","order_status": "pending"|"paid"|"failed"|"canceled"|"refunded"|"partially_refunded","user_role": "buyer"|"seller"|"admin"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1026,7 +1088,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "beat_status": ["draft", "pending", "published", "rejected", "archived"],"currency_code": ["eur", "pln", "usd"],"earning_status": ["pending", "paid", "retained", "reversed"],"license_type": ["free", "basic", "premium", "trackout", "unlimited", "exclusive"],"order_status": ["pending", "paid", "failed", "canceled", "refunded", "partially_refunded"],"user_role": ["buyer", "seller", "admin"]
+            "beat_status": ["draft", "pending", "published", "rejected", "archived"],"collab_status": ["pending", "accepted", "declined", "cancelled", "ended"],"currency_code": ["eur", "pln", "usd"],"earning_status": ["pending", "paid", "retained", "reversed"],"license_type": ["free", "basic", "premium", "trackout", "unlimited", "exclusive"],"order_status": ["pending", "paid", "failed", "canceled", "refunded", "partially_refunded"],"user_role": ["buyer", "seller", "admin"]
           }
         }
 } as const

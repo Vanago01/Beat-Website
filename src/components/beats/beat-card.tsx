@@ -49,7 +49,7 @@ export function BeatCard({
             : "border-white/[0.06] group-hover:border-white/[0.14] group-hover:shadow-[0_24px_60px_-30px_color-mix(in_oklab,var(--color-shadow)_90%,transparent)]",
         )}
       >
-        <Link href={`/beats/${beat.slug}`} className="absolute inset-0" aria-label={`${beat.title} by ${beat.producer_name}`}>
+        <Link href={`/beats/${beat.slug}`} className="absolute inset-0" aria-label={`${beat.title} by ${beat.producer_name}${beat.collaborator_name ? ` & ${beat.collaborator_name}` : ""}`}>
           <BeatCover path={beat.cover_path} title={beat.title} seed={beat.id} priority={priority} className="h-full w-full" />
           <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/25 opacity-80 transition-opacity duration-500 group-hover:opacity-100" />
         </Link>
@@ -98,13 +98,21 @@ export function BeatCard({
             className="shrink-0 text-[14px] font-semibold text-ink-50"
           />
         </div>
-        <Link
-          href={`/producers/${beat.producer_username}`}
-          className="mt-0.5 inline-flex max-w-full items-center gap-1 text-[13px] text-ink-300 transition-colors hover:text-ink-50"
-        >
-          <span className="truncate">{beat.producer_name}</span>
-          {beat.producer_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-400" />}
-        </Link>
+        <p className="mt-0.5 flex min-w-0 max-w-full items-center gap-1 text-[13px] text-ink-300">
+          <Link href={`/producers/${beat.producer_username}`} className="inline-flex min-w-0 items-center gap-1 transition-colors hover:text-ink-50">
+            <span className="truncate">{beat.producer_name}</span>
+            {beat.producer_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-400" />}
+          </Link>
+          {beat.collaborator_username && (
+            <>
+              <span className="shrink-0 text-ink-500">&amp;</span>
+              <Link href={`/producers/${beat.collaborator_username}`} className="inline-flex min-w-0 items-center gap-1 transition-colors hover:text-ink-50">
+                <span className="truncate">{beat.collaborator_name}</span>
+                {beat.collaborator_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-400" />}
+              </Link>
+            </>
+          )}
+        </p>
         <div className="mt-2.5 flex items-center justify-between gap-2">
           <BeatMeta beat={beat} />
           {!sold && (

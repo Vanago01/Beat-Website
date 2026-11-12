@@ -131,7 +131,8 @@ export function TwoFactorSettings() {
       </div>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-300">
         Protect your account with a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator,
-        1Password, Authy…) in addition to your password. Someone who steals your password still can&apos;t get in.
+        1Password, Authy…) in addition to your password. Someone who steals your password still can&apos;t get in.{" "}
+        <strong className="font-medium text-ink-100">No code is sent to you by email or text: the app on your phone shows it.</strong>
       </p>
 
       {(required || isAdmin) && status !== "on" && status !== "loading" && (
@@ -155,7 +156,10 @@ export function TwoFactorSettings() {
           </div>
           <form onSubmit={confirm} className="space-y-4">
             <ol className="list-decimal space-y-2 pl-5 text-sm text-ink-200">
-              <li>Open your authenticator app and scan the QR code.</li>
+              <li>
+                Install a free authenticator app on your phone if you don&apos;t have one (Google Authenticator or Microsoft
+                Authenticator, from the App Store or Google Play). Open it, tap <strong>+</strong> and scan this QR code.
+              </li>
               <li>
                 Can&apos;t scan it? Add the account manually with this key:
                 <span className="mt-2 flex items-center gap-2">
@@ -165,7 +169,7 @@ export function TwoFactorSettings() {
                   </Button>
                 </span>
               </li>
-              <li>Enter the 6-digit code the app shows.</li>
+              <li>The app now shows a 6-digit code for {env.siteName} that changes every 30 seconds. Type it below.</li>
             </ol>
             <Field label="Authentication code" htmlFor="mfa-code">
               <Input

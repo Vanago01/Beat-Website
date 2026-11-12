@@ -422,7 +422,10 @@ export function TwoFactorForm() {
 
   return (
     <form onSubmit={submit} className="space-y-5" noValidate>
-      <FormHeader title="Two-factor sign-in" subtitle="Enter the 6-digit code from your authenticator app to finish signing in." />
+      <FormHeader
+        title="Two-factor sign-in"
+        subtitle="Open the authenticator app on your phone (the one you linked when you turned on two-factor) and type the 6-digit code it shows. Codes aren't sent by email or text."
+      />
       <Field label="Authentication code" htmlFor="otp">
         <Input
           id="otp"

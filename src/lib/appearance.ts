@@ -9,14 +9,15 @@ export const THEMES = [
   { value: "light", label: "Light" },
 ] as const;
 
+// Black & white first: it's the default.
 export const ACCENTS = [
+  { value: "mono", label: "Black & white", swatch: "linear-gradient(135deg, #f5f5f7 0 50%, #18181b 50% 100%)" },
   { value: "purple", label: "Purple", swatch: "#7c6cff" },
   { value: "pink", label: "Pink", swatch: "#ff5ca8" },
   { value: "blue", label: "Blue", swatch: "#3d8bff" },
   { value: "green", label: "Green", swatch: "#2fce72" },
   { value: "yellow", label: "Yellow", swatch: "#facc15" },
   { value: "red", label: "Red", swatch: "#f04848" },
-  { value: "mono", label: "Black & white", swatch: "linear-gradient(135deg, #f5f5f7 0 50%, #18181b 50% 100%)" },
 ] as const;
 
 export type Theme = (typeof THEMES)[number]["value"];
@@ -26,7 +27,7 @@ export interface Appearance {
   accent: Accent;
 }
 
-export const DEFAULT_APPEARANCE: Appearance = { theme: "dark", accent: "purple" };
+export const DEFAULT_APPEARANCE: Appearance = { theme: "dark", accent: "mono" };
 export const THEME_KEY = "vb-theme";
 export const ACCENT_KEY = "vb-accent";
 export const APPEARANCE_EVENT = "vb-appearance-change";

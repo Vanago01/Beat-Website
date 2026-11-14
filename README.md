@@ -56,7 +56,7 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 - “Message” buttons on producer profiles and beat pages; block / unblock (also under Account → Settings); “Delete conversation” hides it for you only.
 
 **Appearance**
-- Dark or light theme and seven accent colours (Account → Settings), remembered per device and applied before the page paints.
+- Dark or light theme and seven accent colours (Account → Settings; black & white by default), remembered per device and applied before the page paints.
 
 **Administration** (`/admin`, only for admin accounts)
 - Analytics: revenue (EUR/PLN/USD), sales, users, platform earnings, monthly revenue chart, most popular & best-selling beats, recent purchases.
@@ -208,6 +208,7 @@ Create a [Resend](https://resend.com) API key, verify your sending domain, and s
 | Platform fee, approval workflow, seller signups, EUR→PLN suggestion rate, genres | Admin → Settings |
 | Default license tiers & terms | `src/lib/constants.ts` (`DEFAULT_LICENSES`) — sellers can also save their own defaults |
 | Colours, fonts, effects | `src/app/globals.css` (`@theme` tokens) and `src/app/layout.tsx` |
+| Logo and site icons | `public/brand/logo-512.png` (top bar, footer, sign-in pages), `src/app/icon.png`, `src/app/apple-icon.png`, `src/app/favicon.ico` |
 | Legal pages | `src/app/legal/*` — **generic starting text; have it reviewed for your jurisdiction before launch** |
 
 ## Project structure

@@ -9,7 +9,7 @@ import { PlayerBar } from "@/components/player/player-bar";
 import { AudioEngine } from "@/components/player/audio-engine";
 import { LicenseModalHost } from "@/components/beats/license-modal";
 import { env } from "@/lib/env";
-import { APPEARANCE_SCRIPT } from "@/lib/appearance";
+import { APPEARANCE_SCRIPT, DEFAULT_APPEARANCE } from "@/lib/appearance";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin", "latin-ext"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -43,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geist.variable} ${geistMono.variable} ${display.variable}`}
       data-theme="dark"
-      data-accent="purple"
+      data-accent={DEFAULT_APPEARANCE.accent}
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >

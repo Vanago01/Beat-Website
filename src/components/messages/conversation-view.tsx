@@ -20,8 +20,11 @@ import {
   ArrowLeft,
   BadgeCheck,
   Ban,
+  Check,
+  CheckCheck,
   EllipsisVertical,
   ImagePlus,
+  LoaderCircle,
   MessageCircle,
   Pin,
   PinOff,
@@ -51,12 +54,14 @@ import {
   formatMessageStamp,
   formatMessageTime,
   isUuid,
+  laterTime,
   linkify,
   timeOf,
   type ChatAttachment,
   type ChatMessage,
   type ChatReaction,
   type ConversationDetail,
+  type DeliveryStatus,
 } from "@/lib/messages";
 import { cn, errorMessage } from "@/lib/utils";
 import {
@@ -176,6 +181,22 @@ function mergeMessages(list: ChatMessage[], incoming: (ChatMessage | RawMessage)
     });
   }
   return Array.from(byId.values()).sort((a, b) => timeOf(a.created_at) - timeOf(b.created_at));
+}
+
+const STATUS_LABEL: Record<DeliveryStatus, string> = { sending: "Sending…", sent: "Sent", delivered: "Delivered", seen: "Seen" };
+
+/** "Sending…", "✓ Sent", "✓✓ Delivered" or "✓✓ Seen" under your latest message. */
+function DeliveryLabel({ status }: { status: DeliveryStatus }) {
+  const Icon = status === "sending" ? LoaderCircle : status === "sent" ? Check : CheckCheck;
+  return (
+    <span
+      data-status={status}
+      className={cn("inline-flex items-center gap-1", status === "seen" ? "font-medium text-ink-100" : status === "delivered" && "text-ink-200")}
+    >
+      <Icon className={cn("h-3 w-3", status === "sending" && "animate-spin", status === "seen" && "text-accent-300")} aria-hidden />
+      {STATUS_LABEL[status]}
+    </span>
+  );
 }
 
 function MessageText({ body, mine }: { body: string; mine: boolean }) {
@@ -390,7 +411,16 @@ export function ConversationView({ conversationId }: { conversationId: string })
     const off = onMessagesEvent((event) => {
       if (event.type === "sync") void syncNewer();
       else if (event.type === "reaction") applyReaction(event.reaction);
-      else if (event.message.conversation_id === conversationId) receive([event.message]);
+      else if (event.type === "receipt") {
+        // The other person's browser received or read messages: "Delivered" / "Seen".
+        const r = event.receipt;
+        if (r.conversation_id !== conversationId) return;
+        setDetail((d) =>
+          d && d.other.id === r.user_id
+            ? { ...d, other_read_at: laterTime(d.other_read_at, r.read_at), other_delivered_at: laterTime(d.other_delivered_at, r.delivered_at) }
+            : d,
+        );
+      } else if (event.message.conversation_id === conversationId) receive([event.message]);
     });
     void syncNewer();
     return off;
@@ -416,11 +446,16 @@ export function ConversationView({ conversationId }: { conversationId: string })
   );
   const mediaLinks = useMediaLinks(mediaPaths);
   const hasMessages = display.length > 0;
-  const seen =
-    !!last && !last.pending && last.sender_id === me && !!detail?.other_read_at && timeOf(detail.other_read_at) >= timeOf(last.created_at);
-  const awaitingSeen = !!last && !last.pending && last.sender_id === me && !seen;
+  // Your latest message: Sent → Delivered (their browser has it) → Seen.
+  const lastMine = !!last && !last.pending && last.sender_id === me;
+  const lastAt = last ? timeOf(last.created_at) : Number.NaN;
+  const seen = lastMine && !!detail?.other_read_at && timeOf(detail.other_read_at) >= lastAt;
+  const delivered = seen || (lastMine && !!detail?.other_delivered_at && timeOf(detail.other_delivered_at) >= lastAt);
+  const status: DeliveryStatus | null = lastMine ? (seen ? "seen" : delivered ? "delivered" : "sent") : null;
+  const awaitingSeen = lastMine && !seen;
 
-  // While your last message hasn't been read, check now and then so "Seen" appears.
+  // While your last message hasn't been read, check now and then (in case live
+  // updates are unavailable) so "Delivered" and "Seen" appear.
   useEffect(() => {
     if (!awaitingSeen) return;
     const timer = setInterval(() => {
@@ -1055,9 +1090,20 @@ export function ConversationView({ conversationId }: { conversationId: string })
                       </button>
                     </p>
                   ) : !joinNext || isLast ? (
-                    <p className={cn("mt-1 px-1 text-[11px] text-ink-400", mine ? "text-right" : "text-left")}>
-                      {m.pending === "sending" ? "Sending…" : Number.isFinite(t) ? formatMessageTime(t) : ""}
-                      {isLast && seen && <span className="font-medium text-ink-300"> · Seen</span>}
+                    <p className={cn("mt-1 flex items-center gap-1 px-1 text-[11px] text-ink-400", mine ? "justify-end" : "justify-start")}>
+                      {m.pending === "sending" ? (
+                        <DeliveryLabel status="sending" />
+                      ) : (
+                        <>
+                          {Number.isFinite(t) ? formatMessageTime(t) : ""}
+                          {isLast && status && (
+                            <>
+                              {" "}
+                              <span aria-hidden>·</span> <DeliveryLabel status={status} />
+                            </>
+                          )}
+                        </>
+                      )}
                     </p>
                   ) : null}
                 </li>

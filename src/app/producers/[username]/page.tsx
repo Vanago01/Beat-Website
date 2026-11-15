@@ -16,6 +16,7 @@ import { avatarUrl } from "@/lib/storage";
 import { formatCompact, formatDate } from "@/lib/format";
 import { SOCIAL_FIELDS, type SocialKey } from "@/lib/constants";
 import { hashString } from "@/lib/utils";
+import { isSellerRole } from "@/lib/auth";
 
 export async function generateMetadata({ params }: PageProps<"/producers/[username]">): Promise<Metadata> {
   const { username } = await params;
@@ -24,6 +25,10 @@ export async function generateMetadata({ params }: PageProps<"/producers/[userna
   const p = data.profile;
   const name = p.producer_name || p.display_name || p.username;
   const image = avatarUrl(p.avatar_path);
+  // Members who don't sell beats have a public page too, but it isn't for search engines.
+  if (!isSellerRole(p.role)) {
+    return { title: name, description: p.bio?.slice(0, 160) ?? `${name} on VBEATS.`, robots: { index: false } };
+  }
   return {
     title: `${name} — Beats & Instrumentals`,
     description: p.bio?.slice(0, 160) ?? `License beats by ${name}.`,
@@ -47,7 +52,10 @@ async function Producer({ params }: { params: PageProps<"/producers/[username]">
   if (!data) notFound();
   const { profile: p, stats } = data;
   const name = p.producer_name || p.display_name || p.username;
-  const [beats, packs] = await Promise.all([searchBeatsCached({ p_producer_id: p.id, p_sort: "newest", p_limit: 24 }), getPublishedPacks(12, p.id)]);
+  const producer = isSellerRole(p.role);
+  const [beats, packs] = producer
+    ? await Promise.all([searchBeatsCached({ p_producer_id: p.id, p_sort: "newest", p_limit: 24 }), getPublishedPacks(12, p.id)])
+    : [null, []];
   const socials = (p.social_links ?? {}) as Record<string, unknown>;
   const links = SOCIAL_FIELDS.map((f) => ({ ...f, url: safeUrl(socials[f.key]) })).filter((l) => l.url);
   const banner = p.banner_path ? avatarUrl(p.banner_path) : null;
@@ -100,11 +108,11 @@ async function Producer({ params }: { params: PageProps<"/producers/[username]">
           </div>
         </div>
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <div className={producer ? "mt-10 grid gap-10 lg:grid-cols-[320px_minmax(0,1fr)]" : "mt-10 max-w-[320px]"}>
           <aside className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               {typeof stats.followers === "number" && <FollowStats profileId={p.id} followers={stats.followers} following={stats.following ?? 0} />}
-              {[
+              {producer && [
                 { label: "Beats", value: stats.beats },
                 { label: "Plays", value: stats.plays },
                 { label: "Sales", value: stats.sales },
@@ -123,25 +131,27 @@ async function Producer({ params }: { params: PageProps<"/producers/[username]">
               </div>
             )}
           </aside>
-          <div className="min-w-0 space-y-12">
-            {packs.length > 0 && (
-              <section>
-                <h2 className="mb-5 font-display text-2xl font-bold tracking-tight">Beat packs</h2>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 xl:grid-cols-4">
-                  {packs.map((pk) => (
-                    <PackCard key={pk.id} pack={pk} />
-                  ))}
-                </div>
-              </section>
-            )}
-            {/* Beats in a pack on sale are only shown inside the pack. */}
-            {(beats.total > 0 || packs.length === 0) && (
-              <section>
-                {packs.length > 0 && <h2 className="mb-5 font-display text-2xl font-bold tracking-tight">Beats</h2>}
-                <ProducerBeats producerId={p.id} initial={beats} />
-              </section>
-            )}
-          </div>
+          {beats && (
+            <div className="min-w-0 space-y-12">
+              {packs.length > 0 && (
+                <section>
+                  <h2 className="mb-5 font-display text-2xl font-bold tracking-tight">Beat packs</h2>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 xl:grid-cols-4">
+                    {packs.map((pk) => (
+                      <PackCard key={pk.id} pack={pk} />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {/* Beats in a pack on sale are only shown inside the pack. */}
+              {(beats.total > 0 || packs.length === 0) && (
+                <section>
+                  {packs.length > 0 && <h2 className="mb-5 font-display text-2xl font-bold tracking-tight">Beats</h2>}
+                  <ProducerBeats producerId={p.id} initial={beats} />
+                </section>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -5,13 +5,13 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 
-/** Follows or unfollows a producer. Follower counts on public pages refresh straight away. */
+/** Follows or unfollows someone (anyone with a profile). Follower counts on public pages refresh straight away. */
 export async function setFollow(profileId: string, follow: boolean): Promise<ActionResult<{ following: boolean }>> {
   if (!z.uuid().safeParse(profileId).success) return { ok: false, error: "Invalid profile" };
   const supabase = await createSupabaseServerClient();
   const { data: claims } = await supabase.auth.getClaims();
   const me = claims?.claims?.sub;
-  if (!me) return { ok: false, error: "Sign in to follow producers." };
+  if (!me) return { ok: false, error: "Sign in to follow people." };
   if (me === profileId) return { ok: false, error: "You can't follow yourself." };
 
   const { error } = follow
@@ -20,7 +20,13 @@ export async function setFollow(profileId: string, follow: boolean): Promise<Act
   if (error && !(follow && error.code === "23505")) {
     if (/could not find the (table|function)|schema cache|does not exist/i.test(error.message))
       return { ok: false, error: "Following isn't set up yet: the site's database still needs update 13." };
-    if (/row-level security|permission denied/i.test(error.message)) return { ok: false, error: "You can only follow producers." };
+    if (/row-level security|permission denied/i.test(error.message)) {
+      // A database without update 14 only lets people follow producers.
+      const { error: missing } = await supabase.rpc("can_follow", { p_followee: profileId });
+      return missing && /could not find the function|schema cache/i.test(missing.message)
+        ? { ok: false, error: "Following people who aren't producers needs the site's database update 14." }
+        : { ok: false, error: "You can't follow this person." };
+    }
     return { ok: false, error: error.message };
   }
 

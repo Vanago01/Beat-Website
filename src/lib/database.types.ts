@@ -225,14 +225,14 @@ isOneToOne: false
                   ]
                 },"conversation_members": {
                   Row: {
-                    "cleared_at": string,"conversation_id": string,"last_read_at": string | null,"pinned_at": string | null,"user_id": string
+                    "cleared_at": string,"conversation_id": string,"delivered_at": string | null,"last_read_at": string | null,"pinned_at": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "cleared_at"?: string,"conversation_id": string,"last_read_at"?: string | null,"pinned_at"?: string | null,"user_id": string
+                    "cleared_at"?: string,"conversation_id": string,"delivered_at"?: string | null,"last_read_at"?: string | null,"pinned_at"?: string | null,"user_id": string
                   }
                   Update: {
-                    "cleared_at"?: string,"conversation_id"?: string,"last_read_at"?: string | null,"pinned_at"?: string | null,"user_id"?: string
+                    "cleared_at"?: string,"conversation_id"?: string,"delivered_at"?: string | null,"last_read_at"?: string | null,"pinned_at"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -243,6 +243,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "conversation_members_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"conversation_receipts": {
+                  Row: {
+                    "conversation_id": string,"delivered_at": string | null,"read_at": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "conversation_id": string,"delivered_at"?: string | null,"read_at"?: string | null,"user_id": string
+                  }
+                  Update: {
+                    "conversation_id"?: string,"delivered_at"?: string | null,"read_at"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversation_receipts_conversation_id_fkey"
+      columns: ["conversation_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "conversation_receipts_user_id_fkey"
       columns: ["user_id"]
 isOneToOne: false
       referencedRelation: "profiles"
@@ -826,6 +852,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"can_follow":
+{ Args: { "p_followee": string }; Returns: boolean
+                           },
 "clean_message_body":
 { Args: { "p_body": string }; Returns: string
                            },
@@ -887,6 +916,9 @@ isOneToOne: false
                            },
 "mark_conversation_read":
 { Args: { "p_conversation": string }; Returns: undefined
+                           },
+"mark_messages_delivered":
+{ Args: Record<PropertyKey, never>; Returns: number
                            },
 "mark_order_failed":
 { Args: { "p_order_id": string,"p_status": Database["public"]['Enums']["order_status"] }; Returns: undefined

@@ -1101,7 +1101,7 @@ end $$;
 rollback;
 delete from auth.mfa_factors where id = '88888888-8888-4888-8888-888888888888';
 
--- 50. Following: people follow producers themselves; who follows whom is public.
+-- 50. Following: people follow others themselves; who follows whom is public.
 begin;
 select test.act_as(:'buyer');
 insert into public.follows (follower_id, followee_id) values (:'buyer', :'sb');
@@ -1117,11 +1117,6 @@ end $$;
 rollback;
 begin;
 select test.act_as(:'sa');
-do $$ begin
-  insert into public.follows (follower_id, followee_id) values (current_setting('test.sa')::uuid, current_setting('test.buyer')::uuid);
-  perform test.ok(false, 'only producers can be followed');
-exception when insufficient_privilege then perform test.ok(true, 'only producers can be followed');
-end $$;
 do $$ begin
   insert into public.follows (follower_id, followee_id) values (current_setting('test.sa')::uuid, current_setting('test.sa')::uuid);
   perform test.ok(false, 'nobody can follow themselves');
@@ -1330,5 +1325,127 @@ exception when insufficient_privilege then perform test.ok(true, '2FA user: pass
 end $$;
 rollback;
 delete from auth.mfa_factors where id = '99999999-9999-4999-8999-999999999999';
+
+-- 56. Anyone can follow anyone (not only producers), except across a block.
+begin;
+select test.act_as(:'sa');
+insert into public.follows (follower_id, followee_id) values (:'sa', :'buyer');
+commit;
+select test.ok((select count(*) = 1 from public.follows where follower_id = :'sa' and followee_id = :'buyer'),
+  'people can follow someone who isn''t a producer');
+begin;
+select test.act_as(:'buyer');
+insert into public.follows (follower_id, followee_id) values (:'buyer', :'sa');
+select test.ok((public.get_producer_stats(:'buyer') ->> 'followers')::int = 1, 'everyone has follower counts');
+insert into public.user_blocks (blocker_id, blocked_id) values (:'buyer', :'sa');
+commit;
+select test.ok((select count(*) = 0 from public.follows
+  where (follower_id = :'sa' and followee_id = :'buyer') or (follower_id = :'buyer' and followee_id = :'sa')),
+  'blocking someone removes the follows between you, both ways');
+begin;
+select test.act_as(:'sa');
+do $$ begin
+  insert into public.follows (follower_id, followee_id) values (current_setting('test.sa')::uuid, current_setting('test.buyer')::uuid);
+  perform test.ok(false, 'nobody can follow someone who blocked them');
+exception when insufficient_privilege then perform test.ok(true, 'nobody can follow someone who blocked them');
+end $$;
+rollback;
+begin;
+select test.act_as(:'buyer');
+do $$ begin
+  insert into public.follows (follower_id, followee_id) values (current_setting('test.buyer')::uuid, current_setting('test.sa')::uuid);
+  perform test.ok(false, 'nobody can follow someone they blocked');
+exception when insufficient_privilege then perform test.ok(true, 'nobody can follow someone they blocked');
+end $$;
+delete from public.user_blocks where blocker_id = :'buyer' and blocked_id = :'sa';
+commit;
+begin;
+select test.act_as(:'sa');
+insert into public.follows (follower_id, followee_id) values (:'sa', :'buyer');
+select test.ok(true, 'after unblocking, following works again');
+rollback;
+begin;
+select test.act_as(:'sa');
+do $$ begin
+  insert into public.follows (follower_id, followee_id) values (current_setting('test.sa')::uuid, '00000000-0000-4000-8000-000000000000');
+  perform test.ok(false, 'only real people can be followed');
+exception when insufficient_privilege or foreign_key_violation then perform test.ok(true, 'only real people can be followed');
+end $$;
+rollback;
+
+-- 57. Delivered and seen: the other person's browser marks messages delivered;
+--     both people in the conversation see the receipts, nobody else.
+begin;
+select test.act_as(:'sb');
+select (public.send_message(:'conv2', 'Are you there?') ->> 'created_at') as sent_at \gset
+commit;
+begin;
+select test.act_as(:'sb');
+select test.ok(coalesce((public.get_conversation(:'conv2') ->> 'other_delivered_at')::timestamptz < :'sent_at'::timestamptz, true),
+  'a new message isn''t delivered yet');
+rollback;
+begin;
+select test.act_as(:'buyer');
+select test.ok(public.mark_messages_delivered() >= 1, 'the other person''s browser marks it delivered');
+select test.ok(public.mark_messages_delivered() = 0, 'marking again changes nothing');
+commit;
+begin;
+select test.act_as(:'sb');
+select test.ok((public.get_conversation(:'conv2') ->> 'other_delivered_at')::timestamptz >= :'sent_at'::timestamptz, 'the sender sees it delivered');
+select test.ok((select delivered_at >= :'sent_at'::timestamptz and (read_at is null or read_at < :'sent_at'::timestamptz)
+  from public.conversation_receipts where conversation_id = :'conv2' and user_id = :'buyer'),
+  'the sender can read the receipt (delivered, not seen yet)');
+select test.ok((select count(*) = 0 from public.conversation_members where user_id <> :'sb'),
+  'the other person''s private side (deleted, pinned) stays hidden');
+do $$ declare n int; begin
+  update public.conversation_receipts set read_at = now();
+  get diagnostics n = row_count;
+  perform test.ok(n = 0, 'receipts can''t be written directly');
+exception when insufficient_privilege then perform test.ok(true, 'receipts can''t be written directly');
+end $$;
+rollback;
+begin;
+select test.act_as(:'buyer');
+select public.mark_conversation_read(:'conv2');
+commit;
+begin;
+select test.act_as(:'sb');
+select test.ok((select read_at >= :'sent_at'::timestamptz from public.conversation_receipts where conversation_id = :'conv2' and user_id = :'buyer'),
+  'reading the conversation shows as seen');
+select (public.send_message(:'conv2', 'One more') ->> 'created_at') as sent_at2 \gset
+commit;
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 0 from public.conversation_receipts where conversation_id = :'conv2'), 'outsiders don''t see receipts');
+select public.mark_messages_delivered();
+commit;
+select test.ok((select delivered_at < :'sent_at2'::timestamptz from public.conversation_receipts where conversation_id = :'conv2' and user_id = :'buyer'),
+  'nobody marks messages delivered for someone else');
+begin;
+select test.act_as(null);
+do $$ begin
+  perform public.mark_messages_delivered();
+  perform test.ok(false, 'visitors can''t mark messages delivered');
+exception when insufficient_privilege then perform test.ok(true, 'visitors can''t mark messages delivered');
+end $$;
+select test.ok(not has_table_privilege('anon', 'public.conversation_receipts', 'select'), 'visitors can''t read receipts');
+rollback;
+
+-- 58. Two-factor: a password-only session can't mark delivered or read receipts.
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('99999999-9999-4999-8999-999999999999', :'buyer', 'test authenticator', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP');
+begin;
+select test.act_as(:'buyer');
+select test.ok(public.mark_messages_delivered() = 0, '2FA user: password-only session cannot mark messages delivered');
+select test.ok((select count(*) = 0 from public.conversation_receipts), '2FA user: password-only session cannot read receipts');
+do $$ begin
+  insert into public.follows (follower_id, followee_id) values (current_setting('test.buyer')::uuid, current_setting('test.sa')::uuid);
+  perform test.ok(false, '2FA user: password-only session cannot follow anyone');
+exception when insufficient_privilege then perform test.ok(true, '2FA user: password-only session cannot follow anyone');
+end $$;
+rollback;
+delete from auth.mfa_factors where id = '99999999-9999-4999-8999-999999999999';
+select test.ok((select delivered_at < :'sent_at2'::timestamptz from public.conversation_receipts where conversation_id = :'conv2' and user_id = :'buyer'),
+  '2FA user: nothing was marked delivered');
 
 \echo '--- all security tests passed ---'

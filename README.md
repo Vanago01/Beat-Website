@@ -28,8 +28,9 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 - Producer directory and public producer profiles.
 
 **Following**
-- Anyone signed in can follow producers (Follow button on their profile). Profiles show followers and following counts; each opens the list of people.
-- Account → **Following** lists the producers you follow (unfollow or follow back right there) and their newest beats. The homepage shows “From producers you follow” at the top.
+- Anyone signed in can follow anyone: producers and other members (Follow button on every profile; members who don't sell beats get a simple profile page with Follow and Message). Profiles show followers and following counts; each opens the list of people.
+- Account → **Following** lists the people you follow (unfollow or follow back right there) and the newest beats of the producers among them. The homepage shows “From producers you follow” at the top.
+- Blocking someone also removes the follows between you, and neither of you can follow the other while the block lasts.
 
 **Buying**
 - Five configurable license tiers (Basic MP3, Premium WAV, Trackout/Stems, Unlimited, Exclusive) plus optional free downloads.
@@ -63,6 +64,7 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 - **Reactions**, like Messenger: hover a message (long-press on phones) for ❤️ 😂 😮 😢 😡 👍, or **+** for any emoji (searchable). One reaction per person per message; picking it again takes it back. The other person sees it live.
 - **Photos and videos**: up to 10 per message, 50 MB each (JPG, PNG, WebP, GIF, MP4, MOV, WebM): pick them, paste them or drop them on the conversation. They're kept privately: only the two people in the conversation can open them. Photos open full screen; videos play in the chat.
 - **Pin conversations** to the top of the inbox (conversation menu, or the pin button in the inbox).
+- **Message status** under your latest message, updated live: *Sending…* → ✓ *Sent* (the server has it) → ✓✓ *Delivered* (it reached the other person's browser: they were on the site) → ✓✓ *Seen* (they opened the conversation).
 
 **Appearance**
 - Dark or light theme and seven accent colours (Account → Settings; black & white by default), remembered per device and applied before the page paints.
@@ -88,12 +90,12 @@ Authorization is enforced **in the database**, never only in the UI:
 | Two-factor authentication | Optional TOTP for everyone (Account → Settings), **required for administrators**: admin powers only exist in sessions that passed two-factor sign-in (`is_admin()` checks the session's `aal2` level). For anyone who set it up, a password-only session gets nothing from the database or storage until the code is entered. |
 | Beat packs | A pack can only contain the producer's own beats, and its price is computed in the database at checkout. A pack with an unavailable beat can't be bought; refunding a pack revokes the license of every beat in it. |
 | Collaborations | Invites, answers and endings only go through database functions that check who's asking (the beat's owner invites producers only; only the invited producer can accept; the owner can't end an accepted collaboration). The split (1–99 %, fixed when the invite is sent) is made by the database when the sale is recorded. |
-| Messages | Only the two people in a conversation can read it (administrators can't either). Messages are written only through `send_message()`: 1–2,000 characters, at most 20 a minute and 500 a day per person, and 30 new conversations a day. A block stops messages in both directions and isn't visible to the blocked person. Photos and videos are in a private bucket: only the two people in the conversation can upload (into their own folder) and open them, and `send_message()` checks every file. Reactions go through `react_to_message()` (members only, 60 a minute). |
-| Following | You can only follow (and unfollow) as yourself, and only producers. Who follows whom is public, like on other social sites. |
+| Messages | Only the two people in a conversation can read it (administrators can't either). Messages are written only through `send_message()`: 1–2,000 characters, at most 20 a minute and 500 a day per person, and 30 new conversations a day. A block stops messages in both directions and isn't visible to the blocked person. Photos and videos are in a private bucket: only the two people in the conversation can upload (into their own folder) and open them, and `send_message()` checks every file. Reactions go through `react_to_message()` (members only, 60 a minute). “Delivered” and “Seen” times are only visible to the two people in the conversation, and nobody can mark messages delivered for someone else; each person's deleted and pinned state stays private. |
+| Following | You can only follow (and unfollow) as yourself. Anyone can be followed, except across a block (blocking removes the follows between two people). Who follows whom is public, like on other social sites. |
 | HTTP headers | Content-Security-Policy (scripts only from the site, no plugins/framing/foreign form targets, network and media limited to the site and Supabase), HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, a restrictive `Permissions-Policy`, `nosniff`. |
 | Cookies | Only necessary cookies by default; preferences (currency, volume, view) are stored after consent from the cookie banner. No advertising or tracking cookies. Policy at `/legal/cookies`. |
 
-`supabase/tests/security_tests.sql` contains 210 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs, collaborations and split payouts, following, reactions, private photos and videos, pins…).
+`supabase/tests/security_tests.sql` contains 232 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs, collaborations and split payouts, following and blocking, reactions, private photos and videos, pins, delivery receipts…).
 
 ---
 
@@ -146,8 +148,8 @@ SUPABASE_SECRET_KEY=<local secret key> npm run test:db
    npx supabase db push
    ```
    This creates all tables, policies, functions, storage buckets and storage policies.
-   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 13). Every file can safely be run again.
-   File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`). File 13 (`…_social_and_chat.sql`) adds `message_reactions` to it and creates the private `message-media` bucket for photos and videos in messages.
+   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 14). Every file can safely be run again.
+   File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`). File 13 (`…_social_and_chat.sql`) adds `message_reactions` to it and creates the private `message-media` bucket for photos and videos in messages; file 14 (`…_follow_anyone_and_receipts.sql`) adds `conversation_receipts` (live “Delivered” and “Seen”).
 3. **Authentication → URL Configuration**: set *Site URL* to your domain (e.g. `https://yourdomain.com`) and add `https://yourdomain.com/**` to *Redirect URLs*.
 4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes. Under **Multi-Factor**, keep **TOTP (App Authenticator)** enabled.
    *Optional (recommended):* to let users confirm on a different device than they signed up on, change the email templates’ link to

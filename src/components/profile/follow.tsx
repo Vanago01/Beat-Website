@@ -15,7 +15,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** Follow / Following button for a producer. Hidden on your own profile. */
+/** Follow / Following button for anyone's profile. Hidden on your own. */
 export function FollowButton({
   profileId,
   returnTo,
@@ -108,7 +108,7 @@ export interface FollowedProducer {
 }
 
 /**
- * The producers you follow (Account → Following). Someone you unfollow stays
+ * The people you follow (Account → Following). Someone you unfollow stays
  * listed, with Follow to undo, until you leave the page.
  */
 export function FollowedProducers({ producers }: { producers: FollowedProducer[] }) {
@@ -126,7 +126,7 @@ export function FollowedProducers({ producers }: { producers: FollowedProducer[]
       <EmptyState
         icon={<Users className="h-6 w-6" />}
         title="You're not following anyone yet"
-        description="Follow producers to see their newest beats here and at the top of the home page."
+        description="Follow producers and other members from their profile. The newest beats of producers you follow show up here and at the top of the home page."
         action={
           <Link href="/producers" className={buttonVariants()}>
             Find producers
@@ -139,9 +139,9 @@ export function FollowedProducers({ producers }: { producers: FollowedProducer[]
   return (
     <section>
       <h2 className="font-display text-xl font-bold">
-        Producers you follow <span className="text-ink-400">({producers.length})</span>
+        People you follow <span className="text-ink-400">({producers.length})</span>
       </h2>
-      <ul className="mt-5 grid gap-3 sm:grid-cols-2" aria-label="Producers you follow">
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2" aria-label="People you follow">
       {rows.map((p) => {
         const name = p.producer_name || p.display_name || p.username;
         return (
@@ -232,25 +232,15 @@ export function FollowStats({ profileId, followers, following }: { profileId: st
           <ul className="-mx-2 max-h-[60vh] space-y-0.5 overflow-y-auto">
             {people.map((p) => {
               const name = p.producer_name || p.display_name || p.username;
-              const producer = p.role === "seller" || p.role === "admin";
-              const body = (
-                <>
-                  <Avatar path={p.avatar_path} name={name} size={36} />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold">{name}</span>
-                    <span className="block truncate text-xs text-ink-400">@{p.username}</span>
-                  </span>
-                </>
-              );
               return (
                 <li key={p.username}>
-                  {producer ? (
-                    <Link href={`/producers/${p.username}`} onClick={() => setOpen(null)} className="flex items-center gap-3 rounded-2xl px-2 py-2 hover:bg-white/[0.05]">
-                      {body}
-                    </Link>
-                  ) : (
-                    <div className="flex items-center gap-3 px-2 py-2">{body}</div>
-                  )}
+                  <Link href={`/producers/${p.username}`} onClick={() => setOpen(null)} className="flex items-center gap-3 rounded-2xl px-2 py-2 hover:bg-white/[0.05]">
+                    <Avatar path={p.avatar_path} name={name} size={36} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">{name}</span>
+                      <span className="block truncate text-xs text-ink-400">@{p.username}</span>
+                    </span>
+                  </Link>
                 </li>
               );
             })}

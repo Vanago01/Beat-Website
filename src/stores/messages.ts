@@ -3,13 +3,15 @@
 import { create } from "zustand";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { sortInbox, type ChatMessage, type ChatReaction, type ConversationSummary } from "@/lib/messages";
+import { sortInbox, type ChatMessage, type ChatReaction, type ChatReceipt, type ConversationSummary } from "@/lib/messages";
 
 export type MessagesEvent =
   /** A message was sent in one of your conversations (by you or the other person). */
   | { type: "message"; message: ChatMessage }
   /** Someone reacted to a message (or took their reaction back). */
   | { type: "reaction"; reaction: ChatReaction }
+  /** Someone's browser received messages, or they read them ("Delivered", "Seen"). */
+  | { type: "receipt"; receipt: ChatReceipt }
   /** Reconnected, or a polling tick: fetch anything that may have been missed. */
   | { type: "sync" };
 
@@ -40,6 +42,10 @@ let channel: RealtimeChannel | null = null;
 // Reactions come on their own channel, opened only once the database has them
 // (update 13), so a missing table can't break live messages.
 let reactionChannel: RealtimeChannel | null = null;
+// "Delivered" and "Seen" for your messages, likewise only with update 14.
+let receiptChannel: RealtimeChannel | null = null;
+let deliverTimer: ReturnType<typeof setTimeout> | null = null;
+let canMarkDelivered = true;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let inboxViews = 0;
@@ -64,7 +70,24 @@ export async function refreshUnread() {
   const userId = useMessages.getState().userId;
   if (!userId) return;
   const { data, error } = await getSupabaseBrowserClient().rpc("unread_conversation_count");
-  if (!error && useMessages.getState().userId === userId) useMessages.setState({ unread: data ?? 0 });
+  if (!error && useMessages.getState().userId === userId) {
+    useMessages.setState({ unread: data ?? 0 });
+    // Unread messages have now reached this browser: tell their senders ("Delivered").
+    if ((data ?? 0) > 0) scheduleDelivered();
+  }
+}
+
+/** Marks the messages sent to you as delivered (coalesced; harmless when there's nothing new). */
+export function scheduleDelivered(delay = 300) {
+  if (!canMarkDelivered) return;
+  if (deliverTimer) clearTimeout(deliverTimer);
+  deliverTimer = setTimeout(async () => {
+    deliverTimer = null;
+    if (!useMessages.getState().userId) return;
+    const { error } = await getSupabaseBrowserClient().rpc("mark_messages_delivered");
+    // A database without update 14 can't record it: stop trying.
+    if (error && /could not find the function|schema cache/i.test(error.message)) canMarkDelivered = false;
+  }, delay);
 }
 
 export async function refreshInbox() {
@@ -155,6 +178,7 @@ export function startMessages(userId: string) {
   if (useMessages.getState().userId === userId && channel) return;
   stopMessages();
   useMessages.setState({ userId, unread: 0, inbox: null, inboxError: null, live: false });
+  canMarkDelivered = true;
   void refreshUnread();
 
   const supabase = getSupabaseBrowserClient();
@@ -162,8 +186,10 @@ export function startMessages(userId: string) {
     .channel(`messages:${userId}`)
     // Row Level Security only delivers messages from your own conversations.
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
-      emit({ type: "message", message: payload.new as ChatMessage });
+      const message = payload.new as ChatMessage;
+      emit({ type: "message", message });
       scheduleRefresh();
+      if (message.sender_id !== userId) scheduleDelivered();
     })
     // Read in another tab or on another device: update the badge.
     .on(
@@ -203,6 +229,27 @@ export function startMessages(userId: string) {
         .subscribe();
     });
 
+  void supabase
+    .from("conversation_receipts")
+    .select("conversation_id")
+    .limit(1)
+    .then(({ error }) => {
+      if (error || channel !== current || receiptChannel) return;
+      receiptChannel = supabase
+        .channel(`receipts:${userId}`)
+        // Row Level Security only delivers receipts of your own conversations.
+        .on("postgres_changes", { event: "*", schema: "public", table: "conversation_receipts" }, (payload) => {
+          const row = payload.new as Partial<ChatReceipt> | null;
+          if (row?.conversation_id && row.user_id && row.user_id !== userId) {
+            emit({
+              type: "receipt",
+              receipt: { conversation_id: row.conversation_id, user_id: row.user_id, delivered_at: row.delivered_at ?? null, read_at: row.read_at ?? null },
+            });
+          }
+        })
+        .subscribe();
+    });
+
   const onVisible = () => {
     if (document.visibilityState === "visible") scheduleRefresh(0);
   };
@@ -231,5 +278,12 @@ export function stopMessages() {
     reactionChannel = null;
     void getSupabaseBrowserClient().removeChannel(old);
   }
+  if (receiptChannel) {
+    const old = receiptChannel;
+    receiptChannel = null;
+    void getSupabaseBrowserClient().removeChannel(old);
+  }
+  if (deliverTimer) clearTimeout(deliverTimer);
+  deliverTimer = null;
   useMessages.setState({ userId: null, unread: 0, inbox: null, inboxError: null, live: false, activeConversationId: null });
 }

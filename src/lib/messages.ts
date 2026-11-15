@@ -40,9 +40,30 @@ export function sortInbox(list: ConversationSummary[]) {
 export interface ConversationDetail {
   id: string;
   other: ChatProfile;
+  /** Messages up to this time were seen by the other person. */
   other_read_at: string | null;
+  /** Messages up to this time reached the other person's browser (database update 14). */
+  other_delivered_at?: string | null;
   blocked_by_me: boolean;
   blocked_me: boolean;
+}
+
+/** What one person in a conversation has received and read (conversation_receipts, sent live). */
+export interface ChatReceipt {
+  conversation_id: string;
+  user_id: string;
+  delivered_at: string | null;
+  read_at: string | null;
+}
+
+/** The status shown under your latest message. */
+export type DeliveryStatus = "sending" | "sent" | "delivered" | "seen";
+
+/** The later of two Postgres timestamps (either may be missing). */
+export function laterTime(a: string | null | undefined, b: string | null | undefined) {
+  if (!a) return b ?? null;
+  if (!b) return a;
+  return timeOf(b) > timeOf(a) ? b : a;
 }
 
 /** A photo or video in a message (kept in the private message-media bucket). */

@@ -5,6 +5,7 @@ const TABS = [
   { href: "/account/library", label: "Purchased beats" },
   { href: "/account/orders", label: "Order history" },
   { href: "/favorites", label: "Favorites" },
+  { href: "/account/following", label: "Following" },
   { href: "/account/security", label: "Settings" },
 ];
 

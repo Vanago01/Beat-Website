@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { chatName, type ChatProfile } from "@/lib/messages";
+import { chatName, messagePreview, type ChatProfile } from "@/lib/messages";
 import { onMessagesEvent, startMessages, stopMessages } from "@/stores/messages";
 
 const senders = new Map<string, Promise<ChatProfile | null>>();
@@ -52,7 +52,7 @@ export function MessagesBootstrap() {
       const sender = await loadSender(message.sender_id);
       toast(sender ? `Message from ${chatName(sender)}` : "New message", {
         id: `message-${message.conversation_id}`,
-        description: preview(message.body),
+        description: preview(messagePreview(message)),
         action: { label: "Reply", onClick: () => router.push(`/messages/${message.conversation_id}`) },
       });
     });

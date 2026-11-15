@@ -66,16 +66,37 @@ async function refreshCredits(beatId: string, userIds: string[]) {
   for (const p of people ?? []) updateTag(`producer:${p.username}`);
 }
 
-/** The beat's producer invites another producer: once accepted, sales are split 50/50. */
-export async function inviteCollaborator(beatId: string, rawUsername: string): Promise<ActionResult<{ id: string; username: string }>> {
+/** "70/30": the beat owner's share first, then the collaborator's. */
+const splitLabel = (collaboratorShare: number) => `${100 - collaboratorShare}/${collaboratorShare}`;
+
+/**
+ * The beat's producer invites another producer. Once they accept, every sale
+ * is split: `sharePercent` (1–99, 50 by default) goes to the collaborator.
+ */
+export async function inviteCollaborator(
+  beatId: string,
+  rawUsername: string,
+  sharePercent = 50,
+): Promise<ActionResult<{ id: string; username: string; share: number }>> {
   if (!uuid.safeParse(beatId).success) return { ok: false, error: "Invalid beat" };
   const parsed = username.safeParse(rawUsername);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Enter the producer's username" };
+  const share = Number(sharePercent);
+  if (!Number.isInteger(share) || share < 1 || share > 99) return { ok: false, error: "The collaborator's share must be between 1% and 99%." };
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("invite_collaborator", { p_beat_id: beatId, p_username: parsed.data });
-  if (error) return { ok: false, error: friendly(error.message) };
-  const row = data as unknown as { id: string; collaborator_id: string; collaborator_username: string };
+  // A database without update 13 only knows 50/50 splits (and no p_share_percent).
+  const { data, error } = await supabase.rpc(
+    "invite_collaborator",
+    share === 50 ? { p_beat_id: beatId, p_username: parsed.data } : { p_beat_id: beatId, p_username: parsed.data, p_share_percent: share },
+  );
+  if (error) {
+    if (share !== 50 && /could not find the function/i.test(error.message))
+      return { ok: false, error: "Choosing the split needs database update 13. Until then, every collaboration is split 50/50." };
+    return { ok: false, error: friendly(error.message) };
+  }
+  const row = data as unknown as { id: string; collaborator_id: string; collaborator_username: string; share_percent?: number };
+  const theirs = row.share_percent ?? 50;
 
   const { data: claims } = await supabase.auth.getClaims();
   const me = await names(supabase, beatId, String(claims?.claims?.sub ?? ""));
@@ -84,9 +105,9 @@ export async function inviteCollaborator(beatId: string, rawUsername: string): P
     `${me.name} invited you to collaborate`,
     "You've got a collaboration invite",
     `<strong>${escapeHtml(me.name)}</strong> (@${escapeHtml(me.username)}) invited you to collaborate on <strong>${escapeHtml(me.beat?.title ?? "a beat")}</strong>. ` +
-      "If you accept, you're credited on the beat and every sale is split 50/50. Open your studio to accept or decline.",
+      `If you accept, you're credited on the beat and get ${theirs}% of every sale. Open your studio to accept or decline.`,
   );
-  return { ok: true, data: { id: row.id, username: row.collaborator_username } };
+  return { ok: true, data: { id: row.id, username: row.collaborator_username, share: theirs } };
 }
 
 /** The invited producer accepts or declines. */
@@ -99,14 +120,18 @@ export async function respondToCollaboration(id: string, accept: boolean): Promi
 
   const { data: claims } = await supabase.auth.getClaims();
   const meId = String(claims?.claims?.sub ?? "");
-  const me = await names(supabase, row.beat_id, meId);
+  const [me, { data: collab }] = await Promise.all([
+    names(supabase, row.beat_id, meId),
+    createSupabaseAdminClient().from("beat_collaborations").select("share_percent").eq("id", id).maybeSingle(),
+  ]);
+  const theirs = collab?.share_percent ?? 50;
   if (row.status === "accepted") await refreshCredits(row.beat_id, [row.owner_id, meId]);
   await notify(
     row.owner_id,
     row.status === "accepted" ? `${me.name} accepted your collaboration` : `${me.name} declined your collaboration`,
     row.status === "accepted" ? "Collaboration accepted 🤝" : "Collaboration declined",
     row.status === "accepted"
-      ? `<strong>${escapeHtml(me.name)}</strong> is now credited on <strong>${escapeHtml(me.beat?.title ?? "your beat")}</strong>, and its sales are split 50/50.`
+      ? `<strong>${escapeHtml(me.name)}</strong> is now credited on <strong>${escapeHtml(me.beat?.title ?? "your beat")}</strong>, and its sales are split ${splitLabel(theirs)}: ${100 - theirs}% for you, ${theirs}% for ${escapeHtml(me.name)}.`
       : `<strong>${escapeHtml(me.name)}</strong> declined the invite for <strong>${escapeHtml(me.beat?.title ?? "your beat")}</strong>.`,
   );
   return { ok: true, data: { status: row.status } };

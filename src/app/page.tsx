@@ -7,6 +7,7 @@ import { GenreMarquee } from "@/components/home/genre-marquee";
 import { Carousel } from "@/components/home/carousel";
 import { GenreTiles } from "@/components/home/genre-tiles";
 import { ProducerCard } from "@/components/home/producer-card";
+import { FollowingFeed } from "@/components/home/following-feed";
 import { BeatCard } from "@/components/beats/beat-card";
 import { BeatRow } from "@/components/beats/beat-row";
 import { SectionHeading } from "@/components/ui/misc";
@@ -37,6 +38,7 @@ export default async function HomePage() {
     <>
       <Hero featured={hero} queue={heroQueue} stats={data.stats} />
       <GenreMarquee genres={data.genres.map((g) => ({ slug: g.slug, name: g.name }))} />
+      <FollowingFeed />
 
       {!hasBeats && (
         <Section className="mt-20">

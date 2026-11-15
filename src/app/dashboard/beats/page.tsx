@@ -30,8 +30,9 @@ async function MyBeats() {
   const canSelfPublish = viewer.profile.role === "admin" || !(settings?.require_beat_approval ?? true);
   const packOnly: Record<string, { title: string; slug: string }> = {};
   for (const x of live ?? []) packOnly[x.beat_id] ??= { title: x.pack_title, slug: x.pack_slug };
-  const withCollaborator: Record<string, { name: string; username: string; status: "pending" | "accepted" }> = {};
-  for (const c of collabs) if (c.role === "owner") withCollaborator[c.beat.id] = { name: c.other.name, username: c.other.username, status: c.status };
+  const withCollaborator: Record<string, { name: string; username: string; status: "pending" | "accepted"; share: number }> = {};
+  for (const c of collabs)
+    if (c.role === "owner") withCollaborator[c.beat.id] = { name: c.other.name, username: c.other.username, status: c.status, share: c.share_percent ?? 50 };
   return (
     <>
       <BeatsManager beats={(data ?? []) as ManagedBeat[]} canSelfPublish={canSelfPublish} packOnly={packOnly} collaborators={withCollaborator} />

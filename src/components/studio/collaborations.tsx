@@ -14,6 +14,7 @@ import { Modal } from "@/components/ui/overlay";
 import { endCollaboration, inviteCollaborator, respondToCollaboration } from "@/actions/collaborations";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { keyName } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { ProducerSummary, SearchResult } from "@/lib/types";
 import type { Collaboration } from "@/lib/data/collaborations";
 
@@ -31,7 +32,7 @@ export function CollabInvites({ invites }: { invites: Collaboration[] }) {
       setBusy(null);
       if (!res.ok) return void toast.error("Couldn't answer the invite", { description: res.error });
       toast.success(accept ? `You're collaborating on “${c.beat.title}”` : "Invite declined", {
-        description: accept ? "You're credited on the beat, and every sale is split 50/50." : undefined,
+        description: accept ? `You're credited on the beat and get ${c.share_percent}% of every sale.` : undefined,
       });
       router.refresh();
     });
@@ -57,7 +58,10 @@ export function CollabInvites({ invites }: { invites: Collaboration[] }) {
                 invited you to collaborate on <strong>“{c.beat.title}”</strong>
                 <span className="text-ink-400"> · {c.beat.bpm} BPM · {keyName(c.beat.key_note, c.beat.key_mode)}</span>
               </p>
-              <p className="mt-0.5 text-xs text-ink-300">Accept to be credited on the beat and get 50% of every sale.</p>
+              <p className="mt-0.5 text-xs text-ink-300">
+                Accept to be credited on the beat and get <strong className="text-ink-50">{c.share_percent}%</strong> of every sale
+                {c.share_percent !== 50 && <> ({c.other.name} keeps {100 - c.share_percent}%)</>}.
+              </p>
             </div>
           </div>
           <div className="flex shrink-0 gap-2">
@@ -98,6 +102,78 @@ function useProducerSuggestions(text: string, selfId: string) {
  * saved, inviting and cancelling happen right away; for a new beat the invite
  * is sent when the beat is saved (`value` / `onValueChange`).
  */
+export interface CollabDraft {
+  username: string;
+  /** The collaborator's share of every sale, 1–99 %. */
+  share: number;
+}
+
+/** How a sale is split: the owner's share and the collaborator's, as a slider with quick presets. */
+export function SplitPicker({ share, onChange, other = "Collaborator" }: { share: number; onChange: (share: number) => void; other?: string }) {
+  const set = (n: number) => onChange(Math.min(99, Math.max(1, Math.round(n) || 1)));
+  // What's typed in the % box (it may be empty for a moment while typing).
+  const [typed, setTyped] = useState(String(share));
+  useEffect(() => setTyped(String(share)), [share]);
+  return (
+    <fieldset className="mt-3 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3">
+      <legend className="sr-only">How every sale is split</legend>
+      <div className="flex items-end justify-between gap-3">
+        <p className="text-xs text-ink-300">
+          You keep
+          <span className="block font-display text-2xl font-bold tabular-nums text-ink-50">{100 - share}%</span>
+        </p>
+        <p className="text-right text-xs text-ink-300">
+          {other} gets
+          <span className="flex items-center justify-end font-display text-2xl font-bold tabular-nums text-ink-50">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={typed}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+                setTyped(v);
+                if (v) set(Number(v));
+              }}
+              onBlur={() => setTyped(String(share))}
+              onFocus={(e) => e.target.select()}
+              aria-label="Collaborator's share of every sale, in percent"
+              className="w-[2.6ch] bg-transparent text-right outline-none focus:underline"
+            />
+            %
+          </span>
+        </p>
+      </div>
+      <input
+        type="range"
+        min={1}
+        max={99}
+        value={share}
+        onChange={(e) => set(Number(e.target.value))}
+        aria-label="Collaborator's share of every sale"
+        aria-valuetext={`You keep ${100 - share}%, ${other.toLowerCase() === "collaborator" ? "the collaborator" : other} gets ${share}%`}
+        className="range mt-2 w-full"
+        style={{ ["--value" as string]: `${share}%` }}
+      />
+      <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Quick splits">
+        {[50, 40, 30, 20].map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => set(p)}
+            aria-pressed={share === p}
+            className={cn(
+              "h-7 rounded-full border px-3 text-xs font-medium tabular-nums transition",
+              share === p ? "border-transparent bg-white text-ink-950" : "border-white/10 text-ink-200 hover:border-white/30",
+            )}
+          >
+            {100 - p}/{p}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 export function CollabCard({
   beatId,
   producerId,
@@ -109,14 +185,16 @@ export function CollabCard({
   beatId: string | null;
   producerId: string;
   collaboration: Collaboration | null;
-  value?: string;
-  onValueChange?: (value: string) => void;
+  value?: CollabDraft;
+  onValueChange?: (value: CollabDraft) => void;
   locked?: boolean;
 }) {
   const router = useRouter();
-  const [own, setOwn] = useState("");
-  const text = beatId ? own : (value ?? "");
-  const setText = beatId ? setOwn : (v: string) => onValueChange?.(v);
+  const [own, setOwn] = useState<CollabDraft>({ username: "", share: 50 });
+  const draft = beatId ? own : (value ?? { username: "", share: 50 });
+  const setDraft = (patch: Partial<CollabDraft>) => (beatId ? setOwn((d) => ({ ...d, ...patch })) : onValueChange?.({ ...draft, ...patch }));
+  const text = draft.username;
+  const setText = (username: string) => setDraft({ username });
   const [open, setOpen] = useState(false);
   const suggestions = useProducerSuggestions(open ? text : "", producerId);
   const [pending, startTransition] = useTransition();
@@ -124,10 +202,12 @@ export function CollabCard({
   const invite = () => {
     if (!beatId) return;
     startTransition(async () => {
-      const res = await inviteCollaborator(beatId, text);
+      const res = await inviteCollaborator(beatId, own.username, own.share);
       if (!res.ok) return void toast.error("Couldn't send the invite", { description: res.error });
-      toast.success(`Invite sent to @${res.data.username}`, { description: "It pops up in their studio. Sales are split once they accept." });
-      setOwn("");
+      toast.success(`Invite sent to @${res.data.username}`, {
+        description: `It pops up in their studio. Once they accept, they get ${res.data.share}% of every sale and you keep ${100 - res.data.share}%.`,
+      });
+      setOwn({ username: "", share: 50 });
       router.refresh();
     });
   };
@@ -155,13 +235,17 @@ export function CollabCard({
               <span className="block text-xs text-ink-400">@{collaboration.other.username}</span>
             </span>
           </Link>
-          <p className="mt-3 text-sm text-ink-200">Co-produced: both of you are credited and every sale is split 50/50.</p>
+          <p className="mt-3 text-sm text-ink-200">
+            Co-produced: both of you are credited. Every sale is split {100 - collaboration.share_percent}/{collaboration.share_percent}: you keep{" "}
+            {100 - collaboration.share_percent}%, {collaboration.other.name} gets {collaboration.share_percent}%.
+          </p>
           <p className="mt-1 text-xs text-ink-400">Only {collaboration.other.name} can end the collaboration.</p>
         </div>
       ) : collaboration?.status === "pending" ? (
         <div className="mt-3">
           <p className="text-sm text-ink-200">
-            Invite sent to <strong>{collaboration.other.name}</strong> (@{collaboration.other.username}). Waiting for them to accept.
+            Invite sent to <strong>{collaboration.other.name}</strong> (@{collaboration.other.username}) for {collaboration.share_percent}% of every sale
+            (you keep {100 - collaboration.share_percent}%). Waiting for them to accept.
           </p>
           <Button variant="secondary" size="sm" className="mt-3" onClick={cancel} loading={pending}>
             <X className="h-4 w-4" /> Cancel invite
@@ -171,7 +255,9 @@ export function CollabCard({
         <p className="mt-2 text-sm text-ink-300">This beat can&apos;t get a collaborator any more.</p>
       ) : (
         <div className="mt-2">
-          <p className="text-sm text-ink-200">Made this beat with another producer? Invite them: once they accept, they&apos;re credited on the beat and every sale is split 50/50.</p>
+          <p className="text-sm text-ink-200">
+            Made this beat with another producer? Invite them and choose how every sale is split. Once they accept, they&apos;re credited on the beat.
+          </p>
           <div className="relative mt-3">
             <label htmlFor="collab-username" className="sr-only">
               Producer&apos;s username
@@ -214,6 +300,7 @@ export function CollabCard({
               </ul>
             )}
           </div>
+          <SplitPicker share={draft.share} onChange={(share) => setDraft({ share })} />
           {beatId ? (
             <Button size="sm" className="mt-3 w-full" onClick={invite} loading={pending} disabled={text.trim().replace(/^@/, "").length < 2}>
               <UserPlus className="h-4 w-4" /> Send invite
@@ -249,7 +336,7 @@ export function CoProduced({ items }: { items: Collaboration[] }) {
       <h2 className="flex items-center gap-2 font-display text-xl font-bold">
         <Handshake className="h-5 w-5 text-accent-300" /> Beats you co-produce
       </h2>
-      <p className="mt-1 text-sm text-ink-400">Other producers&apos; beats you collaborate on. You get 50% of every sale.</p>
+      <p className="mt-1 text-sm text-ink-400">Other producers&apos; beats you collaborate on, with your share of every sale.</p>
       <ul className="glass mt-5 divide-y divide-white/[0.05] overflow-hidden rounded-3xl">
         {items.map((c) => (
           <li key={c.id} className="flex items-center gap-3.5 px-4 py-3.5 lg:px-5">
@@ -267,7 +354,7 @@ export function CoProduced({ items }: { items: Collaboration[] }) {
                 <Link href={`/producers/${c.other.username}`} className="hover:underline">
                   {c.other.name}
                 </Link>{" "}
-                · {c.beat.status === "published" ? "Live" : "Not live yet"}
+                · your share {c.share_percent}% · {c.beat.status === "published" ? "Live" : "Not live yet"}
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setLeaving(c)} aria-label={`Leave the collaboration on ${c.beat.title}`}>

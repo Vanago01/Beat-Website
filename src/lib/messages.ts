@@ -21,6 +21,19 @@ export interface ConversationSummary {
   other: ChatProfile;
   last_message: { body: string; sender_id: string; created_at: string };
   unread_count: number;
+  /** Pinned to the top of the inbox (database update 13). */
+  pinned?: boolean;
+  pinned_at?: string | null;
+}
+
+/** Pinned conversations first (most recently pinned on top), then the newest. */
+export function sortInbox(list: ConversationSummary[]) {
+  return [...list].sort(
+    (a, b) =>
+      Number(!!b.pinned) - Number(!!a.pinned) ||
+      (a.pinned && b.pinned ? timeOf(b.pinned_at) - timeOf(a.pinned_at) : 0) ||
+      timeOf(b.last_message_at) - timeOf(a.last_message_at),
+  );
 }
 
 /** The open conversation (get_conversation). */
@@ -32,15 +45,58 @@ export interface ConversationDetail {
   blocked_me: boolean;
 }
 
+/** A photo or video in a message (kept in the private message-media bucket). */
+export interface ChatAttachment {
+  path: string;
+  kind: "image" | "video";
+  mime?: string;
+  size?: number;
+  width?: number;
+  height?: number;
+  name?: string;
+  /** This tab only: the file picked from this device, shown until the copy online loads. */
+  localUrl?: string;
+}
+
 export interface ChatMessage {
   id: string;
   conversation_id: string;
   sender_id: string;
   body: string;
   created_at: string;
+  /** Photos and videos (database update 13). */
+  attachments?: ChatAttachment[];
+  /** Who reacted with what: user id → emoji (database update 13). */
+  reactions?: Record<string, string>;
   /** Only on messages typed in this tab that the server hasn't confirmed. */
   pending?: "sending" | "failed";
   error?: string;
+}
+
+/** A reaction as stored (and sent live): no emoji means it was taken back. */
+export interface ChatReaction {
+  message_id: string;
+  user_id: string;
+  emoji: string | null;
+}
+
+/** One tap reactions, like Messenger. Any other emoji is in the full picker. */
+export const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "😡", "👍"] as const;
+
+/** Photos and videos per message, and how big each may be (the message-media bucket's limit). */
+export const MEDIA_MAX_FILES = 10;
+export const MEDIA_MAX_BYTES = 50 * 1024 * 1024;
+export const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"];
+
+/** Text for a message in notifications and lists ("📷 Photo" when it has no text). */
+export function messagePreview(m: { body: string; attachments?: ChatAttachment[] | null }) {
+  if (m.body) return m.body;
+  const files = m.attachments ?? [];
+  if (!files.length) return "";
+  const videos = files.filter((f) => f.kind === "video").length;
+  if (files.length === 1) return videos ? "🎬 Video" : "📷 Photo";
+  if (videos === files.length) return `🎬 ${files.length} videos`;
+  return videos ? `📷 ${files.length} photos and videos` : `📷 ${files.length} photos`;
 }
 
 export const chatName = (p: Pick<ChatProfile, "producer_name" | "display_name" | "username">) =>

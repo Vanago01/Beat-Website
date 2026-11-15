@@ -111,7 +111,7 @@ export function BeatForm({
   const [pending, startTransition] = useTransition();
   const [localCover, setLocalCover] = useState<string | null>(null);
   // New beat: a collaborator to invite once the beat is saved.
-  const [collabInvite, setCollabInvite] = useState("");
+  const [collabInvite, setCollabInvite] = useState({ username: "", share: 50 });
 
   const initialFile = (kind: Kind, path: string | null | undefined): FileState | null =>
     path ? { status: "done", progress: 1, name: `Current ${SPEC[kind].label.toLowerCase()} file`, size: 0, path, existing: true } : null;
@@ -250,9 +250,12 @@ export function BeatForm({
       replaced.current = [];
       dirty.current = false;
 
-      if (!beat && collabInvite.trim().replace(/^@/, "").length >= 2) {
-        const inv = await inviteCollaborator(res.data.id, collabInvite);
-        if (inv.ok) toast.success(`Invite sent to @${inv.data.username}`, { description: "Sales are split 50/50 once they accept." });
+      if (!beat && collabInvite.username.trim().replace(/^@/, "").length >= 2) {
+        const inv = await inviteCollaborator(res.data.id, collabInvite.username, collabInvite.share);
+        if (inv.ok)
+          toast.success(`Invite sent to @${inv.data.username}`, {
+            description: `Once they accept, they get ${inv.data.share}% of every sale and you keep ${100 - inv.data.share}%.`,
+          });
         else toast.error("The beat was saved, but the invite wasn't sent", { description: inv.error });
       }
 

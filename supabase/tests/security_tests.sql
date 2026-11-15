@@ -1101,4 +1101,234 @@ end $$;
 rollback;
 delete from auth.mfa_factors where id = '88888888-8888-4888-8888-888888888888';
 
+-- 50. Following: people follow producers themselves; who follows whom is public.
+begin;
+select test.act_as(:'buyer');
+insert into public.follows (follower_id, followee_id) values (:'buyer', :'sb');
+commit;
+select test.ok((select count(*) = 1 from public.follows where follower_id = :'buyer' and followee_id = :'sb'), 'people can follow a producer');
+begin;
+select test.act_as(:'buyer');
+do $$ begin
+  insert into public.follows (follower_id, followee_id) values (current_setting('test.sa')::uuid, current_setting('test.sb')::uuid);
+  perform test.ok(false, 'nobody can follow on someone else''s behalf');
+exception when insufficient_privilege then perform test.ok(true, 'nobody can follow on someone else''s behalf');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa');
+do $$ begin
+  insert into public.follows (follower_id, followee_id) values (current_setting('test.sa')::uuid, current_setting('test.buyer')::uuid);
+  perform test.ok(false, 'only producers can be followed');
+exception when insufficient_privilege then perform test.ok(true, 'only producers can be followed');
+end $$;
+do $$ begin
+  insert into public.follows (follower_id, followee_id) values (current_setting('test.sa')::uuid, current_setting('test.sa')::uuid);
+  perform test.ok(false, 'nobody can follow themselves');
+exception when check_violation or insufficient_privilege then perform test.ok(true, 'nobody can follow themselves');
+end $$;
+do $$ declare n int; begin
+  delete from public.follows where follower_id = current_setting('test.buyer')::uuid;
+  get diagnostics n = row_count;
+  perform test.ok(n = 0, 'nobody can remove someone else''s follow');
+end $$;
+rollback;
+begin;
+select test.act_as(null);
+select test.ok((public.get_producer_stats(:'sb') ->> 'followers')::int = 1 and (public.get_producer_stats(:'buyer') ->> 'following')::int = 1,
+  'follower counts are public');
+select test.ok((select count(*) = 1 from public.follows where followee_id = :'sb'), 'visitors can see who follows a producer');
+rollback;
+begin;
+select test.act_as(:'owner', 'aal2');
+update public.beat_packs set status = 'draft' where id = '66666666-6666-4666-8666-666666666666';
+commit;
+begin;
+select test.act_as(:'buyer');
+select test.ok((select count(*) >= 1 and bool_and(e ->> 'producer_id' = :'sb' or e ->> 'collaborator_id' = :'sb')
+  from jsonb_array_elements(public.following_beats()) e), 'the feed shows new beats from producers you follow');
+rollback;
+begin;
+select test.act_as(:'sa');
+select test.ok(jsonb_array_length(public.following_beats()) = 0, 'the feed is empty when you follow nobody');
+rollback;
+begin;
+select test.act_as(:'owner', 'aal2');
+update public.beat_packs set status = 'published' where id = '66666666-6666-4666-8666-666666666666';
+commit;
+begin;
+select test.act_as(:'buyer');
+delete from public.follows where follower_id = :'buyer' and followee_id = :'sb';
+commit;
+select test.ok((select count(*) = 0 from public.follows where follower_id = :'buyer'), 'people can unfollow');
+
+-- 51. Collaborations: the inviting producer chooses the collaborator's share.
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  perform public.invite_collaborator('55555555-5555-4555-8555-555555555552', 'sellera', 100);
+  perform test.ok(false, 'the collaborator''s share is 1-99 %');
+exception when raise_exception then perform test.ok(true, 'the collaborator''s share is 1-99 %');
+end $$;
+select (public.invite_collaborator('55555555-5555-4555-8555-555555555552', 'sellera', 70) ->> 'id') as collab70 \gset
+commit;
+begin;
+select test.act_as(:'sa');
+select test.ok((select share_percent = 70 from public.beat_collaborations where id = :'collab70')
+  and (public.respond_to_collaboration(:'collab70', true) ->> 'status') = 'accepted', 'a 70 % share can be offered and accepted');
+commit;
+begin;
+set local role service_role;
+select (public.create_pending_order(:'owner', 'owner@test.local', 'eur',
+  array[(select id from public.beat_licenses where beat_id = '55555555-5555-4555-8555-555555555552' and type = 'basic')])
+  ->> 'order_id') as order70 \gset
+select public.fulfill_order(:'order70', 'pi_70', 'ch_70', 'cs_70');
+commit;
+select test.ok((select sum(se.net) = max(oi.seller_amount)
+    and sum(se.net) filter (where se.seller_id = :'sa') = floor(max(oi.seller_amount) * 0.7)
+  from public.seller_earnings se join public.order_items oi on oi.id = se.order_item_id
+  where se.order_id = :'order70'), 'sales are split by the agreed share (70/30)');
+begin;
+select test.act_as(:'sa');
+select test.ok(exists (select 1 from jsonb_array_elements(public.seller_sales() -> 'items') e
+  where (e ->> 'my_share_percent')::int = 70), 'the Sales page shows the producer''s share in percent');
+rollback;
+
+-- 52. Reactions: one per person per message, only inside the conversation.
+begin;
+select test.act_as(:'sb');
+select public.start_conversation(:'buyer') as conv2 \gset
+select (public.send_message(:'conv2', 'React to this') ->> 'id') as msg2 \gset
+commit;
+select set_config('test.msg2', :'msg2', false);
+select set_config('test.conv2', :'conv2', false);
+begin;
+select test.act_as(:'buyer');
+select test.ok(public.react_to_message(:'msg2', '❤️') = '❤️', 'people react to a message with an emoji');
+select test.ok(public.react_to_message(:'msg2', '😂') = '😂', 'another emoji replaces the reaction');
+select test.ok(public.react_to_message(:'msg2', '😂') is null, 'the same emoji again removes it');
+select test.ok(public.react_to_message(:'msg2', '👍🏽') = '👍🏽', 'any emoji works, skin tones included');
+do $$ begin
+  perform public.react_to_message(current_setting('test.msg2')::uuid, 'lol');
+  perform test.ok(false, 'reactions must be emoji');
+exception when raise_exception then perform test.ok(true, 'reactions must be emoji');
+end $$;
+commit;
+begin;
+select test.act_as(:'sb');
+select test.ok((select count(*) = 1 and max(emoji) = '👍🏽' from public.message_reactions where message_id = :'msg2'),
+  'the other person sees the reaction');
+do $$ declare n int; begin
+  update public.message_reactions set emoji = '💀';
+  get diagnostics n = row_count;
+  perform test.ok(n = 0, 'reactions can''t be changed directly');
+exception when insufficient_privilege then perform test.ok(true, 'reactions can''t be changed directly');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 0 from public.message_reactions), 'outsiders don''t see reactions');
+do $$ begin
+  perform public.react_to_message(current_setting('test.msg2')::uuid, '❤️');
+  perform test.ok(false, 'outsiders can''t react');
+exception when no_data_found or raise_exception then perform test.ok(true, 'outsiders can''t react');
+end $$;
+rollback;
+
+-- 53. Photos and videos: private to the conversation, sent only by who uploaded them.
+begin;
+select test.act_as(:'sb');
+insert into storage.objects (bucket_id, name, owner, metadata)
+values ('message-media', :'conv2' || '/' || :'sb' || '/photo.png', :'sb', '{"mimetype": "image/png", "size": 2048}');
+commit;
+select test.ok(exists (select 1 from storage.objects where bucket_id = 'message-media' and name = :'conv2' || '/' || :'sb' || '/photo.png'),
+  'a member uploads a photo to their own folder of the conversation');
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  insert into storage.objects (bucket_id, name, owner, metadata)
+  values ('message-media', current_setting('test.conv2') || '/' || current_setting('test.buyer') || '/x.png', current_setting('test.sb')::uuid, '{"mimetype": "image/png"}');
+  perform test.ok(false, 'nobody uploads into the other person''s folder');
+exception when insufficient_privilege then perform test.ok(true, 'nobody uploads into the other person''s folder');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa');
+do $$ begin
+  insert into storage.objects (bucket_id, name, owner, metadata)
+  values ('message-media', current_setting('test.conv2') || '/' || current_setting('test.sa') || '/x.png', current_setting('test.sa')::uuid, '{"mimetype": "image/png"}');
+  perform test.ok(false, 'outsiders can''t upload to a conversation');
+exception when insufficient_privilege then perform test.ok(true, 'outsiders can''t upload to a conversation');
+end $$;
+select test.ok((select count(*) = 0 from storage.objects where bucket_id = 'message-media'), 'outsiders can''t see the photos');
+rollback;
+begin;
+select test.act_as(:'buyer');
+select test.ok((select count(*) = 1 from storage.objects where bucket_id = 'message-media'), 'the other person can open the photo');
+rollback;
+begin;
+select test.act_as(:'sb');
+select test.ok((select (r ->> 'body') = '' and r -> 'attachments' -> 0 ->> 'kind' = 'image' and r -> 'attachments' -> 0 ->> 'mime' = 'image/png'
+  from (select public.send_message(:'conv2', '', jsonb_build_array(jsonb_build_object('path', :'conv2' || '/' || :'sb' || '/photo.png', 'width', 640, 'height', 480)))::jsonb as r) x),
+  'a photo can be sent without text');
+do $$ begin
+  perform public.send_message(current_setting('test.conv2')::uuid, 'look', jsonb_build_array(jsonb_build_object('path', current_setting('test.conv2') || '/' || current_setting('test.buyer') || '/x.png')));
+  perform test.ok(false, 'only your own uploads can be attached');
+exception when raise_exception then perform test.ok(true, 'only your own uploads can be attached');
+end $$;
+do $$ begin
+  perform public.send_message(current_setting('test.conv2')::uuid, 'look', jsonb_build_array(jsonb_build_object('path', current_setting('test.conv2') || '/' || current_setting('test.sb') || '/missing.png')));
+  perform test.ok(false, 'files that weren''t uploaded can''t be attached');
+exception when raise_exception then perform test.ok(true, 'files that weren''t uploaded can''t be attached');
+end $$;
+commit;
+begin;
+select test.act_as(:'buyer');
+select test.ok((select x ->> 'id' = :'conv2' and x -> 'last_message' ->> 'body' = '📷 Photo' from json_array_elements(public.list_conversations()) x where x ->> 'id' = :'conv2'),
+  'the inbox shows a photo as "📷 Photo"');
+rollback;
+
+-- 54. Pinned conversations come first, for you only.
+begin;
+select test.act_as(:'buyer');
+select test.ok(public.pin_conversation(:'conv', true), 'people can pin a conversation');
+select test.ok((select (json_array_elements(public.list_conversations()) ->> 'id') limit 1) = :'conv'
+  and (select bool_or((x ->> 'pinned')::boolean) from json_array_elements(public.list_conversations()) x), 'pinned conversations are listed first');
+commit;
+begin;
+select test.act_as(:'sa');
+select test.ok(not coalesce((select (x ->> 'pinned')::boolean from json_array_elements(public.list_conversations()) x where x ->> 'id' = :'conv'), false),
+  'a pin is only yours');
+rollback;
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  perform public.pin_conversation(current_setting('test.conv')::uuid, true);
+  perform test.ok(false, 'nobody pins someone else''s conversation');
+exception when no_data_found or raise_exception then perform test.ok(true, 'nobody pins someone else''s conversation');
+end $$;
+rollback;
+begin;
+select test.act_as(:'buyer');
+select test.ok(not public.pin_conversation(:'conv', false), 'people can unpin');
+commit;
+
+-- 55. Two-factor: a password-only session can't follow or react.
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('99999999-9999-4999-8999-999999999999', :'buyer', 'test authenticator', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP');
+begin;
+select test.act_as(:'buyer');
+do $$ begin
+  insert into public.follows (follower_id, followee_id) values (current_setting('test.buyer')::uuid, current_setting('test.sb')::uuid);
+  perform test.ok(false, '2FA user: password-only session cannot follow');
+exception when insufficient_privilege then perform test.ok(true, '2FA user: password-only session cannot follow');
+end $$;
+do $$ begin
+  perform public.react_to_message(current_setting('test.msg2')::uuid, '🔥');
+  perform test.ok(false, '2FA user: password-only session cannot react');
+exception when insufficient_privilege then perform test.ok(true, '2FA user: password-only session cannot react');
+end $$;
+rollback;
+delete from auth.mfa_factors where id = '99999999-9999-4999-8999-999999999999';
+
 \echo '--- all security tests passed ---'

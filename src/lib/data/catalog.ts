@@ -136,7 +136,8 @@ export async function getBeatReviews(beatId: string): Promise<PublicReview[]> {
 
 export interface PublicProducer {
   profile: Profile;
-  stats: { beats: number; plays: number; sales: number; favorites: number };
+  /** `followers` / `following` come with database update 13. */
+  stats: { beats: number; plays: number; sales: number; favorites: number; followers?: number; following?: number };
 }
 
 export async function getPublicProducer(username: string): Promise<PublicProducer | null> {

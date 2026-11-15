@@ -19,7 +19,7 @@ function friendlyUploadError(message: string, status: number | undefined, file: 
   return message;
 }
 
-export type Bucket = "avatars" | "covers" | "previews" | "beat-files";
+export type Bucket = "avatars" | "covers" | "previews" | "beat-files" | "message-media";
 
 export function buildPath(userId: string, scope: string, kind: string, file: File) {
   const ext = extensionOf(file.name) || "bin";

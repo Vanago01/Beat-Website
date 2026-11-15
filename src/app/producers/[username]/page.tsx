@@ -11,6 +11,7 @@ import { SocialIcon } from "@/components/layout/social-icon";
 import { ProducerBeats } from "@/components/home/producer-beats";
 import { OwnProfileLink } from "@/components/home/own-profile-link";
 import { MessageButton } from "@/components/messages/message-button";
+import { FollowButton, FollowStats } from "@/components/profile/follow";
 import { avatarUrl } from "@/lib/storage";
 import { formatCompact, formatDate } from "@/lib/format";
 import { SOCIAL_FIELDS, type SocialKey } from "@/lib/constants";
@@ -94,13 +95,15 @@ async function Producer({ params }: { params: PageProps<"/producers/[username]">
               </a>
             ))}
             <OwnProfileLink profileId={p.id} />
-            <MessageButton profileId={p.id} returnTo={`/producers/${p.username}`} variant="primary" />
+            {typeof stats.followers === "number" && <FollowButton profileId={p.id} returnTo={`/producers/${p.username}`} />}
+            <MessageButton profileId={p.id} returnTo={`/producers/${p.username}`} variant={typeof stats.followers === "number" ? "secondary" : "primary"} />
           </div>
         </div>
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
+              {typeof stats.followers === "number" && <FollowStats profileId={p.id} followers={stats.followers} following={stats.following ?? 0} />}
               {[
                 { label: "Beats", value: stats.beats },
                 { label: "Plays", value: stats.plays },

@@ -19,12 +19,17 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 
 **Marketplace**
 - Homepage: hero search, featured beat, trending, staff picks, new releases, best-selling chart, popular genres, featured producers, recently uploaded.
-- Explore page with filters that all combine instantly and live in the URL (shareable):
+- Explore with a **Beats | Beat packs** switch at the top. Beat packs can be searched (also by the beats inside a pack), filtered by genre and sorted (newest, best selling, price).
+- Explore beats with filters that all combine instantly and live in the URL (shareable):
   dual-handle **BPM slider (40–220)**, **circle-of-fifths key wheel** (12 relative major/minor pairs, multi-select), genre, mood, price range (EUR/PLN/USD), free beats, exclusive available, staff picks, and sort (newest, trending, most popular, best selling, price).
 - Full-text + prefix search across titles, tags, moods and producer names.
 - Persistent audio player (waveform seek, volume, queue, keyboard & lock-screen controls). Waveforms are computed from the real audio at upload time.
 - Beat pages with license comparison, reviews from verified buyers, related beats, SEO metadata and JSON-LD.
 - Producer directory and public producer profiles.
+
+**Following**
+- Anyone signed in can follow producers (Follow button on their profile). Profiles show followers and following counts; each opens the list of people.
+- Account → **Following** lists the producers you follow (unfollow or follow back right there) and their newest beats. The homepage shows “From producers you follow” at the top.
 
 **Buying**
 - Five configurable license tiers (Basic MP3, Premium WAV, Trackout/Stems, Unlimited, Exclusive) plus optional free downloads.
@@ -48,12 +53,16 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 
 **Collaborations**
 - A producer invites another producer to one of their beats (beat editor → Collaboration, or while uploading). The invite pops up at the top of the other producer's studio (plus a badge on their account menu and an email), where they accept or decline.
-- Once accepted, every sale of the beat is split 50/50: each producer gets half of what the sale pays producers (after the platform fee), paid out to their own payout account. In a beat pack, each beat is an equal part of the pack and a co-produced beat's part is split. Sales and Overview in the studio show each producer their own share.
+- The inviting producer chooses the split: the collaborator's share of every sale, 1–99 % (50/50 by default; a slider, quick 50/50 · 60/40 · 70/30 · 80/20 buttons, or type the number). The invite shows the share before it's accepted.
+- Once accepted, every sale of the beat is split that way: each producer gets their share of what the sale pays producers (after the platform fee), paid out to their own payout account. In a beat pack, each beat is an equal part of the pack and a co-produced beat's part is split. Sales, Overview and My beats in the studio show each producer their own share.
 - The beat credits both producers (beat page, cards, lists) and is listed on both profiles. The owner can cancel an open invite; only the collaborator (or an admin) can end an accepted collaboration.
 
 **Messages**
 - Direct messages between any two members: inbox with unread counts, live delivery (Supabase Realtime, with automatic fallback to checking every 20 seconds), “Seen”, links, a notification while browsing elsewhere, and an unread badge in the navbar.
 - “Message” buttons on producer profiles and beat pages; block / unblock (also under Account → Settings); “Delete conversation” hides it for you only.
+- **Reactions**, like Messenger: hover a message (long-press on phones) for ❤️ 😂 😮 😢 😡 👍, or **+** for any emoji (searchable). One reaction per person per message; picking it again takes it back. The other person sees it live.
+- **Photos and videos**: up to 10 per message, 50 MB each (JPG, PNG, WebP, GIF, MP4, MOV, WebM): pick them, paste them or drop them on the conversation. They're kept privately: only the two people in the conversation can open them. Photos open full screen; videos play in the chat.
+- **Pin conversations** to the top of the inbox (conversation menu, or the pin button in the inbox).
 
 **Appearance**
 - Dark or light theme and seven accent colours (Account → Settings; black & white by default), remembered per device and applied before the page paints.
@@ -78,12 +87,13 @@ Authorization is enforced **in the database**, never only in the UI:
 | Stripe | Webhooks are signature-verified; fulfilment is idempotent (safe on retries and on the success-page fallback). Exclusive-license races are detected and the second buyer is refunded automatically. |
 | Two-factor authentication | Optional TOTP for everyone (Account → Settings), **required for administrators**: admin powers only exist in sessions that passed two-factor sign-in (`is_admin()` checks the session's `aal2` level). For anyone who set it up, a password-only session gets nothing from the database or storage until the code is entered. |
 | Beat packs | A pack can only contain the producer's own beats, and its price is computed in the database at checkout. A pack with an unavailable beat can't be bought; refunding a pack revokes the license of every beat in it. |
-| Collaborations | Invites, answers and endings only go through database functions that check who's asking (the beat's owner invites producers only; only the invited producer can accept; the owner can't end an accepted collaboration). The 50/50 split is made by the database when the sale is recorded. |
-| Messages | Only the two people in a conversation can read it (administrators can't either). Messages are written only through `send_message()`: 1–2,000 characters, at most 20 a minute and 500 a day per person, and 30 new conversations a day. A block stops messages in both directions and isn't visible to the blocked person. |
+| Collaborations | Invites, answers and endings only go through database functions that check who's asking (the beat's owner invites producers only; only the invited producer can accept; the owner can't end an accepted collaboration). The split (1–99 %, fixed when the invite is sent) is made by the database when the sale is recorded. |
+| Messages | Only the two people in a conversation can read it (administrators can't either). Messages are written only through `send_message()`: 1–2,000 characters, at most 20 a minute and 500 a day per person, and 30 new conversations a day. A block stops messages in both directions and isn't visible to the blocked person. Photos and videos are in a private bucket: only the two people in the conversation can upload (into their own folder) and open them, and `send_message()` checks every file. Reactions go through `react_to_message()` (members only, 60 a minute). |
+| Following | You can only follow (and unfollow) as yourself, and only producers. Who follows whom is public, like on other social sites. |
 | HTTP headers | Content-Security-Policy (scripts only from the site, no plugins/framing/foreign form targets, network and media limited to the site and Supabase), HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, a restrictive `Permissions-Policy`, `nosniff`. |
 | Cookies | Only necessary cookies by default; preferences (currency, volume, view) are stored after consent from the cookie banner. No advertising or tracking cookies. Policy at `/legal/cookies`. |
 
-`supabase/tests/security_tests.sql` contains 171 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs, collaborations and split payouts…).
+`supabase/tests/security_tests.sql` contains 210 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs, collaborations and split payouts, following, reactions, private photos and videos, pins…).
 
 ---
 
@@ -136,8 +146,8 @@ SUPABASE_SECRET_KEY=<local secret key> npm run test:db
    npx supabase db push
    ```
    This creates all tables, policies, functions, storage buckets and storage policies.
-   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 12). Every file can safely be run again.
-   File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`).
+   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 13). Every file can safely be run again.
+   File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`). File 13 (`…_social_and_chat.sql`) adds `message_reactions` to it and creates the private `message-media` bucket for photos and videos in messages.
 3. **Authentication → URL Configuration**: set *Site URL* to your domain (e.g. `https://yourdomain.com`) and add `https://yourdomain.com/**` to *Redirect URLs*.
 4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes. Under **Multi-Factor**, keep **TOTP (App Authenticator)** enabled.
    *Optional (recommended):* to let users confirm on a different device than they signed up on, change the email templates’ link to

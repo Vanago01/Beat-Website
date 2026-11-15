@@ -54,7 +54,7 @@ export function BeatsManager({
   canSelfPublish: boolean;
   packOnly?: Record<string, { title: string; slug: string }>;
   /** The beat's collaborator, or who was invited. */
-  collaborators?: Record<string, { name: string; username: string; status: "pending" | "accepted" }>;
+  collaborators?: Record<string, { name: string; username: string; status: "pending" | "accepted"; share: number }>;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | BeatStatus>("all");
@@ -153,7 +153,9 @@ export function BeatsManager({
                         <Link href={`/producers/${collaborators[b.id].username}`} className="text-accent-300 hover:underline">
                           {collaborators[b.id].name}
                         </Link>
-                        {collaborators[b.id].status === "accepted" ? " · sales split 50/50" : " · waiting for an answer"}
+                        {collaborators[b.id].status === "accepted"
+                          ? ` · sales split ${100 - collaborators[b.id].share}/${collaborators[b.id].share}`
+                          : " · waiting for an answer"}
                       </p>
                     )}
                     {packOnly[b.id] && (

@@ -2,13 +2,14 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { BadgeCheck, MessageCircle } from "lucide-react";
+import { BadgeCheck, MessageCircle, Pin, PinOff } from "lucide-react";
+import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/misc";
 import { buttonVariants } from "@/components/ui/button";
 import { chatName, formatInboxTime, timeOf } from "@/lib/messages";
-import { cn } from "@/lib/utils";
-import { useMessages, watchInbox } from "@/stores/messages";
+import { cn, errorMessage } from "@/lib/utils";
+import { pinConversation, useMessages, watchInbox } from "@/stores/messages";
 
 function InboxSkeleton() {
   return (
@@ -69,8 +70,16 @@ export function InboxList() {
               const unread = c.unread_count > 0 && c.id !== active;
               const mine = c.last_message.sender_id === userId;
               const time = timeOf(c.last_message.created_at);
+              const pinnable = c.pinned !== undefined;
+              const togglePin = async () => {
+                try {
+                  await pinConversation(c.id, !c.pinned);
+                } catch (err) {
+                  toast.error(c.pinned ? "Couldn't unpin" : "Couldn't pin", { description: errorMessage(err) });
+                }
+              };
               return (
-                <li key={c.id}>
+                <li key={c.id} className="group/row relative">
                   <Link
                     href={`/messages/${c.id}`}
                     aria-current={c.id === active ? "page" : undefined}
@@ -86,7 +95,14 @@ export function InboxList() {
                           <span className="truncate">{name}</span>
                           {c.other.is_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-400" aria-label="Verified" />}
                         </span>
-                        <span className={cn("ml-auto shrink-0 text-[11px]", unread ? "font-semibold text-accent-300" : "text-ink-400")}>
+                        <span
+                          className={cn(
+                            "ml-auto flex shrink-0 items-center gap-1 text-[11px]",
+                            unread ? "font-semibold text-accent-300" : "text-ink-400",
+                            pinnable && "[@media(hover:hover)]:group-hover/row:invisible [@media(hover:hover)]:group-focus-within/row:invisible",
+                          )}
+                        >
+                          {c.pinned && <Pin className="h-3 w-3 rotate-45 text-ink-400" aria-label="Pinned" />}
                           {Number.isFinite(time) ? formatInboxTime(time, now) : ""}
                         </span>
                       </span>
@@ -104,6 +120,17 @@ export function InboxList() {
                       </span>
                     </span>
                   </Link>
+                  {pinnable && (
+                    <button
+                      type="button"
+                      onClick={() => void togglePin()}
+                      aria-label={c.pinned ? `Unpin the conversation with ${name}` : `Pin the conversation with ${name}`}
+                      title={c.pinned ? "Unpin" : "Pin to the top"}
+                      className="absolute right-2.5 top-2 hidden h-7 w-7 place-items-center rounded-full text-ink-300 transition hover:bg-white/[0.1] hover:text-white focus-visible:grid group-hover/row:grid group-focus-within/row:grid [@media(hover:none)]:!hidden"
+                    >
+                      {c.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
                 </li>
               );
             })}

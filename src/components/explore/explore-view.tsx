@@ -178,7 +178,7 @@ export function ExploreView({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by title, producer, tag…"
-              className="h-full w-full bg-transparent text-sm outline-none placeholder:text-ink-400"
+              className="h-full w-full bg-transparent text-sm outline-none placeholder:text-ink-400 [&::-webkit-search-cancel-button]:hidden"
               aria-label="Search beats"
               type="search"
             />

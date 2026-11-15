@@ -3,11 +3,13 @@
 import { create } from "zustand";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { ChatMessage, ConversationSummary } from "@/lib/messages";
+import { sortInbox, type ChatMessage, type ChatReaction, type ConversationSummary } from "@/lib/messages";
 
 export type MessagesEvent =
   /** A message was sent in one of your conversations (by you or the other person). */
   | { type: "message"; message: ChatMessage }
+  /** Someone reacted to a message (or took their reaction back). */
+  | { type: "reaction"; reaction: ChatReaction }
   /** Reconnected, or a polling tick: fetch anything that may have been missed. */
   | { type: "sync" };
 
@@ -35,6 +37,9 @@ export const useMessages = create<MessagesState>(() => ({
 
 // Connection state lives outside React; only one live channel per tab.
 let channel: RealtimeChannel | null = null;
+// Reactions come on their own channel, opened only once the database has them
+// (update 13), so a missing table can't break live messages.
+let reactionChannel: RealtimeChannel | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let inboxViews = 0;
@@ -113,6 +118,24 @@ export function setActiveConversation(id: string | null) {
   useMessages.setState({ activeConversationId: id });
 }
 
+/** Pins a conversation to the top of the inbox (or unpins it). Throws with a readable message. */
+export async function pinConversation(id: string, pinned: boolean) {
+  const { error } = await getSupabaseBrowserClient().rpc("pin_conversation", { p_conversation: id, p_pinned: pinned });
+  if (error) {
+    throw new Error(
+      /could not find the function|schema cache/i.test(error.message)
+        ? "Pinning isn't set up yet: the site's database still needs update 13."
+        : error.message,
+    );
+  }
+  const inbox = useMessages.getState().inbox;
+  if (inbox) {
+    const at = pinned ? new Date().toISOString() : null;
+    useMessages.setState({ inbox: sortInbox(inbox.map((c) => (c.id === id ? { ...c, pinned, pinned_at: at } : c))) });
+  }
+  void refreshInbox();
+}
+
 function startPolling() {
   if (pollTimer) return;
   pollTimer = setInterval(() => {
@@ -164,6 +187,22 @@ export function startMessages(userId: string) {
     });
   channel = current;
 
+  void supabase
+    .from("message_reactions")
+    .select("message_id")
+    .limit(1)
+    .then(({ error }) => {
+      if (error || channel !== current || reactionChannel) return;
+      reactionChannel = supabase
+        .channel(`reactions:${userId}`)
+        // Row Level Security only delivers reactions in your own conversations.
+        .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, (payload) => {
+          const row = payload.new as Partial<ChatReaction> | null;
+          if (row?.message_id && row.user_id) emit({ type: "reaction", reaction: { message_id: row.message_id, user_id: row.user_id, emoji: row.emoji ?? null } });
+        })
+        .subscribe();
+    });
+
   const onVisible = () => {
     if (document.visibilityState === "visible") scheduleRefresh(0);
   };
@@ -185,6 +224,11 @@ export function stopMessages() {
   if (channel) {
     const old = channel;
     channel = null;
+    void getSupabaseBrowserClient().removeChannel(old);
+  }
+  if (reactionChannel) {
+    const old = reactionChannel;
+    reactionChannel = null;
     void getSupabaseBrowserClient().removeChannel(old);
   }
   useMessages.setState({ userId: null, unread: 0, inbox: null, inboxError: null, live: false, activeConversationId: null });

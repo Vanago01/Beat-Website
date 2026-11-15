@@ -9,6 +9,20 @@ export type PackCardRow = Views["pack_cards"]["Row"];
 export type PackLicense = Tables["beat_pack_licenses"]["Row"];
 export type PackRow = Tables["beat_packs"]["Row"];
 
+/** Sort orders when browsing beat packs. */
+export const PACK_SORTS = [
+  { value: "newest", label: "Newest" },
+  { value: "best_selling", label: "Best selling" },
+  { value: "price_asc", label: "Price: low to high" },
+  { value: "price_desc", label: "Price: high to low" },
+] as const;
+export type PackSort = (typeof PACK_SORTS)[number]["value"];
+export interface PackFilters {
+  q: string;
+  genre: string;
+  sort: PackSort;
+}
+
 /** License tiers a pack can offer (no free downloads, no exclusives). */
 export const PACK_LICENSE_TYPES: LicenseType[] = ["basic", "premium", "trackout", "unlimited"];
 

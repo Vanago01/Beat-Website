@@ -225,14 +225,14 @@ isOneToOne: false
                   ]
                 },"conversation_members": {
                   Row: {
-                    "cleared_at": string,"conversation_id": string,"last_read_at": string | null,"user_id": string
+                    "cleared_at": string,"conversation_id": string,"last_read_at": string | null,"pinned_at": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "cleared_at"?: string,"conversation_id": string,"last_read_at"?: string | null,"user_id": string
+                    "cleared_at"?: string,"conversation_id": string,"last_read_at"?: string | null,"pinned_at"?: string | null,"user_id": string
                   }
                   Update: {
-                    "cleared_at"?: string,"conversation_id"?: string,"last_read_at"?: string | null,"user_id"?: string
+                    "cleared_at"?: string,"conversation_id"?: string,"last_read_at"?: string | null,"pinned_at"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -313,6 +313,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"follows": {
+                  Row: {
+                    "created_at": string,"followee_id": string,"follower_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"followee_id": string,"follower_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"followee_id"?: string,"follower_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "follows_followee_id_fkey"
+      columns: ["followee_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "follows_follower_id_fkey"
+      columns: ["follower_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"genres": {
                   Row: {
                     "created_at": string,"name": string,"slug": string,"sort_order": number
@@ -327,16 +353,42 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
-                },"messages": {
+                },"message_reactions": {
                   Row: {
-                    "body": string,"conversation_id": string,"created_at": string,"id": string,"sender_id": string
+                    "emoji": string | null,"message_id": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "body": string,"conversation_id": string,"created_at"?: string,"id"?: string,"sender_id": string
+                    "emoji"?: string | null,"message_id": string,"updated_at"?: string,"user_id": string
                   }
                   Update: {
-                    "body"?: string,"conversation_id"?: string,"created_at"?: string,"id"?: string,"sender_id"?: string
+                    "emoji"?: string | null,"message_id"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "message_reactions_message_id_fkey"
+      columns: ["message_id"]
+isOneToOne: false
+      referencedRelation: "messages"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "message_reactions_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"messages": {
+                  Row: {
+                    "attachments": NonNullable<Json>,"body": string,"conversation_id": string,"created_at": string,"id": string,"sender_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attachments"?: NonNullable<Json>,"body": string,"conversation_id": string,"created_at"?: string,"id"?: string,"sender_id": string
+                  }
+                  Update: {
+                    "attachments"?: NonNullable<Json>,"body"?: string,"conversation_id"?: string,"created_at"?: string,"id"?: string,"sender_id"?: string
                   }
                   Relationships: [
                     {
@@ -789,6 +841,9 @@ isOneToOne: false
 "escape_like":
 { Args: { "value": string }; Returns: string
                            },
+"following_beats":
+{ Args: { "p_limit"?: number }; Returns: Json
+                           },
 "fulfill_order":
 { Args: { "p_charge_id"?: string,"p_order_id": string,"p_payment_intent"?: string,"p_session_id"?: string }; Returns: Json
                            },
@@ -813,7 +868,7 @@ isOneToOne: false
 { Args: { "arr": (string)[],"sep": string }; Returns: string
                            },
 "invite_collaborator":
-{ Args: { "p_beat_id": string,"p_username": string }; Returns: Json
+{ Args: { "p_beat_id": string,"p_share_percent"?: number,"p_username": string }; Returns: Json
                            },
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
@@ -842,8 +897,14 @@ isOneToOne: false
 "my_collaborations":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"pin_conversation":
+{ Args: { "p_conversation": string,"p_pinned": boolean }; Returns: boolean
+                           },
 "prefix_tsquery":
 { Args: { "q": string }; Returns: unknown
+                           },
+"react_to_message":
+{ Args: { "p_emoji": string,"p_message": string }; Returns: string
                            },
 "record_play":
 { Args: { "p_beat_id": string }; Returns: undefined
@@ -944,7 +1005,7 @@ isOneToOne: false
 { Args: { "p_limit"?: number,"p_offset"?: number }; Returns: Json
                            },
 "send_message":
-{ Args: { "p_body": string,"p_conversation": string }; Returns: Json
+{ Args: { "p_attachments"?: Json,"p_body": string,"p_conversation": string }; Returns: Json
                            },
 "slugify":
 { Args: { "value": string }; Returns: string

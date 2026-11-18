@@ -31,13 +31,18 @@ export interface PluginFile {
 /** What a page may show about a download: no storage paths. */
 export type PluginDownloadInfo = Pick<PluginFile, "version" | "size" | "updatedAt">;
 
-// <Name>-<version>-<Windows|macOS>.<zip|exe|pkg|dmg>
-const FILE_NAME = /^[a-z0-9]+-(\d{1,4}(?:\.\d{1,4}){0,3})-(windows|macos)\.(?:zip|exe|pkg|dmg)$/i;
+// <Name>-<version>-<Windows|macOS>.<zip|exe|pkg|dmg>, also with the " (1)" a browser adds
+// when the same file is downloaded twice before it is uploaded here.
+const FILE_NAME = /^([a-z0-9]+)-(\d{1,4}(?:\.\d{1,4}){0,3})-(windows|macos)(?: ?\(\d+\))?\.(zip|exe|pkg|dmg)$/i;
 
-export function parsePluginFileName(name: string): { platform: PluginPlatform; version: string } | null {
+const SYSTEM_IN_NAME: Record<PluginPlatform, string> = { windows: "Windows", macos: "macOS" };
+
+/** What a file in the bucket is, and the tidy name it is handed out under. */
+export function parsePluginFileName(name: string): { platform: PluginPlatform; version: string; downloadName: string } | null {
   const match = FILE_NAME.exec(name);
   if (!match) return null;
-  return { version: match[1], platform: match[2].toLowerCase() as PluginPlatform };
+  const platform = match[3].toLowerCase() as PluginPlatform;
+  return { version: match[2], platform, downloadName: `${match[1]}-${match[2]}-${SYSTEM_IN_NAME[platform]}.${match[4].toLowerCase()}` };
 }
 
 /** Compares "1.10.0" and "1.9" the way people read them. Negative when a is older than b. */

@@ -29,7 +29,8 @@ export async function listPluginFiles(plugin: PluginSlug): Promise<PluginFile[]>
     const parsed = parsePluginFileName(object.name);
     if (!parsed) return [];
     const size = Number((object.metadata as { size?: number } | null)?.size ?? 0);
-    return [{ ...parsed, path: `${plugin}/${object.name}`, name: object.name, size, updatedAt: object.updated_at ?? object.created_at ?? null }];
+    const { platform, version, downloadName } = parsed;
+    return [{ platform, version, path: `${plugin}/${object.name}`, name: downloadName, size, updatedAt: object.updated_at ?? object.created_at ?? null }];
   });
 }
 

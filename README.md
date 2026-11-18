@@ -214,7 +214,7 @@ Create a [Resend](https://resend.com) API key, verify your sending domain, and s
 The DLAY page offers whatever installers it finds in the private `plugin-files` bucket (created by migration 15). To publish a version:
 
 1. Supabase dashboard → **Storage** → `plugin-files` → open the folder `dlay` (create it the first time).
-2. Upload the two archives exactly as the plug-in's build names them: `DLAY-<version>-Windows.zip` and `DLAY-<version>-macOS.zip`.
+2. Upload the two archives as the plug-in's build names them: `DLAY-<version>-Windows.zip` and `DLAY-<version>-macOS.zip`. The name tells the site which system and version a file is, so don't rename them (a ` (1)` added by the browser is fine).
 
 Within a few minutes the page offers the highest version it finds for each system; older files can stay or be deleted. Until a system has a file, its button says “Coming soon”. The free plan's 50 MB cap per file is enough for both archives. The server needs `SUPABASE_SECRET_KEY` to read the bucket, as it does for purchased files.
 

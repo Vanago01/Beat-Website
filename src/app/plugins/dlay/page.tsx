@@ -69,8 +69,9 @@ const INSTALL = [
     system: "Windows",
     needs: "Windows 10 or later, 64-bit",
     steps: [
+      "Your browser may warn that the file is not commonly downloaded. Choose to keep it: in Chrome the button reads “Download suspicious file”, in Edge open the three-dot menu beside the file and choose Keep.",
       "Unzip the download and run the Setup file inside.",
-      "Windows may show “Windows protected your PC”, as it does for every program without a paid signing certificate. Click More info, then Run anyway.",
+      "Windows may show “Windows protected your PC”. Click More info, then Run anyway.",
       "Open your DAW and let it look for new plug-ins. In FL Studio: OPTIONS > Manage plugins > Find installed plugins.",
     ],
   },
@@ -78,6 +79,7 @@ const INSTALL = [
     system: "Mac",
     needs: "macOS 11 or later, Apple Silicon and Intel",
     steps: [
+      "If your browser warns that the file is not commonly downloaded, choose to keep it.",
       "Unzip the download and open the .pkg file inside.",
       "macOS says it could not verify the package. Open System Settings > Privacy & Security, scroll down and click Open Anyway.",
       "Open your DAW. Logic and GarageBand use the Audio Unit, Ableton Live and FL Studio the VST3.",
@@ -187,6 +189,10 @@ export default async function DlayPage() {
       <section className="mx-auto mt-20 max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-accent-300">After the download</p>
         <h2 className="mt-3 font-display text-3xl font-extrabold tracking-[-0.03em] md:text-5xl">How to install it.</h2>
+        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-ink-300">
+          {plugin.name} is new and is not signed with a paid certificate. Because of that your browser and your system each ask once
+          whether you really want it. That is expected for a new program - the steps show what to click.
+        </p>
         <div className="mt-8 grid gap-4 lg:grid-cols-2">
           {INSTALL.map((guide) => (
             <div key={guide.system} className="glass rounded-3xl p-6 sm:p-8">

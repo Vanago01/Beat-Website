@@ -117,8 +117,8 @@ export function PluginDownload({ plugin, files }: { plugin: string; files: Files
       <p className="mt-4 flex min-h-5 items-center justify-center gap-2 text-center text-sm text-ink-300" aria-live="polite">
         {started ? (
           <>
-            <Check className="h-4 w-4 text-success" aria-hidden />
-            Your {PLATFORM_LABEL[started]} download is starting. The steps to install it are below.
+            <Check className="h-4 w-4 shrink-0 text-success" aria-hidden />
+            Your {PLATFORM_LABEL[started]} download is starting. If your browser warns about the file, keep it - see the steps below.
           </>
         ) : failed ? (
           <>

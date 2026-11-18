@@ -1448,4 +1448,31 @@ delete from auth.mfa_factors where id = '99999999-9999-4999-8999-999999999999';
 select test.ok((select delivered_at < :'sent_at2'::timestamptz from public.conversation_receipts where conversation_id = :'conv2' and user_id = :'buyer'),
   '2FA user: nothing was marked delivered');
 
+-- 59. Plug-in installers: a private bucket that only the server reads. (One transaction,
+--     rolled back at the end, so the test file never stays in the bucket.)
+select test.ok((select not public from storage.buckets where id = 'plugin-files'), 'the plug-in bucket is private');
+begin;
+insert into storage.objects (bucket_id, name, owner, metadata)
+values ('plugin-files', 'dlay/DLAY-1.0.0-Windows.zip', null, '{"mimetype": "application/zip", "size": 1024}');
+select test.act_as(:'buyer');
+select test.ok((select count(*) = 0 from storage.objects where bucket_id = 'plugin-files'), 'members can''t list or open the installers directly');
+do $$ begin
+  insert into storage.objects (bucket_id, name, owner, metadata)
+  values ('plugin-files', 'dlay/DLAY-9.9.9-Windows.zip', current_setting('test.buyer')::uuid, '{"mimetype": "application/zip"}');
+  perform test.ok(false, 'members can''t put a file among the installers');
+exception when insufficient_privilege then perform test.ok(true, 'members can''t put a file among the installers');
+end $$;
+do $$ declare n int; begin
+  update storage.objects set name = 'dlay/DLAY-9.9.9-Windows.zip' where bucket_id = 'plugin-files';
+  get diagnostics n = row_count;
+  perform test.ok(n = 0, 'members can''t replace or rename an installer');
+end $$;
+select test.act_as(null);
+select test.ok((select count(*) = 0 from storage.objects where bucket_id = 'plugin-files'), 'visitors can''t see the installers');
+select test.act_as(:'owner', 'aal2');
+select test.ok((select count(*) = 0 from storage.objects where bucket_id = 'plugin-files'),
+  'not even an administrator reads the installers through the API: only the server does');
+rollback;
+select test.ok((select count(*) = 0 from storage.objects where bucket_id = 'plugin-files'), 'the plug-in bucket is left as it was');
+
 \echo '--- all security tests passed ---'

@@ -39,6 +39,8 @@ const NAV = [
   { href: "/packs", label: "Beat Packs", wide: true },
   { href: "/producers", label: "Producers" },
   { href: "/sell", label: "Sell Beats" },
+  // Only from 1440 px: with it, the bar no longer fits a 1280 px window.
+  { href: "/plugins", label: "Plugins", widest: true },
 ];
 
 function isActive(pathname: string | null, href: string) {
@@ -272,6 +274,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
                 className={cn(
                   "relative whitespace-nowrap rounded-full px-4 py-2 text-[13.5px] font-medium transition-colors",
                   "wide" in item && item.wide && "hidden xl:inline-block",
+                  "widest" in item && item.widest && "hidden min-[1440px]:inline-block",
                   isActive(pathname, item.href) ? "text-white" : "text-ink-300 hover:text-white",
                 )}
               >

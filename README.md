@@ -66,6 +66,10 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 - **Pin conversations** to the top of the inbox (conversation menu, or the pin button in the inbox).
 - **Message status** under your latest message, updated live: *Sending…* → ✓ *Sent* (the server has it) → ✓✓ *Delivered* (it reached the other person's browser: they were on the site) → ✓✓ *Seen* (they opened the conversation).
 
+**Plug-ins**
+- A page for DLAY, the site's own free delay plug-in (`/plugins/dlay`): screenshots, what is inside and how to install it. It is linked from the home page, the footer and (on wide screens) the top bar.
+- The installers are for members. A visitor is asked to sign in or sign up and comes straight back to the page; a member gets the newest file for Windows or Mac with one click.
+
 **Appearance**
 - Dark or light theme and seven accent colours (Account → Settings; black & white by default), remembered per device and applied before the page paints.
 
@@ -92,10 +96,11 @@ Authorization is enforced **in the database**, never only in the UI:
 | Collaborations | Invites, answers and endings only go through database functions that check who's asking (the beat's owner invites producers only; only the invited producer can accept; the owner can't end an accepted collaboration). The split (1–99 %, fixed when the invite is sent) is made by the database when the sale is recorded. |
 | Messages | Only the two people in a conversation can read it (administrators can't either). Messages are written only through `send_message()`: 1–2,000 characters, at most 20 a minute and 500 a day per person, and 30 new conversations a day. A block stops messages in both directions and isn't visible to the blocked person. Photos and videos are in a private bucket: only the two people in the conversation can upload (into their own folder) and open them, and `send_message()` checks every file. Reactions go through `react_to_message()` (members only, 60 a minute). “Delivered” and “Seen” times are only visible to the two people in the conversation, and nobody can mark messages delivered for someone else; each person's deleted and pinned state stays private. |
 | Following | You can only follow (and unfollow) as yourself. Anyone can be followed, except across a block (blocking removes the follows between two people). Who follows whom is public, like on other social sites. |
+| Plug-in downloads | The installers are in a private bucket with no storage policy at all, so nothing reaches them through the API. `/api/plugins/<plugin>/download` checks the session on the server (a password-only session of someone with two-factor set up is sent to enter the code first) and only then hands out a 60-second signed link. |
 | HTTP headers | Content-Security-Policy (scripts only from the site, no plugins/framing/foreign form targets, network and media limited to the site and Supabase), HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, a restrictive `Permissions-Policy`, `nosniff`. |
 | Cookies | Only necessary cookies by default; preferences (currency, volume, view) are stored after consent from the cookie banner. No advertising or tracking cookies. Policy at `/legal/cookies`. |
 
-`supabase/tests/security_tests.sql` contains 232 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs, collaborations and split payouts, following and blocking, reactions, private photos and videos, pins, delivery receipts…).
+`supabase/tests/security_tests.sql` contains 239 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs, collaborations and split payouts, following and blocking, reactions, private photos and videos, pins, delivery receipts, the private plug-in bucket…).
 
 ---
 
@@ -148,8 +153,8 @@ SUPABASE_SECRET_KEY=<local secret key> npm run test:db
    npx supabase db push
    ```
    This creates all tables, policies, functions, storage buckets and storage policies.
-   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 14). Every file can safely be run again.
-   File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`). File 13 (`…_social_and_chat.sql`) adds `message_reactions` to it and creates the private `message-media` bucket for photos and videos in messages; file 14 (`…_follow_anyone_and_receipts.sql`) adds `conversation_receipts` (live “Delivered” and “Seen”).
+   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 15). Every file can safely be run again.
+   File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`). File 13 (`…_social_and_chat.sql`) adds `message_reactions` to it and creates the private `message-media` bucket for photos and videos in messages; file 14 (`…_follow_anyone_and_receipts.sql`) adds `conversation_receipts` (live “Delivered” and “Seen”). File 15 (`…_plugin_downloads.sql`) creates the private `plugin-files` bucket for the plug-in installers (see *Plug-in downloads* below).
 3. **Authentication → URL Configuration**: set *Site URL* to your domain (e.g. `https://yourdomain.com`) and add `https://yourdomain.com/**` to *Redirect URLs*.
 4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes. Under **Multi-Factor**, keep **TOTP (App Authenticator)** enabled.
    *Optional (recommended):* to let users confirm on a different device than they signed up on, change the email templates’ link to
@@ -204,7 +209,16 @@ Even if a webhook is delayed, the checkout success page verifies the session wit
 
 Create a [Resend](https://resend.com) API key, verify your sending domain, and set `RESEND_API_KEY` and `EMAIL_FROM` (e.g. `VBEATS <orders@yourdomain.com>`). Without them the app runs normally and logs emails instead of sending them. Emails sent: order confirmation (buyer), new sale (seller), beat approved / rejected (seller).
 
-### 5. Deploy (Vercel recommended)
+### 5. Plug-in downloads (DLAY)
+
+The DLAY page offers whatever installers it finds in the private `plugin-files` bucket (created by migration 15). To publish a version:
+
+1. Supabase dashboard → **Storage** → `plugin-files` → open the folder `dlay` (create it the first time).
+2. Upload the two archives exactly as the plug-in's build names them: `DLAY-<version>-Windows.zip` and `DLAY-<version>-macOS.zip`.
+
+Within a few minutes the page offers the highest version it finds for each system; older files can stay or be deleted. Until a system has a file, its button says “Coming soon”. The free plan's 50 MB cap per file is enough for both archives. The server needs `SUPABASE_SECRET_KEY` to read the bucket, as it does for purchased files.
+
+### 6. Deploy (Vercel recommended)
 
 1. Import the repository in Vercel.
 2. Add every variable from `.env.example` (with production values; `NEXT_PUBLIC_SITE_URL` = your domain).
@@ -234,6 +248,7 @@ src/
     data/catalog.ts    cached public queries ("use cache" + tags)
     orders.ts          fulfilment, refunds, seller transfers, emails
     license-pdf.ts     license agreement PDF generator
+    plugins.ts         plug-in installers in the private bucket (newest version per system)
     supabase/          browser / server / service-role / public clients + session proxy
   stores/              client state (player, cart, currency, favorites, messages)
   proxy.ts             session refresh + route protection

@@ -13,6 +13,7 @@ const QUICK = [
   { label: "Afrobeat", href: "/beats?genre=afrobeat" },
   { label: "140–160 BPM", href: "/beats?bpm=140-160" },
   { label: "Free beats", href: "/beats?free=1" },
+  { label: "Free VST plug-in", href: "/plugins" },
 ];
 
 function HeroBackdrop() {

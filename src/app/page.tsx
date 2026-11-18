@@ -8,6 +8,7 @@ import { Carousel } from "@/components/home/carousel";
 import { GenreTiles } from "@/components/home/genre-tiles";
 import { ProducerCard } from "@/components/home/producer-card";
 import { FollowingFeed } from "@/components/home/following-feed";
+import { DlayPromo } from "@/components/plugins/dlay-promo";
 import { BeatCard } from "@/components/beats/beat-card";
 import { BeatRow } from "@/components/beats/beat-row";
 import { SectionHeading } from "@/components/ui/misc";
@@ -109,6 +110,10 @@ export default async function HomePage() {
           </div>
         </Section>
       )}
+
+      <Section className="mt-20 md:mt-28">
+        <DlayPromo />
+      </Section>
 
       {packs.length > 0 && (
         <Section className="mt-20 md:mt-28">

@@ -19,6 +19,7 @@ const COLUMNS = [
       { href: "/beats?sort=newest", label: "New releases" },
       { href: "/beats?free=1", label: "Free beats" },
       { href: "/beats?exclusive=1", label: "Exclusive beats" },
+      { href: "/plugins", label: "Free plug-in: DLAY" },
     ],
   },
   {

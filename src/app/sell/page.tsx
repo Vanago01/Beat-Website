@@ -19,8 +19,11 @@ const FEATURES = [
 
 export default async function SellPage() {
   const settings = await getPlatformSettings();
-  const fee = settings ? Number(settings.platform_fee_percent) : 20;
+  // What producers give up per sale: nothing since database update 16, where
+  // buyers pay the website fee on top of the producer's price instead.
+  const fee = Number(settings?.platform_fee_percent ?? 0);
   const keep = 100 - fee;
+  const buyerFee = Number(settings?.buyer_fee_percent ?? 0);
   return (
     <div className="relative isolate overflow-hidden">
       <div className="absolute inset-x-0 top-0 -z-10 h-[700px] opacity-60 [background:radial-gradient(50%_60%_at_70%_10%,color-mix(in_oklab,var(--color-accent)_35%,transparent),transparent_70%)]" aria-hidden />
@@ -35,6 +38,11 @@ export default async function SellPage() {
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-200">
             A premium storefront for your catalogue. Upload once, license in five tiers, and get paid straight to your bank account with Stripe.
           </p>
+          {fee === 0 && buyerFee > 0 && (
+            <p className="mt-3 max-w-xl leading-relaxed text-ink-300">
+              No commission on your sales: buyers pay a {buyerFee}% website fee at checkout, on top of your price.
+            </p>
+          )}
           <dl className="mt-10 grid max-w-xl grid-cols-3 gap-4">
             {[
               { k: `${keep}%`, v: "of every sale is yours" },

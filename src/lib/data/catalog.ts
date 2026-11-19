@@ -67,7 +67,9 @@ export async function getGenres(): Promise<{ slug: string; name: string }[]> {
 
 export async function getPlatformSettings(): Promise<PlatformSettings | null> {
   "use cache";
-  cacheLife("hours");
+  // Minutes, not hours: a change made in the Supabase SQL editor (which can't
+  // clear this cache) shows on the site within a few minutes.
+  cacheLife("minutes");
   cacheTag("settings");
   const { data } = await createSupabasePublicClient().from("platform_settings").select("*").maybeSingle();
   return data;

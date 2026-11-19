@@ -33,7 +33,8 @@ export default async function HomePage() {
   const heroQueue = data.featured.length ? data.featured : data.trending;
   const moreFeatured = data.featured.slice(1);
   const hasBeats = data.stats.beats > 0;
-  const fee = settings ? Number(settings.platform_fee_percent) : 20;
+  // What producers give up per sale (0 since database update 16: buyers pay the website fee).
+  const fee = Number(settings?.platform_fee_percent ?? 0);
 
   return (
     <>

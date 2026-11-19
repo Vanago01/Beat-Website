@@ -21,7 +21,11 @@ const checkoutSchema = z.object({
 
 interface PendingOrder {
   order_id: string;
+  /** What the buyer pays: the prices plus the website fee. */
   total: number;
+  /** The website fee on top of the prices (database update 16). */
+  service_fee?: number;
+  service_fee_percent?: number;
   currency: Currency;
   items: {
     id: string;
@@ -92,24 +96,42 @@ export async function startCheckout(input: z.input<typeof checkoutSchema>): Prom
         client_reference_id: viewer.id,
         locale: currency === "pln" ? "pl" : "auto",
         expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
-        line_items: order.items
-          .filter((i) => i.price > 0)
-          .map((i) => {
-            const image = coverUrl(i.cover_path);
-            return {
-              quantity: 1,
-              price_data: {
-                currency,
-                unit_amount: i.price,
-                product_data: {
-                  name: `${i.beat_title} — ${i.license_name}`,
-                  description: i.pack_id ? `Beat pack license · produced by ${i.producer_name}` : `Beat license · produced by ${i.producer_name}`,
-                  images: image && image.startsWith("https://") ? [image] : undefined,
-                  metadata: (i.pack_id ? { pack_id: i.pack_id, license_id: i.license_id } : { beat_id: i.beat_id ?? "", license_id: i.license_id }) as Record<string, string>,
+        line_items: [
+          ...order.items
+            .filter((i) => i.price > 0)
+            .map((i) => {
+              const image = coverUrl(i.cover_path);
+              return {
+                quantity: 1,
+                price_data: {
+                  currency,
+                  unit_amount: i.price,
+                  product_data: {
+                    name: `${i.beat_title} — ${i.license_name}`,
+                    description: i.pack_id ? `Beat pack license · produced by ${i.producer_name}` : `Beat license · produced by ${i.producer_name}`,
+                    images: image && image.startsWith("https://") ? [image] : undefined,
+                    metadata: (i.pack_id ? { pack_id: i.pack_id, license_id: i.license_id } : { beat_id: i.beat_id ?? "", license_id: i.license_id }) as Record<string, string>,
+                  },
                 },
-              },
-            };
-          }),
+              };
+            }),
+          // Producers get their whole price; the website fee is paid by the buyer on top.
+          ...(order.service_fee
+            ? [
+                {
+                  quantity: 1,
+                  price_data: {
+                    currency,
+                    unit_amount: order.service_fee,
+                    product_data: {
+                      name: `Website fee (${Number(order.service_fee_percent ?? 10)}%)`,
+                      description: `${env.siteName} service fee. Producers receive their full price.`,
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
         metadata: { order_id: order.order_id },
         payment_intent_data: {
           metadata: { order_id: order.order_id },

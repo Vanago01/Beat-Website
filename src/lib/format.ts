@@ -41,6 +41,9 @@ export function formatDuration(totalSeconds: number | null | undefined) {
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 
+/** "140 BPM", or a hint when a draft has no tempo yet. */
+export const bpmLabel = (bpm: number | null | undefined) => (bpm ? `${bpm} BPM` : "BPM not set");
+
 export function keyName(note: number, mode: KeyMode | string, style: "short" | "long" = "short") {
   const n = NOTE_NAMES[((note % 12) + 12) % 12];
   if (style === "long") return `${n} ${mode === "minor" ? "Minor" : "Major"}`;

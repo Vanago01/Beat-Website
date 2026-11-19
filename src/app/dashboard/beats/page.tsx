@@ -18,7 +18,7 @@ async function MyBeats() {
   const [{ data, error }, settings, { data: live }, collabs] = await Promise.all([
     supabase
       .from("beats")
-      .select("id, slug, title, status, cover_path, bpm, key_note, key_mode, genre, plays_count, favorites_count, sales_count, min_price_eur, approved_at, exclusive_sold_at, admin_locked, rejection_reason, is_featured, created_at")
+      .select("id, slug, title, status, cover_path, preview_path, bpm, key_note, key_mode, genre, plays_count, favorites_count, sales_count, min_price_eur, approved_at, exclusive_sold_at, admin_locked, rejection_reason, is_featured, created_at")
       .eq("producer_id", viewer.id)
       .order("created_at", { ascending: false }),
     getPlatformSettings(),

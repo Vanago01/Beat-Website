@@ -13,13 +13,20 @@ import { useCurrency } from "@/stores/currency";
 import { useAuth } from "@/components/providers/auth-provider";
 import { startCheckout } from "@/actions/checkout";
 import { formatPrice } from "@/lib/format";
+import { useWebsiteFeePercent, websiteFee } from "@/stores/website-fee";
 
+/** The cart's prices, the website fee buyers pay on top, and what they pay in all. */
 export function useCartTotals() {
   const items = useCart((s) => s.items);
   const currency = useCurrency((s) => s.currency);
-  const total = items.reduce((sum, i) => sum + (itemPrice(i, currency) ?? 0), 0);
-  return { items, currency, total };
+  const feePercent = useWebsiteFeePercent();
+  const subtotal = items.reduce((sum, i) => sum + (itemPrice(i, currency) ?? 0), 0);
+  const fee = items.reduce((sum, i) => sum + websiteFee(itemPrice(i, currency) ?? 0, feePercent), 0);
+  return { items, currency, subtotal, fee, feePercent, total: subtotal + fee };
 }
+
+/** "Website fee (10%)": the line buyers see in the cart and at checkout. */
+export const feeLabel = (percent: number) => `Website fee (${Number.isInteger(percent) ? percent : percent.toFixed(1)}%)`;
 
 export function useCheckout() {
   const router = useRouter();
@@ -53,7 +60,7 @@ export function CartDrawer() {
   const open = useCart((s) => s.open);
   const setOpen = useCart((s) => s.setOpen);
   const remove = useCart((s) => s.remove);
-  const { items, currency, total } = useCartTotals();
+  const { items, currency, subtotal, fee, feePercent, total } = useCartTotals();
   const { checkout, pending } = useCheckout();
 
   return (
@@ -111,8 +118,20 @@ export function CartDrawer() {
             ))}
           </ul>
           <div className="space-y-3 border-t border-white/[0.07] px-6 py-5">
+            {fee > 0 && (
+              <dl className="space-y-1.5 text-sm text-ink-300">
+                <div className="flex justify-between">
+                  <dt>Subtotal</dt>
+                  <dd className="tabular-nums">{formatPrice(subtotal, currency, { exact: true })}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>{feeLabel(feePercent)}</dt>
+                  <dd className="tabular-nums">{formatPrice(fee, currency, { exact: true })}</dd>
+                </div>
+              </dl>
+            )}
             <div className="flex items-baseline justify-between">
-              <span className="text-sm text-ink-300">Subtotal</span>
+              <span className="text-sm text-ink-300">{fee > 0 ? "Total" : "Subtotal"}</span>
               <span className="text-2xl font-semibold tracking-tight">{formatPrice(total, currency, { exact: true })}</span>
             </div>
             <p className="text-xs text-ink-400">Final price is confirmed at checkout. Taxes may apply.</p>

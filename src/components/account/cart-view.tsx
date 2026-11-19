@@ -9,7 +9,7 @@ import { BeatCover } from "@/components/beats/cover";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
 import { CurrencySwitch } from "@/components/layout/currency-switch";
-import { useCartTotals, useCheckout } from "@/components/layout/cart-drawer";
+import { feeLabel, useCartTotals, useCheckout } from "@/components/layout/cart-drawer";
 import { itemPrice, useCart } from "@/stores/cart";
 import { useAuth } from "@/components/providers/auth-provider";
 import { formatPrice } from "@/lib/format";
@@ -17,7 +17,7 @@ import { LICENSE_META } from "@/lib/constants";
 
 export function CartView() {
   const params = useSearchParams();
-  const { items, currency, total } = useCartTotals();
+  const { items, currency, fee, feePercent, total } = useCartTotals();
   const remove = useCart((s) => s.remove);
   const clear = useCart((s) => s.clear);
   const { checkout, pending } = useCheckout();
@@ -86,6 +86,12 @@ export function CartView() {
                 <dd className="tabular-nums">{formatPrice(itemPrice(i, currency), currency, { exact: true })}</dd>
               </div>
             ))}
+            {fee > 0 && (
+              <div className="flex justify-between gap-4 border-t border-white/[0.08] pt-3 text-ink-300">
+                <dt>{feeLabel(feePercent)}</dt>
+                <dd className="tabular-nums">{formatPrice(fee, currency, { exact: true })}</dd>
+              </div>
+            )}
             <div className="flex items-baseline justify-between border-t border-white/[0.08] pt-4">
               <dt className="font-medium text-white">Total</dt>
               <dd className="text-3xl font-semibold tracking-tight">{formatPrice(total, currency, { exact: true })}</dd>

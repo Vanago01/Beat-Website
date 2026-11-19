@@ -13,6 +13,9 @@ const FILES = {
 
 type FileKind = keyof typeof FILES;
 
+/** Back to the library, which explains what happened. */
+const toLibrary = (request: NextRequest, notice: string) => NextResponse.redirect(new URL(`/account/library?notice=${notice}`, request.url));
+
 function sanitize(name: string) {
   return name.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim().slice(0, 150);
 }
@@ -21,15 +24,13 @@ function sanitize(name: string) {
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/download/[purchaseId]">) {
   const { purchaseId } = await ctx.params;
   const kind = request.nextUrl.searchParams.get("file") as FileKind | null;
-  if (!kind || !(kind in FILES)) return NextResponse.json({ error: "Unknown file type" }, { status: 400 });
+  if (!kind || !(kind in FILES)) return toLibrary(request, "missing");
 
   const access = await getOwnedPurchase(purchaseId);
   if (access.status === 401) {
     return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent("/account/library")}`, request.url));
   }
-  if (access.status !== 200) {
-    return NextResponse.json({ error: access.status === 403 ? "This license was refunded." : "Not found" }, { status: access.status });
-  }
+  if (access.status !== 200) return toLibrary(request, access.status === 403 ? "refunded" : "missing");
   const { purchase } = access;
 
   const allowed =
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/download
         : kind === "wav"
           ? purchase.includes_wav
           : purchase.includes_stems;
-  if (!allowed) return NextResponse.json({ error: "Your license does not include this file." }, { status: 403 });
+  if (!allowed) return toLibrary(request, "not-included");
 
   const admin = createSupabaseAdminClient();
   const spec = FILES[kind];
@@ -50,9 +51,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/download
     .eq("id", purchase.beat_id)
     .single();
   const path = beat?.[spec.column];
-  if (!beat || !path) {
-    return NextResponse.json({ error: "This file is not available yet. Please contact the producer." }, { status: 404 });
-  }
+  if (!beat || !path) return toLibrary(request, "file-missing");
 
   const producer = beat.producer as unknown as { username: string; producer_name: string | null; display_name: string | null } | null;
   const producerName = producer?.producer_name || producer?.display_name || producer?.username || "Producer";
@@ -61,7 +60,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/download
   );
 
   const { data: signed, error } = await admin.storage.from(spec.bucket).createSignedUrl(path, 60, { download: filename });
-  if (error || !signed) return NextResponse.json({ error: "Could not prepare the download." }, { status: 500 });
+  if (error || !signed) return toLibrary(request, "download-failed");
 
   const res = NextResponse.redirect(signed.signedUrl, 302);
   res.headers.set("Cache-Control", "private, no-store");

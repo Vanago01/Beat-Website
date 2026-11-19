@@ -191,9 +191,11 @@ export async function sendOrderEmails(orderId: string, unavailable: string[] = [
     .update({ confirmation_sent_at: new Date().toISOString() })
     .eq("id", orderId)
     .is("confirmation_sent_at", null)
-    .select("id, order_number, buyer_email, currency, total, buyer_id")
+    // All columns: service_fee only exists with database update 16.
+    .select("*")
     .maybeSingle();
   if (!order) return; // already sent
+  const serviceFee = (order as { service_fee?: number }).service_fee ?? 0;
 
   const { data: items } = await admin
     .from("order_items")
@@ -221,7 +223,11 @@ export async function sendOrderEmails(orderId: string, unavailable: string[] = [
       preheader: "Your beats are ready to download.",
       heading: `Order #${order.order_number} confirmed`,
       body: `<p style="margin:0 0 16px">Thank you — your payment was successful. Your files and license agreements are ready in your library.</p>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}${
+          serviceFee > 0
+            ? `<tr><td style="padding:10px 0;border-bottom:1px solid #1d1d25;color:#8c8c9c">Website fee</td><td align="right" style="padding:10px 0;border-bottom:1px solid #1d1d25;color:#8c8c9c;white-space:nowrap">${formatPrice(serviceFee, currency, { exact: true })}</td></tr>`
+            : ""
+        }
         <tr><td style="padding:14px 0 0;color:#f6f6f9;font-weight:600">Total</td><td align="right" style="padding:14px 0 0;color:#f6f6f9;font-weight:600">${formatPrice(order.total, currency, { exact: true })}</td></tr></table>${unavailableNote}`,
       cta: { label: "Download your beats", href: libraryUrl },
     }),

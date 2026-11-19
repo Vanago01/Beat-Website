@@ -45,7 +45,7 @@ async function Payouts({ searchParams }: { searchParams: PageProps<"/dashboard/p
 
   const rows = (earnings ?? []) as { id: string; net: number; gross: number; platform_fee: number; currency: Currency; status: string; created_at: string; paid_at: string | null; stripe_transfer_id: string | null }[];
   const isOwner = viewer.profile.role === "admin";
-  const fee = Number(settings?.platform_fee_percent ?? 20);
+  const fee = Number(settings?.platform_fee_percent ?? 0);
 
   const status = !acct
     ? { icon: <Landmark className="h-5 w-5" />, title: "Payouts not set up", body: "Connect a bank account through Stripe to receive your earnings automatically after every sale.", tone: "default" as const }
@@ -72,7 +72,9 @@ async function Payouts({ searchParams }: { searchParams: PageProps<"/dashboard/p
                 {acct?.country && <Badge>{acct.country}</Badge>}
               </p>
               <p className="mt-1 max-w-xl text-sm text-ink-300">{status.body}</p>
-              <p className="mt-2 text-xs text-ink-400">Platform fee: {fee}% per sale. You keep {100 - fee}%.</p>
+              <p className="mt-2 text-xs text-ink-400">
+              {fee > 0 ? `Platform fee: ${fee}% per sale. You keep ${100 - fee}%.` : "You keep 100% of every sale. Buyers pay the website fee on top."}
+            </p>
             </div>
           </div>
           {stripeReady ? (
@@ -110,7 +112,7 @@ async function Payouts({ searchParams }: { searchParams: PageProps<"/dashboard/p
               <tr key={e.id}>
                 <td className="px-5 py-3 text-ink-300">{formatDateTime(e.created_at)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{formatPrice(e.gross, e.currency, { exact: true })}</td>
-                <td className="px-3 py-3 text-right tabular-nums text-ink-400">−{formatPrice(e.platform_fee, e.currency, { exact: true })}</td>
+                <td className="px-3 py-3 text-right tabular-nums text-ink-400">{e.platform_fee ? `−${formatPrice(e.platform_fee, e.currency, { exact: true })}` : "—"}</td>
                 <td className="px-3 py-3 text-right font-semibold tabular-nums">{formatPrice(e.net, e.currency, { exact: true })}</td>
                 <td className="px-5 py-3">
                   {e.status === "paid" ? <Badge tone="success">Paid {e.paid_at ? formatDateTime(e.paid_at) : ""}</Badge> : e.status === "pending" ? <Badge tone="warning">Pending</Badge> : e.status === "retained" ? <Badge tone="accent">Platform balance</Badge> : <Badge tone="danger">Reversed</Badge>}

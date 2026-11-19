@@ -18,7 +18,7 @@ import { savePack } from "@/actions/packs";
 import { buildPath, uploadSmall } from "@/lib/upload";
 import { coverUrl } from "@/lib/storage";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { formatPrice, keyName } from "@/lib/format";
+import { bpmLabel, formatPrice, keyName } from "@/lib/format";
 import { BEAT_STATUS_LABEL, type BeatStatus, type LicenseDraft, type PriceRates } from "@/lib/constants";
 import { DEFAULT_PACK_LICENSES, PACK_LICENSE_TYPES, PACK_MAX_BEATS, PACK_MIN_BEATS, beatsLabel, type PackLicense } from "@/lib/packs";
 import { cn } from "@/lib/utils";
@@ -29,10 +29,11 @@ export interface PackBeat {
   title: string;
   status: BeatStatus;
   cover_path: string | null;
-  bpm: number;
+  /** Missing on a draft that doesn't have them yet. */
+  bpm: number | null;
   key_note: number;
   key_mode: string;
-  genre: string;
+  genre: string | null;
   has_preview: boolean;
   has_mp3: boolean;
   has_wav: boolean;
@@ -294,7 +295,7 @@ export function PackForm({
                     <p className="truncate text-sm font-semibold">{b.title}</p>
                     <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-400">
                       <span>
-                        {b.bpm} BPM · {keyName(b.key_note, b.key_mode)}
+                        {bpmLabel(b.bpm)} · {keyName(b.key_note, b.key_mode)}
                       </span>
                       <Badge tone={STATUS_TONE[b.status]} className="h-5 px-2 text-[10px]">
                         {b.exclusive_sold_at ? "Sold exclusively" : b.status === "draft" ? "Goes live with the pack" : BEAT_STATUS_LABEL[b.status]}
@@ -439,7 +440,7 @@ export function PackForm({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{b.title}</span>
                       <span className="block text-xs text-ink-400">
-                        {b.bpm} BPM · {keyName(b.key_note, b.key_mode)} · {blocked ? "Sold exclusively" : BEAT_STATUS_LABEL[b.status]}
+                        {bpmLabel(b.bpm)} · {keyName(b.key_note, b.key_mode)} · {blocked ? "Sold exclusively" : BEAT_STATUS_LABEL[b.status]}
                       </span>
                     </span>
                   </label>

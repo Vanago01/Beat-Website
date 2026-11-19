@@ -18,6 +18,7 @@ import type { BeatLicense } from "@/lib/types";
 import type { PackLicense } from "@/lib/packs";
 import type { LicenseType } from "@/lib/constants";
 import type { LicenseModalBeat } from "@/stores/license-modal";
+import { useWebsiteFeePercent } from "@/stores/website-fee";
 
 export function LicensePicker({
   beat,
@@ -44,6 +45,7 @@ export function LicensePicker({
   const setCartOpen = useCart((s) => s.setOpen);
   const inCart = useCart((s) => s.items.find((i) => i.beatId === beat.id));
   const [pending, startTransition] = useTransition();
+  const feePercent = useWebsiteFeePercent();
 
   const sorted = useMemo(() => [...licenses].sort((a, b) => a.sort_order - b.sort_order), [licenses]);
   const defaultId = inCart?.licenseId ?? sorted.find((l) => l.type !== "free")?.id ?? sorted[0]?.id;
@@ -228,8 +230,9 @@ export function LicensePicker({
           </>
         )}
       </div>
-      <p className="flex items-center justify-center gap-1.5 text-center text-xs text-ink-400">
+      <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-center text-xs text-ink-400">
         <FileAudio className="h-3.5 w-3.5" /> Instant download after payment · Secure checkout by Stripe
+        {feePercent > 0 && selected?.type !== "free" && !isOwnBeat && !selectedOwned && <span>· plus a {feePercent}% website fee at checkout</span>}
       </p>
     </div>
   );

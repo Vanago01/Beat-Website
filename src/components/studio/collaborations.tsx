@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/misc";
 import { Modal } from "@/components/ui/overlay";
 import { endCollaboration, inviteCollaborator, respondToCollaboration } from "@/actions/collaborations";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { keyName } from "@/lib/format";
+import { bpmLabel, keyName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ProducerSummary, SearchResult } from "@/lib/types";
 import type { Collaboration } from "@/lib/data/collaborations";
@@ -56,7 +56,7 @@ export function CollabInvites({ invites }: { invites: Collaboration[] }) {
                   {c.other.name}
                 </Link>{" "}
                 invited you to collaborate on <strong>“{c.beat.title}”</strong>
-                <span className="text-ink-400"> · {c.beat.bpm} BPM · {keyName(c.beat.key_note, c.beat.key_mode)}</span>
+                <span className="text-ink-400"> · {bpmLabel(c.beat.bpm)} · {keyName(c.beat.key_note, c.beat.key_mode)}</span>
               </p>
               <p className="mt-0.5 text-xs text-ink-300">
                 Accept to be credited on the beat and get <strong className="text-ink-50">{c.share_percent}%</strong> of every sale

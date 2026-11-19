@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Crown, Eye, EyeOff, Handshake, Lock, MoreHorizontal, Pencil, Plus, Send, Sparkles, Trash2, Upload } from "lucide-react";
+import { Crown, Eye, EyeOff, FilePen, Handshake, Lock, MoreHorizontal, Pencil, Plus, Send, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { BeatCover } from "@/components/beats/cover";
 import { Badge, EmptyState } from "@/components/ui/misc";
@@ -11,8 +11,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Dropdown, MenuItem, Segmented } from "@/components/ui/controls";
 import { Modal } from "@/components/ui/overlay";
 import { deleteBeat, setBeatStatus } from "@/actions/beats";
-import { BEAT_STATUS_LABEL, type BeatStatus } from "@/lib/constants";
-import { formatCompact, formatDate, formatPrice, keyName } from "@/lib/format";
+import { BEAT_STATUS_LABEL, UNTITLED_BEAT, type BeatStatus } from "@/lib/constants";
+import { bpmLabel, formatCompact, formatDate, formatPrice, keyName } from "@/lib/format";
 
 export interface ManagedBeat {
   id: string;
@@ -20,10 +20,12 @@ export interface ManagedBeat {
   title: string;
   status: BeatStatus;
   cover_path: string | null;
-  bpm: number;
+  /** A draft may not have these yet. */
+  bpm: number | null;
   key_note: number;
   key_mode: string;
-  genre: string;
+  genre: string | null;
+  preview_path?: string | null;
   plays_count: number;
   favorites_count: number;
   sales_count: number;
@@ -34,6 +36,16 @@ export interface ManagedBeat {
   rejection_reason: string | null;
   is_featured: boolean;
   created_at: string;
+}
+
+/** What a draft still needs before it can be published. */
+function stillToAdd(b: ManagedBeat) {
+  const missing: string[] = [];
+  if (b.title === UNTITLED_BEAT) missing.push("title");
+  if (!b.genre) missing.push("genre");
+  if (!b.bpm) missing.push("BPM");
+  if (b.preview_path === null) missing.push("preview audio");
+  return missing;
 }
 
 const TONE: Record<BeatStatus, "success" | "warning" | "danger" | "default" | "outline"> = {
@@ -111,10 +123,27 @@ export function BeatsManager({
         <div className="no-scrollbar max-w-full overflow-x-auto">
           <Segmented value={filter} onChange={setFilter} options={tabs} />
         </div>
-        <Link href="/dashboard/beats/new" className={buttonVariants({ size: "sm" })}>
-          <Plus className="h-4 w-4" /> Upload beat
-        </Link>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={filter === "draft" ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => setFilter(filter === "draft" ? "all" : "draft")}
+            aria-pressed={filter === "draft"}
+            title={filter === "draft" ? "Show all beats" : "Show only drafts"}
+          >
+            <FilePen className="h-4 w-4" /> Drafts <span className="tabular-nums opacity-70">{counts.draft ?? 0}</span>
+          </Button>
+          <Link href="/dashboard/beats/new" className={buttonVariants({ size: "sm" })}>
+            <Plus className="h-4 w-4" /> Upload beat
+          </Link>
+        </div>
       </div>
+      {filter === "draft" && !counts.draft && (
+        <p className="mb-5 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-sm text-ink-300">
+          No drafts. While uploading, press <span className="font-medium text-ink-100">Save draft</span> at any time, even before filling in the
+          details, and finish the beat later from here.
+        </p>
+      )}
 
       <div className="glass overflow-hidden rounded-3xl">
         <div className="hidden grid-cols-[minmax(0,2.2fr)_7rem_6rem_6rem_6rem_7rem_3rem] gap-4 border-b border-white/[0.06] px-5 py-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-400 lg:grid">
@@ -141,12 +170,15 @@ export function BeatsManager({
                       {b.admin_locked && <Lock className="h-3.5 w-3.5 shrink-0 text-ink-400" />}
                     </Link>
                     <p className="truncate font-mono text-[11px] tracking-wider text-ink-400">
-                      {b.bpm} BPM · {keyName(b.key_note, b.key_mode)} · {formatDate(b.created_at)}
+                      {bpmLabel(b.bpm)} · {keyName(b.key_note, b.key_mode)} · {formatDate(b.created_at)}
                     </p>
                     <div className="mt-1 lg:hidden">
                       <Badge tone={TONE[b.status]}>{sold ? "Sold exclusively" : BEAT_STATUS_LABEL[b.status]}</Badge>
                     </div>
                     {b.status === "rejected" && b.rejection_reason && <p className="mt-1 text-xs text-danger">Reason: {b.rejection_reason}</p>}
+                    {b.status === "draft" && stillToAdd(b).length > 0 && (
+                      <p className="mt-1 truncate text-xs text-warning">Still to add: {stillToAdd(b).join(", ")}</p>
+                    )}
                     {collaborators[b.id] && (
                       <p className="mt-1 truncate text-xs text-ink-300">
                         {collaborators[b.id].status === "accepted" ? "Co-produced with " : "Invite sent to "}

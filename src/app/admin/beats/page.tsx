@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Manage beats", robots: { index: fals
 const STATUSES = [
   { value: "pending", label: "Awaiting review" },
   { value: "published", label: "Published" },
-  { value: "draft", label: "Unpublished" },
+  { value: "draft", label: "Drafts" },
   { value: "rejected", label: "Rejected" },
   { value: "archived", label: "Archived" },
   { value: "all", label: "All" },

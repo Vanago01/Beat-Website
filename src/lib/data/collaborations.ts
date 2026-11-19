@@ -11,7 +11,7 @@ export interface Collaboration {
   responded_at: string | null;
   /** "owner": it's my beat. "collaborator": I was invited to someone else's beat. */
   role: "owner" | "collaborator";
-  beat: { id: string; title: string; slug: string; cover_path: string | null; status: string; bpm: number; key_note: number; key_mode: string };
+  beat: { id: string; title: string; slug: string; cover_path: string | null; status: string; bpm: number | null; key_note: number; key_mode: string };
   /** The other producer. */
   other: { id: string; username: string; name: string; avatar_path: string | null };
 }

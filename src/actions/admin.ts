@@ -131,6 +131,8 @@ export async function toggleUserFlag(userId: string, flag: "is_verified" | "is_f
 
 const settingsSchema = z.object({
   platform_fee_percent: z.number().min(0).max(100),
+  /** The website fee buyers pay on top (database update 16). */
+  buyer_fee_percent: z.number().min(0).max(50).optional(),
   require_beat_approval: z.boolean(),
   seller_signups_open: z.boolean(),
   eur_to_pln: z.number().min(0.1).max(100),

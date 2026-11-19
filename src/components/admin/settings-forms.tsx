@@ -14,6 +14,9 @@ import type { PlatformSettings } from "@/lib/types";
 export function PlatformSettingsForm({ settings }: { settings: PlatformSettings }) {
   const router = useRouter();
   const [fee, setFee] = useState(String(settings.platform_fee_percent));
+  // Only with database update 16.
+  const hasBuyerFee = typeof (settings as { buyer_fee_percent?: unknown }).buyer_fee_percent !== "undefined";
+  const [buyerFee, setBuyerFee] = useState(String((settings as { buyer_fee_percent?: number }).buyer_fee_percent ?? 10));
   const [rate, setRate] = useState(String(settings.eur_to_pln));
   const [usdRate, setUsdRate] = useState(String(settings.eur_to_usd ?? 1.15));
   const [approval, setApproval] = useState(settings.require_beat_approval);
@@ -24,6 +27,7 @@ export function PlatformSettingsForm({ settings }: { settings: PlatformSettings 
     startTransition(async () => {
       const res = await updatePlatformSettings({
         platform_fee_percent: Number(fee),
+        ...(hasBuyerFee ? { buyer_fee_percent: Number(buyerFee) } : {}),
         eur_to_pln: Number(rate),
         eur_to_usd: Number(usdRate),
         require_beat_approval: approval,
@@ -38,7 +42,16 @@ export function PlatformSettingsForm({ settings }: { settings: PlatformSettings 
     <Card className="p-6">
       <h2 className="font-display text-lg font-bold">Marketplace</h2>
       <div className="mt-5 grid gap-5 md:grid-cols-2">
-        <Field label="Platform fee (%)" htmlFor="fee" hint="Taken from each seller sale. Your own beats are fee-free.">
+        {hasBuyerFee && (
+          <Field label="Website fee paid by buyers (%)" htmlFor="buyer-fee" hint="Added on top of every purchase at checkout. Producers keep their whole price.">
+            <Input id="buyer-fee" type="number" min={0} max={50} step={0.5} value={buyerFee} onChange={(e) => setBuyerFee(e.target.value)} />
+          </Field>
+        )}
+        <Field
+          label={hasBuyerFee ? "Fee taken from producers (%)" : "Platform fee (%)"}
+          htmlFor="fee"
+          hint={hasBuyerFee ? "Usually 0: producers keep 100%. Your own beats are always fee-free." : "Taken from each seller sale. Your own beats are fee-free."}
+        >
           <Input id="fee" type="number" min={0} max={100} step={0.5} value={fee} onChange={(e) => setFee(e.target.value)} />
         </Field>
         <Field label="EUR → PLN suggestion rate" htmlFor="rate" hint="Used to pre-fill PLN prices in the upload form.">

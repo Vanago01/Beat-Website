@@ -116,7 +116,7 @@ async function Analytics() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {(["published", "pending", "draft", "rejected", "archived"] as const).map((k) => (
           <Link key={k} href={`/admin/beats?status=${k}`} className="glass rounded-2xl px-4 py-3 transition hover:border-white/20">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-400">{k === "draft" ? "Unpublished" : k}</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-400">{k === "draft" ? "Drafts" : k}</p>
             <p className="mt-1 text-2xl font-semibold">{s.beats[k] ?? 0}</p>
           </Link>
         ))}

@@ -48,6 +48,7 @@ function friendly(message: string) {
   if (/permission denied: protected/i.test(message)) return "You can't change moderation fields on this pack.";
   if (/row-level security|permission denied for/i.test(message)) return "You don't have permission to do that.";
   if (/price_(eur|pln|usd)_check|beat_pack_licenses_price/i.test(message)) return "Every license needs a price of at least €0.50 / 2 zł / $0.50.";
+  if (/beats_details_before_publishing/i.test(message)) return "Every beat in the pack needs a genre and BPM before the pack goes live. Open its draft in My beats → Drafts to add them.";
   if (/could not find the (function|table)|schema cache/i.test(message)) return "Beat packs aren't set up yet: the site's database still needs update 10.";
   return message;
 }

@@ -35,14 +35,16 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 **Buying**
 - Five configurable license tiers (Basic MP3, Premium WAV, Trackout/Stems, Unlimited, Exclusive) plus optional free downloads.
 - Cart (one license per beat), EUR, PLN and USD pricing, Stripe Checkout (cards, BLIK, Przelewy24 when enabled).
-- Instant, permanent library: expiring signed download links and an auto-generated **PDF license agreement** per purchase.
+- **Website fee**: buyers pay a fee on top of every purchase (10% by default, Admin → Settings). It's mentioned under the license prices and shown as its own line in the cart, at Stripe Checkout, in the confirmation email and in the order history. Producers keep their whole price.
+- Instant, permanent library: expiring signed download links and an auto-generated **PDF license agreement** per purchase. License links carry a pass that works for a day, so the PDF opens in any window, including a new window of the site added to a phone's or tablet's Home Screen (which isn't signed in). A link that doesn't belong to the account brings you back to the library with an explanation.
 - Order confirmation emails, purchase history, favorites.
 
 **Selling**
 - “Become a seller” onboarding, producer studio with analytics (earnings chart, plays, top beats, recent sales).
 - Studio → **Upload**: choose between one beat and a beat pack. **My beats** lists both (Beats | Beat packs).
 - Upload form: resumable uploads (cover, tagged preview, MP3, WAV, stems ZIP), tap-tempo, key picker, moods, tags, per-tier prices in EUR, PLN & USD with suggested conversion, editable usage terms, reusable license defaults.
-- Stripe Connect Express payouts: automatic transfer of the seller’s share after each sale.
+- **Drafts**: “Save draft” works at any point, even before the title, genre or BPM (an untitled draft is called “Untitled beat”). Studio → My beats has a **Drafts** button that lists them with what each still needs; submitting or publishing still requires everything.
+- Producers keep 100% of their prices (buyers pay the website fee). Stripe Connect Express payouts: automatic transfer of the seller’s earnings after each sale.
 
 **Beat packs**
 - Producers bundle 2–50 of their own beats into a pack: pick beats they already uploaded and/or upload new ones right in the pack editor. One cover for the pack, optionally used for every beat in it.
@@ -55,7 +57,7 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 **Collaborations**
 - A producer invites another producer to one of their beats (beat editor → Collaboration, or while uploading). The invite pops up at the top of the other producer's studio (plus a badge on their account menu and an email), where they accept or decline.
 - The inviting producer chooses the split: the collaborator's share of every sale, 1–99 % (50/50 by default; a slider, quick 50/50 · 60/40 · 70/30 · 80/20 buttons, or type the number). The invite shows the share before it's accepted.
-- Once accepted, every sale of the beat is split that way: each producer gets their share of what the sale pays producers (after the platform fee), paid out to their own payout account. In a beat pack, each beat is an equal part of the pack and a co-produced beat's part is split. Sales, Overview and My beats in the studio show each producer their own share.
+- Once accepted, every sale of the beat is split that way: each producer gets their share of the price (all of it goes to producers unless Admin → Settings also takes a fee from them), paid out to their own payout account. In a beat pack, each beat is an equal part of the pack and a co-produced beat's part is split. Sales, Overview and My beats in the studio show each producer their own share.
 - The beat credits both producers (beat page, cards, lists) and is listed on both profiles. The owner can cancel an open invite; only the collaborator (or an admin) can end an accepted collaboration.
 
 **Messages**
@@ -75,7 +77,7 @@ Built with **Next.js 16 (App Router, Cache Components)**, **Supabase** (Auth, Po
 
 **Administration** (`/admin`, only for admin accounts)
 - Analytics: revenue (EUR/PLN/USD), sales, users, platform earnings, monthly revenue chart, most popular & best-selling beats, recent purchases.
-- Beat moderation queue (approve / reject with reason / feature / lock / edit / delete), beat pack review queue, user roles & verified badges, orders with one-click refunds, seller payouts, platform settings (fee %, approval workflow, seller signups, EUR→PLN rate), genre management.
+- Beat moderation queue (approve / reject with reason / feature / lock / edit / delete), beat pack review queue, user roles & verified badges, orders with one-click refunds, seller payouts, platform settings (website fee % paid by buyers, optional fee from producers, approval workflow, seller signups, EUR→PLN rate), genre management.
 
 ---
 
@@ -88,8 +90,8 @@ Authorization is enforced **in the database**, never only in the UI:
 | Row Level Security on every table | Public can read only *published* beats; sellers read/write only their own beats & licenses; buyers read only their own orders/purchases; admins read everything. |
 | Guard triggers | Users can’t change their own role/verified/featured flags; sellers can’t approve, feature, or alter sales stats; uploaded file paths must be in the producer’s own storage folder; the last admin can’t be demoted. |
 | Deferred validation | A beat can only be pending/published when it has a preview and the files every enabled license delivers. |
-| Service-role-only functions | `create_pending_order`, `fulfill_order`, `apply_order_refund` cannot be called from the browser. Prices are always computed in the database. |
-| Storage | Purchased files live in a **private** bucket; buyers receive 60-second signed URLs after an ownership check. |
+| Service-role-only functions | `create_pending_order`, `fulfill_order`, `apply_order_refund` cannot be called from the browser. Prices and the website fee are always computed in the database; an item that can't be delivered is refunded with its fee. |
+| Storage | Purchased files live in a **private** bucket; buyers receive 60-second signed URLs after an ownership check. License PDF links carry an HMAC-signed pass (24 hours) made only on the buyer's own library and order pages. |
 | Stripe | Webhooks are signature-verified; fulfilment is idempotent (safe on retries and on the success-page fallback). Exclusive-license races are detected and the second buyer is refunded automatically. |
 | Two-factor authentication | Optional TOTP for everyone (Account → Settings), **required for administrators**: admin powers only exist in sessions that passed two-factor sign-in (`is_admin()` checks the session's `aal2` level). For anyone who set it up, a password-only session gets nothing from the database or storage until the code is entered. |
 | Beat packs | A pack can only contain the producer's own beats, and its price is computed in the database at checkout. A pack with an unavailable beat can't be bought; refunding a pack revokes the license of every beat in it. |
@@ -100,7 +102,7 @@ Authorization is enforced **in the database**, never only in the UI:
 | HTTP headers | Content-Security-Policy (scripts only from the site, no plugins/framing/foreign form targets, network and media limited to the site and Supabase), HSTS, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, a restrictive `Permissions-Policy`, `nosniff`. |
 | Cookies | Only necessary cookies by default; preferences (currency, volume, view) are stored after consent from the cookie banner. No advertising or tracking cookies. Policy at `/legal/cookies`. |
 
-`supabase/tests/security_tests.sql` contains 239 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs, collaborations and split payouts, following and blocking, reactions, private photos and videos, pins, delivery receipts, the private plug-in bucket…).
+`supabase/tests/security_tests.sql` contains 255 assertions covering these rules (role escalation, cross-seller edits, file-path hijacking, self-approval, browser access to order functions, exclusive races, refunds, two-factor enforcement, message privacy, blocking and rate limits, beat packs, collaborations and split payouts, following and blocking, reactions, private photos and videos, pins, delivery receipts, the private plug-in bucket, the website fee, drafts…).
 
 ---
 
@@ -153,8 +155,8 @@ SUPABASE_SECRET_KEY=<local secret key> npm run test:db
    npx supabase db push
    ```
    This creates all tables, policies, functions, storage buckets and storage policies.
-   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 15). Every file can safely be run again.
-   File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`). File 13 (`…_social_and_chat.sql`) adds `message_reactions` to it and creates the private `message-media` bucket for photos and videos in messages; file 14 (`…_follow_anyone_and_receipts.sql`) adds `conversation_receipts` (live “Delivered” and “Seen”). File 15 (`…_plugin_downloads.sql`) creates the private `plugin-files` bucket for the plug-in installers (see *Plug-in downloads* below).
+   *Without the CLI:* open **SQL Editor** and run each file in `supabase/migrations` in order (1 → 16). Every file can safely be run again.
+   File 8 (`…_messages.sql`) also turns on Realtime for the `messages` table, which live messages need (Database → Publications → `supabase_realtime` should list `messages` and `conversation_members`). File 13 (`…_social_and_chat.sql`) adds `message_reactions` to it and creates the private `message-media` bucket for photos and videos in messages; file 14 (`…_follow_anyone_and_receipts.sql`) adds `conversation_receipts` (live “Delivered” and “Seen”). File 15 (`…_plugin_downloads.sql`) creates the private `plugin-files` bucket for the plug-in installers (see *Plug-in downloads* below). File 16 (`…_buyer_fee_and_drafts.sql`) switches to the buyer-paid website fee (10%; producers keep 100%) and allows drafts without a genre or BPM.
 3. **Authentication → URL Configuration**: set *Site URL* to your domain (e.g. `https://yourdomain.com`) and add `https://yourdomain.com/**` to *Redirect URLs*.
 4. **Authentication → Email**: keep “Confirm email” on. Configure a custom SMTP sender for production volumes. Under **Multi-Factor**, keep **TOTP (App Authenticator)** enabled.
    *Optional (recommended):* to let users confirm on a different device than they signed up on, change the email templates’ link to

@@ -12,6 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { ClearPurchasedFromCart, RefreshWhilePending } from "@/components/account/checkout-effects";
 import { formatPrice } from "@/lib/format";
+import { licenseHref } from "@/lib/license-links";
 import type { Currency } from "@/lib/constants";
 import type { LicenseSnapshot } from "@/lib/types";
 
@@ -129,7 +130,7 @@ async function Confirmation({ searchParams }: { searchParams: PageProps<"/checko
                       <Download className="h-3.5 w-3.5" /> {label}
                     </a>
                   ))}
-                  <a href={`/api/license/${p.id}`} target="_blank" rel="noopener" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  <a href={licenseHref(p.id)} target="_blank" rel="noopener" className={buttonVariants({ variant: "ghost", size: "sm" })}>
                     <FileText className="h-3.5 w-3.5" /> License
                   </a>
                 </div>

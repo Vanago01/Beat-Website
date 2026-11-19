@@ -3,7 +3,7 @@
 import { updateTag } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { BPM_MAX, BPM_MIN, LICENSE_ORDER, MAX_MOODS, isValidMood, normalizeMood, type LicenseType } from "@/lib/constants";
+import { BPM_MAX, BPM_MIN, LICENSE_ORDER, MAX_MOODS, UNTITLED_BEAT, isValidMood, normalizeMood, type LicenseType } from "@/lib/constants";
 import type { ActionResult } from "@/lib/types";
 import { isPackCover } from "@/lib/storage";
 
@@ -31,16 +31,22 @@ const licenseSchema = z.object({
 
 const beatSchema = z.object({
   id: z.uuid(),
-  title: z.string().trim().min(1, "Give your beat a title").max(100),
+  // A draft may be saved before it has a title, genre or BPM.
+  title: z.string().trim().max(100, "The title can be up to 100 characters"),
   description: z.string().max(5000).optional().default(""),
-  genre: z.string().regex(/^[a-z0-9-]+$/, "Choose a genre"),
+  genre: z.string().regex(/^[a-z0-9-]+$/, "Choose a genre").nullable(),
   moods: z
     .array(z.string())
     .max(MAX_MOODS, `Up to ${MAX_MOODS} moods`)
     .transform((list) => [...new Set(list.map(normalizeMood))])
     .refine((list) => list.every(isValidMood), "Moods must be 2–24 characters"),
   tags: z.array(z.string().trim().min(1).max(30)).max(12),
-  bpm: z.number().int().min(BPM_MIN, `BPM must be between ${BPM_MIN} and ${BPM_MAX}`).max(BPM_MAX, `BPM must be between ${BPM_MIN} and ${BPM_MAX}`),
+  bpm: z
+    .number()
+    .int()
+    .min(BPM_MIN, `BPM must be between ${BPM_MIN} and ${BPM_MAX}`)
+    .max(BPM_MAX, `BPM must be between ${BPM_MIN} and ${BPM_MAX}`)
+    .nullable(),
   key_note: z.number().int().min(0).max(11),
   key_mode: z.enum(["major", "minor"]),
   cover_path: path,
@@ -75,6 +81,11 @@ export async function saveBeat(input: SaveBeatInput): Promise<ActionResult<{ id:
 
   const types = new Set(licenses.map((l) => l.type));
   if (types.size !== licenses.length) return { ok: false, error: "Each license type can only be added once." };
+  if (status !== "draft") {
+    if (!beat.title) return { ok: false, error: "Give your beat a title." };
+    if (!beat.genre) return { ok: false, error: "Choose a genre." };
+    if (beat.bpm === null) return { ok: false, error: `Set the BPM (${BPM_MIN}–${BPM_MAX}).` };
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data: claims } = await supabase.auth.getClaims();
@@ -83,7 +94,7 @@ export async function saveBeat(input: SaveBeatInput): Promise<ActionResult<{ id:
   // Executed as the signed-in user: RLS + triggers decide what is allowed
   // (ownership, approval workflow, folder ownership of uploaded files, etc.).
   const { data, error } = await supabase.rpc("save_beat", {
-    p_beat: beat,
+    p_beat: { ...beat, title: beat.title || UNTITLED_BEAT },
     p_licenses: licenses,
     p_status: status,
     p_save_defaults: !!saveDefaults,
@@ -206,6 +217,9 @@ function friendly(message: string) {
   if (/row-level security|permission denied for/i.test(message)) return "You don't have permission to do that.";
   if (/beat_licenses_price_rules/i.test(message)) return "Paid licenses need a price of at least €0.50 / 2 zł / $0.50.";
   if (/violates foreign key constraint .*genre/i.test(message)) return "Please choose a valid genre.";
+  if (/beats_details_before_publishing/i.test(message)) return "Choose a genre and set the BPM before submitting or publishing.";
+  if (/null value in column "(genre|bpm)"/i.test(message))
+    return "Saving a draft without a genre or BPM needs the site's database update 16. Until then, choose them before saving.";
   if (/beats_moods_check/i.test(message)) return "That mood can't be saved. Moods need 2–24 characters (up to 8). If you added your own words, the site's database may still need update 7.";
   return message;
 }

@@ -267,8 +267,9 @@ set local role service_role;
 select (public.create_pending_order(:'buyer', 'buyerc@test.local', 'pln',
   array[(select id from public.beat_licenses where type = 'premium' limit 1)]) ->> 'order_id') as order_id \gset
 commit;
-select test.ok((select total = 21900 and status = 'pending' from public.orders where id = :'order_id'), 'order priced from DB in PLN');
-select test.ok((select platform_fee = 4380 and seller_amount = 17520 from public.order_items where order_id = :'order_id'), '20% platform fee split');
+select test.ok((select subtotal = 21900 and service_fee = 2190 and total = 24090 and status = 'pending' from public.orders where id = :'order_id'),
+  'order priced from DB in PLN, plus the website fee');
+select test.ok((select platform_fee = 0 and seller_amount = 21900 from public.order_items where order_id = :'order_id'), 'the producer gets the whole price');
 begin;
 set local role service_role;
 select (public.fulfill_order(:'order_id', 'pi_test', 'ch_test', 'cs_test') ->> 'fulfilled') as f1 \gset
@@ -276,13 +277,13 @@ select (public.fulfill_order(:'order_id', 'pi_test', 'ch_test', 'cs_test') ->> '
 commit;
 select test.ok(:'f1' = 'true' and :'f2' = 'false', 'fulfilment is idempotent');
 select test.ok((select count(*) = 1 from public.purchases where order_id = :'order_id' and includes_wav), 'purchase grants WAV access');
-select test.ok((select status = 'pending' and net = 17520 from public.seller_earnings where order_id = :'order_id'), 'seller earning recorded');
+select test.ok((select status = 'pending' and net = 21900 from public.seller_earnings where order_id = :'order_id'), 'seller earning recorded');
 select test.ok((select sales_count = 1 from public.beats where id = '11111111-1111-4111-8111-111111111111'), 'sales counter incremented');
 
 begin;
 set local role service_role;
 select (public.create_pending_order(:'buyer', 'buyerc@test.local', 'usd',
-  array[(select id from public.beat_licenses where type = 'basic' limit 1)]) ->> 'total') as usd_total \gset
+  array[(select id from public.beat_licenses where type = 'basic' limit 1)]) ->> 'subtotal') as usd_total \gset
 rollback;
 select test.ok(:'usd_total' = '3299', 'order priced from DB in USD');
 
@@ -313,7 +314,7 @@ end $$;
 rollback;
 begin;
 select test.act_as(:'owner', 'aal2');
-select test.ok((select (public.admin_dashboard() -> 'revenue' ->> 'pln')::int = 21900), 'admin dashboard revenue');
+select test.ok((select (public.admin_dashboard() -> 'revenue' ->> 'pln')::int = 24090), 'admin dashboard revenue (incl. the website fee)');
 select test.ok((select (public.admin_dashboard() -> 'revenue' ->> 'usd')::int = 0 and (public.admin_dashboard() -> 'monthly' -> 0) ? 'usd'), 'admin dashboard reports USD');
 select test.ok((select (public.admin_list_users() ->> 'total')::int = 4), 'admin lists users with emails');
 rollback;
@@ -364,7 +365,7 @@ rollback;
 -- 20. Refund revokes access.
 begin;
 set local role service_role;
-select (public.apply_order_refund(:'order_id', 21900) ->> 'full') as refunded \gset
+select (public.apply_order_refund(:'order_id', 24090) ->> 'full') as refunded \gset
 commit;
 select test.ok(:'refunded' = 'true' and (select revoked_at is not null from public.purchases where order_id = :'order_id'), 'full refund revokes purchase');
 
@@ -795,7 +796,7 @@ select (public.create_pending_order(:'buyer', 'buyerc@test.local', 'usd', '{}'::
   array[(select id from public.beat_pack_licenses where pack_id = '66666666-6666-4666-8666-666666666666' and type = 'basic')])
   ->> 'order_id') as pack_order \gset
 commit;
-select test.ok((select total = 5999 and currency = 'usd' from public.orders where id = :'pack_order'), 'pack order priced from the pack license');
+select test.ok((select subtotal = 5999 and total = 5999 + 600 and currency = 'usd' from public.orders where id = :'pack_order'), 'pack order priced from the pack license, plus the website fee');
 select test.ok((select pack_id = '66666666-6666-4666-8666-666666666666' and beat_id is null
   and jsonb_array_length(license_snapshot -> 'beats') = 2 from public.order_items where order_id = :'pack_order'),
   'the order line lists the beats in the pack');
@@ -806,8 +807,8 @@ commit;
 select test.ok(:'pack_fulfilled' = 'true' and (select count(*) = 2 from public.purchases
   where order_id = :'pack_order' and includes_mp3 and not includes_wav and license_snapshot ->> 'pack_title' = 'Night Pack'),
   'buying a pack gives a license for every beat in it');
-select test.ok((select count(*) = 1 and sum(net) = 4799 from public.seller_earnings where order_id = :'pack_order'),
-  'the producer earns once for the pack (after the 20% fee)');
+select test.ok((select count(*) = 1 and sum(net) = 5999 from public.seller_earnings where order_id = :'pack_order'),
+  'the producer earns once for the pack (the whole price)');
 select test.ok((select sales_count = 1 from public.beat_packs where id = '66666666-6666-4666-8666-666666666666'), 'the pack sale is counted');
 begin;
 select test.act_as(:'buyer');
@@ -852,7 +853,7 @@ commit;
 -- 40. Refunding a pack revokes every beat license in it.
 begin;
 set local role service_role;
-select (public.apply_order_refund(:'pack_order', 5999) ->> 'full') as pack_refunded \gset
+select (public.apply_order_refund(:'pack_order', 6599) ->> 'full') as pack_refunded \gset
 commit;
 select test.ok(:'pack_refunded' = 'true'
   and (select bool_and(revoked_at is not null) from public.purchases where order_id = :'pack_order')
@@ -1474,5 +1475,106 @@ select test.ok((select count(*) = 0 from storage.objects where bucket_id = 'plug
   'not even an administrator reads the installers through the API: only the server does');
 rollback;
 select test.ok((select count(*) = 0 from storage.objects where bucket_id = 'plugin-files'), 'the plug-in bucket is left as it was');
+
+-- 60. Website fee: buyers pay it on top of the price; producers keep the whole price.
+begin;
+insert into public.beats (id, producer_id, title, genre, bpm, key_note, key_mode, preview_path, mp3_path, status)
+values ('88888888-8888-4888-8888-888888888881', :'sb', 'Fee Test', 'trap', 120, 0, 'minor',
+  :'sb' || '/88888888-8888-4888-8888-888888888881/preview.mp3', :'sb' || '/88888888-8888-4888-8888-888888888881/full.mp3', 'published');
+insert into public.beat_licenses (beat_id, type, name, price_eur, price_pln, price_usd, includes_mp3, enabled, sort_order)
+values ('88888888-8888-4888-8888-888888888881', 'basic', 'Basic', 2999, 12900, 3499, true, true, 1),
+       ('88888888-8888-4888-8888-888888888881', 'exclusive', 'Exclusive', 49900, 210000, 57900, true, true, 2);
+commit;
+select test.ok((select platform_fee_percent = 0 and buyer_fee_percent = 10 from public.platform_settings),
+  'by default producers keep 100% and buyers pay a 10% website fee');
+begin;
+set local role service_role;
+select (public.create_pending_order(:'buyer', 'buyer@test.local', 'eur',
+  array[(select id from public.beat_licenses where beat_id = '88888888-8888-4888-8888-888888888881' and type = 'basic')]) ->> 'order_id') as feeorder \gset
+commit;
+select test.ok((select subtotal = 2999 and service_fee = 300 and total = 3299 from public.orders where id = :'feeorder'),
+  'the buyer pays the price plus the 10% website fee (29.99 + 3.00)');
+select test.ok((select price = 2999 and service_fee = 300 and platform_fee = 0 and seller_amount = 2999 from public.order_items where order_id = :'feeorder'),
+  'the whole price goes to the producer');
+begin;
+set local role service_role;
+select public.fulfill_order(:'feeorder', 'pi_fee', 'ch_fee', 'cs_fee');
+commit;
+select test.ok((select sum(net) = 2999 and sum(platform_fee) = 0 from public.seller_earnings where order_id = :'feeorder'),
+  'the producer earns the whole price');
+begin;
+select test.act_as(:'owner', 'aal2');
+select test.ok((public.admin_dashboard() -> 'platform_earnings' ->> 'eur')::numeric >= 300, 'website fees count as platform earnings');
+rollback;
+begin;
+set local role service_role;
+select (public.create_pending_order(:'owner', 'owner@test.local', 'usd',
+  array[(select id from public.beat_licenses where beat_id = '88888888-8888-4888-8888-888888888881' and type = 'basic')]) ->> 'order_id') as feeorder2 \gset
+commit;
+select test.ok((select subtotal = 3499 and service_fee = 350 and total = 3849 from public.orders where id = :'feeorder2'),
+  'the website fee is in the order''s currency');
+update public.platform_settings set platform_fee_percent = 20;
+begin;
+set local role service_role;
+select (public.create_pending_order(:'sa', 'sa@test.local', 'eur',
+  array[(select id from public.beat_licenses where beat_id = '88888888-8888-4888-8888-888888888881' and type = 'basic')]) ->> 'order_id') as feeorder3 \gset
+commit;
+update public.platform_settings set platform_fee_percent = 0;
+select test.ok((select o.total = 3299 and oi.platform_fee = 600 and oi.seller_amount = 2399 from public.orders o join public.order_items oi on oi.order_id = o.id where o.id = :'feeorder3'),
+  'an admin can still take a fee from producers too (Admin → Settings)');
+-- Two people pay for the same exclusive at once: the second is refunded, fee included.
+begin;
+set local role service_role;
+select (public.create_pending_order(:'owner', 'owner@test.local', 'eur',
+  array[(select id from public.beat_licenses where beat_id = '88888888-8888-4888-8888-888888888881' and type = 'exclusive')]) ->> 'order_id') as exorder1 \gset
+select (public.create_pending_order(:'sa', 'sa@test.local', 'eur',
+  array[(select id from public.beat_licenses where beat_id = '88888888-8888-4888-8888-888888888881' and type = 'exclusive')]) ->> 'order_id') as exorder2 \gset
+select public.fulfill_order(:'exorder1', 'pi_ex1', 'ch_ex1', 'cs_ex1');
+select (public.fulfill_order(:'exorder2', 'pi_ex2', 'ch_ex2', 'cs_ex2') -> 'conflicts' -> 0 ->> 'amount') as conflict_amount \gset
+commit;
+select test.ok(:'conflict_amount'::int = 49900 + 4990, 'an item that can''t be delivered is refunded with its website fee');
+select test.ok((select count(*) = 0 from public.seller_earnings where order_id = :'exorder2'), 'nothing is earned for an undelivered item');
+
+-- 61. Drafts can be saved before the genre and BPM are chosen; submitting still needs them.
+begin;
+select test.act_as(:'sb');
+select (public.save_beat(
+  jsonb_build_object('id', '88888888-8888-4888-8888-888888888882', 'title', 'Untitled beat', 'moods', '[]'::jsonb, 'tags', '[]'::jsonb, 'key_note', 0, 'key_mode', 'minor'),
+  '[{"type": "basic", "name": "Basic", "price_eur": 2999, "price_pln": 12900, "price_usd": 3499, "includes_mp3": true}]'::jsonb,
+  'draft')).slug as draft_slug \gset
+commit;
+select test.ok((select genre is null and bpm is null and status = 'draft' from public.beats where id = '88888888-8888-4888-8888-888888888882'),
+  'a draft can be saved without a genre or BPM');
+select test.ok(:'draft_slug' like 'untitled-beat-%', 'an untitled draft gets a temporary address');
+begin;
+select test.act_as(:'sb');
+update public.beats set title = 'Night Drive' where id = '88888888-8888-4888-8888-888888888882';
+commit;
+select test.ok((select slug like 'night-drive-%' from public.beats where id = '88888888-8888-4888-8888-888888888882'),
+  'a draft''s address follows its title until it''s published');
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  update public.beats set status = 'pending' where id = '88888888-8888-4888-8888-888888888882';
+  perform test.ok(false, 'a beat without a genre and BPM can''t be submitted');
+exception when check_violation then perform test.ok(true, 'a beat without a genre and BPM can''t be submitted');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  update public.beats set genre = null where id = '55555555-5555-4555-8555-555555555551';
+  perform test.ok(false, 'a live beat can''t lose its genre');
+exception when check_violation then perform test.ok(true, 'a live beat can''t lose its genre');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 0 from public.beats where id = '88888888-8888-4888-8888-888888888882'), 'other people don''t see someone''s drafts');
+rollback;
+begin;
+select test.act_as(null);
+select test.ok((select count(*) = 0 from public.beat_cards where id = '88888888-8888-4888-8888-888888888882'), 'drafts aren''t public');
+rollback;
 
 \echo '--- all security tests passed ---'

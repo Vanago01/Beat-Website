@@ -193,14 +193,14 @@ isOneToOne: false
                   ]
                 },"beats": {
                   Row: {
-                    "admin_locked": boolean,"approved_at": string | null,"bpm": number,"cover_path": string | null,"created_at": string,"description": string | null,"duration_seconds": number | null,"exclusive_buyer_id": string | null,"exclusive_sold_at": string | null,"favorites_count": number,"featured_at": string | null,"genre": string,"has_exclusive": boolean,"has_free": boolean,"id": string,"is_featured": boolean,"key_group": number | null,"key_mode": string,"key_note": number,"min_price_eur": number | null,"min_price_pln": number | null,"min_price_usd": number | null,"moods": (string)[],"mp3_path": string | null,"plays_count": number,"preview_path": string | null,"producer_id": string,"published_at": string | null,"rating_avg": number | null,"rating_count": number,"rejection_reason": string | null,"sales_count": number,"search_vector": unknown,"slug": string,"status": Database["public"]['Enums']["beat_status"],"stems_path": string | null,"submitted_at": string | null,"tags": (string)[],"title": string,"updated_at": string,"wav_path": string | null,"waveform": Json | null
+                    "admin_locked": boolean,"approved_at": string | null,"bpm": number | null,"cover_path": string | null,"created_at": string,"description": string | null,"duration_seconds": number | null,"exclusive_buyer_id": string | null,"exclusive_sold_at": string | null,"favorites_count": number,"featured_at": string | null,"genre": string | null,"has_exclusive": boolean,"has_free": boolean,"id": string,"is_featured": boolean,"key_group": number | null,"key_mode": string,"key_note": number,"min_price_eur": number | null,"min_price_pln": number | null,"min_price_usd": number | null,"moods": (string)[],"mp3_path": string | null,"plays_count": number,"preview_path": string | null,"producer_id": string,"published_at": string | null,"rating_avg": number | null,"rating_count": number,"rejection_reason": string | null,"sales_count": number,"search_vector": unknown,"slug": string,"status": Database["public"]['Enums']["beat_status"],"stems_path": string | null,"submitted_at": string | null,"tags": (string)[],"title": string,"updated_at": string,"wav_path": string | null,"waveform": Json | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "admin_locked"?: boolean,"approved_at"?: string | null,"bpm": number,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"exclusive_buyer_id"?: string | null,"exclusive_sold_at"?: string | null,"favorites_count"?: number,"featured_at"?: string | null,"genre": string,"has_exclusive"?: boolean,"has_free"?: boolean,"id"?: string,"is_featured"?: boolean,"key_group"?: never,"key_mode": string,"key_note": number,"min_price_eur"?: number | null,"min_price_pln"?: number | null,"min_price_usd"?: number | null,"moods"?: (string)[],"mp3_path"?: string | null,"plays_count"?: number,"preview_path"?: string | null,"producer_id": string,"published_at"?: string | null,"rating_avg"?: number | null,"rating_count"?: number,"rejection_reason"?: string | null,"sales_count"?: number,"search_vector"?: never,"slug": string,"status"?: Database["public"]['Enums']["beat_status"],"stems_path"?: string | null,"submitted_at"?: string | null,"tags"?: (string)[],"title": string,"updated_at"?: string,"wav_path"?: string | null,"waveform"?: Json | null
+                    "admin_locked"?: boolean,"approved_at"?: string | null,"bpm"?: number | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"exclusive_buyer_id"?: string | null,"exclusive_sold_at"?: string | null,"favorites_count"?: number,"featured_at"?: string | null,"genre"?: string | null,"has_exclusive"?: boolean,"has_free"?: boolean,"id"?: string,"is_featured"?: boolean,"key_group"?: never,"key_mode": string,"key_note": number,"min_price_eur"?: number | null,"min_price_pln"?: number | null,"min_price_usd"?: number | null,"moods"?: (string)[],"mp3_path"?: string | null,"plays_count"?: number,"preview_path"?: string | null,"producer_id": string,"published_at"?: string | null,"rating_avg"?: number | null,"rating_count"?: number,"rejection_reason"?: string | null,"sales_count"?: number,"search_vector"?: never,"slug": string,"status"?: Database["public"]['Enums']["beat_status"],"stems_path"?: string | null,"submitted_at"?: string | null,"tags"?: (string)[],"title": string,"updated_at"?: string,"wav_path"?: string | null,"waveform"?: Json | null
                   }
                   Update: {
-                    "admin_locked"?: boolean,"approved_at"?: string | null,"bpm"?: number,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"exclusive_buyer_id"?: string | null,"exclusive_sold_at"?: string | null,"favorites_count"?: number,"featured_at"?: string | null,"genre"?: string,"has_exclusive"?: boolean,"has_free"?: boolean,"id"?: string,"is_featured"?: boolean,"key_group"?: never,"key_mode"?: string,"key_note"?: number,"min_price_eur"?: number | null,"min_price_pln"?: number | null,"min_price_usd"?: number | null,"moods"?: (string)[],"mp3_path"?: string | null,"plays_count"?: number,"preview_path"?: string | null,"producer_id"?: string,"published_at"?: string | null,"rating_avg"?: number | null,"rating_count"?: number,"rejection_reason"?: string | null,"sales_count"?: number,"search_vector"?: never,"slug"?: string,"status"?: Database["public"]['Enums']["beat_status"],"stems_path"?: string | null,"submitted_at"?: string | null,"tags"?: (string)[],"title"?: string,"updated_at"?: string,"wav_path"?: string | null,"waveform"?: Json | null
+                    "admin_locked"?: boolean,"approved_at"?: string | null,"bpm"?: number | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"exclusive_buyer_id"?: string | null,"exclusive_sold_at"?: string | null,"favorites_count"?: number,"featured_at"?: string | null,"genre"?: string | null,"has_exclusive"?: boolean,"has_free"?: boolean,"id"?: string,"is_featured"?: boolean,"key_group"?: never,"key_mode"?: string,"key_note"?: number,"min_price_eur"?: number | null,"min_price_pln"?: number | null,"min_price_usd"?: number | null,"moods"?: (string)[],"mp3_path"?: string | null,"plays_count"?: number,"preview_path"?: string | null,"producer_id"?: string,"published_at"?: string | null,"rating_avg"?: number | null,"rating_count"?: number,"rejection_reason"?: string | null,"sales_count"?: number,"search_vector"?: never,"slug"?: string,"status"?: Database["public"]['Enums']["beat_status"],"stems_path"?: string | null,"submitted_at"?: string | null,"tags"?: (string)[],"title"?: string,"updated_at"?: string,"wav_path"?: string | null,"waveform"?: Json | null
                   }
                   Relationships: [
                     {
@@ -433,14 +433,14 @@ isOneToOne: false
                   ]
                 },"order_items": {
                   Row: {
-                    "beat_id": string | null,"beat_title": string,"buyer_id": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"id": string,"license_id": string | null,"license_name": string,"license_snapshot": NonNullable<Json>,"license_type": Database["public"]['Enums']["license_type"],"order_id": string,"pack_id": string | null,"pack_license_id": string | null,"platform_fee": number,"price": number,"producer_name": string,"seller_amount": number,"seller_id": string | null
+                    "beat_id": string | null,"beat_title": string,"buyer_id": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"id": string,"license_id": string | null,"license_name": string,"license_snapshot": NonNullable<Json>,"license_type": Database["public"]['Enums']["license_type"],"order_id": string,"pack_id": string | null,"pack_license_id": string | null,"platform_fee": number,"price": number,"producer_name": string,"seller_amount": number,"seller_id": string | null,"service_fee": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "beat_id"?: string | null,"beat_title": string,"buyer_id"?: string | null,"created_at"?: string,"currency": Database["public"]['Enums']["currency_code"],"id"?: string,"license_id"?: string | null,"license_name": string,"license_snapshot"?: NonNullable<Json>,"license_type": Database["public"]['Enums']["license_type"],"order_id": string,"pack_id"?: string | null,"pack_license_id"?: string | null,"platform_fee"?: number,"price": number,"producer_name": string,"seller_amount"?: number,"seller_id"?: string | null
+                    "beat_id"?: string | null,"beat_title": string,"buyer_id"?: string | null,"created_at"?: string,"currency": Database["public"]['Enums']["currency_code"],"id"?: string,"license_id"?: string | null,"license_name": string,"license_snapshot"?: NonNullable<Json>,"license_type": Database["public"]['Enums']["license_type"],"order_id": string,"pack_id"?: string | null,"pack_license_id"?: string | null,"platform_fee"?: number,"price": number,"producer_name": string,"seller_amount"?: number,"seller_id"?: string | null,"service_fee"?: number
                   }
                   Update: {
-                    "beat_id"?: string | null,"beat_title"?: string,"buyer_id"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"license_id"?: string | null,"license_name"?: string,"license_snapshot"?: NonNullable<Json>,"license_type"?: Database["public"]['Enums']["license_type"],"order_id"?: string,"pack_id"?: string | null,"pack_license_id"?: string | null,"platform_fee"?: number,"price"?: number,"producer_name"?: string,"seller_amount"?: number,"seller_id"?: string | null
+                    "beat_id"?: string | null,"beat_title"?: string,"buyer_id"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"license_id"?: string | null,"license_name"?: string,"license_snapshot"?: NonNullable<Json>,"license_type"?: Database["public"]['Enums']["license_type"],"order_id"?: string,"pack_id"?: string | null,"pack_license_id"?: string | null,"platform_fee"?: number,"price"?: number,"producer_name"?: string,"seller_amount"?: number,"seller_id"?: string | null,"service_fee"?: number
                   }
                   Relationships: [
                     {
@@ -507,14 +507,14 @@ isOneToOne: false
                   ]
                 },"orders": {
                   Row: {
-                    "buyer_email": string,"buyer_id": string | null,"confirmation_sent_at": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"id": string,"order_number": number,"paid_at": string | null,"refunded_amount": number,"status": Database["public"]['Enums']["order_status"],"stripe_charge_id": string | null,"stripe_checkout_session_id": string | null,"stripe_payment_intent_id": string | null,"subtotal": number,"total": number,"updated_at": string
+                    "buyer_email": string,"buyer_id": string | null,"confirmation_sent_at": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"id": string,"order_number": number,"paid_at": string | null,"refunded_amount": number,"service_fee": number,"status": Database["public"]['Enums']["order_status"],"stripe_charge_id": string | null,"stripe_checkout_session_id": string | null,"stripe_payment_intent_id": string | null,"subtotal": number,"total": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "buyer_email": string,"buyer_id"?: string | null,"confirmation_sent_at"?: string | null,"created_at"?: string,"currency": Database["public"]['Enums']["currency_code"],"id"?: string,"order_number"?: never,"paid_at"?: string | null,"refunded_amount"?: number,"status"?: Database["public"]['Enums']["order_status"],"stripe_charge_id"?: string | null,"stripe_checkout_session_id"?: string | null,"stripe_payment_intent_id"?: string | null,"subtotal"?: number,"total"?: number,"updated_at"?: string
+                    "buyer_email": string,"buyer_id"?: string | null,"confirmation_sent_at"?: string | null,"created_at"?: string,"currency": Database["public"]['Enums']["currency_code"],"id"?: string,"order_number"?: never,"paid_at"?: string | null,"refunded_amount"?: number,"service_fee"?: number,"status"?: Database["public"]['Enums']["order_status"],"stripe_charge_id"?: string | null,"stripe_checkout_session_id"?: string | null,"stripe_payment_intent_id"?: string | null,"subtotal"?: number,"total"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "buyer_email"?: string,"buyer_id"?: string | null,"confirmation_sent_at"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"order_number"?: never,"paid_at"?: string | null,"refunded_amount"?: number,"status"?: Database["public"]['Enums']["order_status"],"stripe_charge_id"?: string | null,"stripe_checkout_session_id"?: string | null,"stripe_payment_intent_id"?: string | null,"subtotal"?: number,"total"?: number,"updated_at"?: string
+                    "buyer_email"?: string,"buyer_id"?: string | null,"confirmation_sent_at"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"order_number"?: never,"paid_at"?: string | null,"refunded_amount"?: number,"service_fee"?: number,"status"?: Database["public"]['Enums']["order_status"],"stripe_charge_id"?: string | null,"stripe_checkout_session_id"?: string | null,"stripe_payment_intent_id"?: string | null,"subtotal"?: number,"total"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -527,14 +527,14 @@ isOneToOne: false
                   ]
                 },"platform_settings": {
                   Row: {
-                    "eur_to_pln": number,"eur_to_usd": number,"id": boolean,"platform_fee_percent": number,"require_beat_approval": boolean,"seller_signups_open": boolean,"updated_at": string
+                    "buyer_fee_percent": number,"eur_to_pln": number,"eur_to_usd": number,"id": boolean,"platform_fee_percent": number,"require_beat_approval": boolean,"seller_signups_open": boolean,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "eur_to_pln"?: number,"eur_to_usd"?: number,"id"?: boolean,"platform_fee_percent"?: number,"require_beat_approval"?: boolean,"seller_signups_open"?: boolean,"updated_at"?: string
+                    "buyer_fee_percent"?: number,"eur_to_pln"?: number,"eur_to_usd"?: number,"id"?: boolean,"platform_fee_percent"?: number,"require_beat_approval"?: boolean,"seller_signups_open"?: boolean,"updated_at"?: string
                   }
                   Update: {
-                    "eur_to_pln"?: number,"eur_to_usd"?: number,"id"?: boolean,"platform_fee_percent"?: number,"require_beat_approval"?: boolean,"seller_signups_open"?: boolean,"updated_at"?: string
+                    "buyer_fee_percent"?: number,"eur_to_pln"?: number,"eur_to_usd"?: number,"id"?: boolean,"platform_fee_percent"?: number,"require_beat_approval"?: boolean,"seller_signups_open"?: boolean,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -742,7 +742,7 @@ isOneToOne: false
           Views: {
             "beat_cards": {
                   Row: {
-                    "bpm": number,"collaborator_avatar_path": string | null,"collaborator_id": string | null,"collaborator_name": string | null,"collaborator_username": string | null,"collaborator_verified": boolean | null,"cover_path": string | null,"created_at": string,"duration_seconds": number | null,"exclusive_sold_at": string | null,"favorites_count": number,"featured_at": string | null,"genre": string,"genre_name": string | null,"has_exclusive": boolean,"has_free": boolean,"id": string,"is_featured": boolean,"key_group": number | null,"key_mode": string,"key_note": number,"min_price_eur": number | null,"min_price_pln": number | null,"min_price_usd": number | null,"moods": (string)[],"plays_count": number,"preview_path": string | null,"producer_avatar_path": string | null,"producer_id": string,"producer_name": string | null,"producer_username": string,"producer_verified": boolean,"published_at": string | null,"rating_avg": number | null,"rating_count": number,"sales_count": number,"search_vector": unknown,"slug": string,"status": Database["public"]['Enums']["beat_status"],"tags": (string)[],"title": string,"waveform": Json | null
+                    "bpm": number | null,"collaborator_avatar_path": string | null,"collaborator_id": string | null,"collaborator_name": string | null,"collaborator_username": string | null,"collaborator_verified": boolean | null,"cover_path": string | null,"created_at": string,"duration_seconds": number | null,"exclusive_sold_at": string | null,"favorites_count": number,"featured_at": string | null,"genre": string | null,"genre_name": string | null,"has_exclusive": boolean,"has_free": boolean,"id": string,"is_featured": boolean,"key_group": number | null,"key_mode": string,"key_note": number,"min_price_eur": number | null,"min_price_pln": number | null,"min_price_usd": number | null,"moods": (string)[],"plays_count": number,"preview_path": string | null,"producer_avatar_path": string | null,"producer_id": string,"producer_name": string | null,"producer_username": string,"producer_verified": boolean,"published_at": string | null,"rating_avg": number | null,"rating_count": number,"sales_count": number,"search_vector": unknown,"slug": string,"status": Database["public"]['Enums']["beat_status"],"tags": (string)[],"title": string,"waveform": Json | null
                   }
                   ComputedFields: never
                   Relationships: [
@@ -951,7 +951,7 @@ isOneToOne: false
 { Args: { "p_beat": Json,"p_licenses": Json,"p_save_defaults"?: boolean,"p_status"?: Database["public"]['Enums']["beat_status"] }; Returns: {
               "admin_locked": boolean,
 "approved_at": string | null,
-"bpm": number,
+"bpm": number | null,
 "cover_path": string | null,
 "created_at": string,
 "description": string | null,
@@ -960,7 +960,7 @@ isOneToOne: false
 "exclusive_sold_at": string | null,
 "favorites_count": number,
 "featured_at": string | null,
-"genre": string,
+"genre": string | null,
 "has_exclusive": boolean,
 "has_free": boolean,
 "id": string,

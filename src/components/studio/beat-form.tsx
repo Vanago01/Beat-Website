@@ -22,7 +22,7 @@ import { buildPath, uploadResumable, uploadSmall, type Bucket } from "@/lib/uplo
 import { coverUrl } from "@/lib/storage";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDuration } from "@/lib/format";
-import { BPM_MAX, BPM_MIN, DEFAULT_LICENSES, LICENSE_ORDER, NOTE_NAMES, type LicenseDraft, type PriceRates } from "@/lib/constants";
+import { BPM_MAX, BPM_MIN, DEFAULT_LICENSES, LICENSE_ORDER, NOTE_NAMES, UNTITLED_BEAT, type LicenseDraft, type PriceRates } from "@/lib/constants";
 import type { BeatLicense, BeatRow } from "@/lib/types";
 import { isPackCover } from "@/lib/storage";
 
@@ -92,7 +92,8 @@ export function BeatForm({
 }: BeatFormProps) {
   const router = useRouter();
   const [beatId] = useState(() => beat?.id ?? crypto.randomUUID());
-  const [title, setTitle] = useState(beat?.title ?? "");
+  // A draft saved without a title is stored as "Untitled beat": show the box empty again.
+  const [title, setTitle] = useState(beat?.status === "draft" && beat.title === UNTITLED_BEAT ? "" : (beat?.title ?? ""));
   const [genre, setGenre] = useState(beat?.genre ?? "");
   const [bpm, setBpm] = useState<number | "">(beat?.bpm ?? "");
   const [keyNote, setKeyNote] = useState<number>(beat?.key_note ?? 9);
@@ -211,9 +212,13 @@ export function BeatForm({
   }, [files.preview, licenses, available.mp3, available.wav, available.stems]);
 
   const submit = (status: "draft" | "pending" | "published") => {
-    if (!title.trim()) return void toast.error("Give your beat a title.");
-    if (!genre) return void toast.error("Choose a genre.");
-    if (bpm === "" || bpm < BPM_MIN || bpm > BPM_MAX) return void toast.error(`BPM must be between ${BPM_MIN} and ${BPM_MAX}.`);
+    // A draft can be saved at any point; submitting or publishing needs the details.
+    if (status !== "draft") {
+      if (!title.trim()) return void toast.error("Give your beat a title.");
+      if (!genre) return void toast.error("Choose a genre.");
+      if (bpm === "") return void toast.error(`Set the BPM (${BPM_MIN}–${BPM_MAX}).`);
+    }
+    if (bpm !== "" && (bpm < BPM_MIN || bpm > BPM_MAX)) return void toast.error(`BPM must be between ${BPM_MIN} and ${BPM_MAX}.`);
     if (uploading) return void toast.error("Please wait for uploads to finish.");
     if (status !== "draft" && problems.length) return void toast.error("Almost there", { description: problems[0] });
 
@@ -223,10 +228,10 @@ export function BeatForm({
           id: beatId,
           title: title.trim(),
           description,
-          genre,
+          genre: genre || null,
           moods,
           tags,
-          bpm: Number(bpm),
+          bpm: bpm === "" ? null : Number(bpm),
           key_note: keyNote,
           key_mode: keyMode,
           cover_path: files.cover?.path ?? null,
@@ -326,7 +331,7 @@ export function BeatForm({
           <h2 className="mb-5 font-display text-lg font-bold">Details</h2>
           <div className="grid gap-5 md:grid-cols-2">
             <Field label="Beat title" htmlFor="title" className="md:col-span-2">
-              <Input id="title" value={title} onChange={(e) => { dirty.current = true; setTitle(e.target.value); }} maxLength={100} placeholder="e.g. Midnight Run" />
+              <Input id="title" value={title} onChange={(e) => { dirty.current = true; setTitle(e.target.value); }} maxLength={100} placeholder={beat?.status === "draft" ? UNTITLED_BEAT : "e.g. Midnight Run"} />
             </Field>
             <Field label="Genre" htmlFor="genre">
               <Select
@@ -423,6 +428,9 @@ export function BeatForm({
               {isPublished ? "Unpublish & save as draft" : "Save draft"}
             </Button>
           </div>
+          {!isPublished && (
+            <p className="mt-3 text-center text-xs text-ink-400">Save a draft at any time, even before filling in the details. Finish it later from My beats → Drafts.</p>
+          )}
           {uploading && <p className="mt-3 text-center text-xs text-ink-400">Waiting for uploads to finish…</p>}
           {beat?.status === "rejected" && beat.rejection_reason && (
             <div className="mt-4 rounded-xl border border-danger/30 bg-danger/10 p-3 text-xs text-danger">

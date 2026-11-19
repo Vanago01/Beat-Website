@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { Ban, Download, FileText, Library } from "lucide-react";
+import { AlertCircle, Ban, Download, FileText, Library } from "lucide-react";
 import { requireViewer } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BeatCover } from "@/components/beats/cover";
@@ -9,6 +9,7 @@ import { Badge, EmptyState } from "@/components/ui/misc";
 import { buttonVariants } from "@/components/ui/button";
 import { PageSkeleton } from "@/components/account/page-skeleton";
 import { formatDate, keyName } from "@/lib/format";
+import { licenseHref } from "@/lib/license-links";
 import { cn } from "@/lib/utils";
 import type { LicenseSnapshot } from "@/lib/types";
 
@@ -88,7 +89,7 @@ async function LibraryList({ highlight }: { highlight?: string }) {
                     <Download className="h-3.5 w-3.5" /> {f.label}
                   </a>
                 ))}
-                <a href={`/api/license/${p.id}`} target="_blank" rel="noopener" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                <a href={licenseHref(p.id)} target="_blank" rel="noopener" className={buttonVariants({ variant: "ghost", size: "sm" })}>
                   <FileText className="h-3.5 w-3.5" /> License PDF
                 </a>
               </div>
@@ -100,10 +101,30 @@ async function LibraryList({ highlight }: { highlight?: string }) {
   );
 }
 
+/** Why a license or download link brought the visitor back here. */
+const NOTICES: Record<string, string> = {
+  missing:
+    "That purchase isn't in this account's library. If you bought it with another account, sign out and sign in with that one. Your licenses are always here, under Purchased beats.",
+  refunded: "That license was refunded, so its files and license agreement aren't available any more.",
+  "not-included": "Your license doesn't include that file. The files it includes are listed next to the beat.",
+  "file-missing": "That file isn't available yet. Please contact the producer.",
+  "download-failed": "The download couldn't be prepared. Please try again in a moment.",
+};
+
 async function Content({ searchParams }: { searchParams: PageProps<"/account/library">["searchParams"] }) {
   const sp = await searchParams;
   const highlight = typeof sp.highlight === "string" ? sp.highlight : undefined;
-  return <LibraryList highlight={highlight} />;
+  const notice = typeof sp.notice === "string" ? NOTICES[sp.notice] : undefined;
+  return (
+    <>
+      {notice && (
+        <p role="alert" className="mb-5 flex items-start gap-2.5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-ink-100">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" /> {notice}
+        </p>
+      )}
+      <LibraryList highlight={highlight} />
+    </>
+  );
 }
 
 export default function LibraryPage({ searchParams }: PageProps<"/account/library">) {

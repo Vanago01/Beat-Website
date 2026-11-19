@@ -26,7 +26,8 @@ async function Orders() {
   const supabase = await createSupabaseServerClient();
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, order_number, status, currency, total, refunded_amount, created_at, paid_at, order_items(id, beat_title, license_name, price, producer_name)")
+    // All order columns: service_fee only exists with database update 16.
+    .select("*, order_items(id, beat_title, license_name, price, producer_name)")
     .neq("status", "canceled")
     .order("created_at", { ascending: false })
     .limit(100);
@@ -64,6 +65,12 @@ async function Orders() {
                   <span className="shrink-0 tabular-nums text-ink-200">{i.price === 0 ? "Free" : formatPrice(i.price, currency, { exact: true })}</span>
                 </li>
               ))}
+              {(o.service_fee ?? 0) > 0 && (
+                <li className="flex items-center justify-between gap-4 py-3 text-sm text-ink-300">
+                  <span>Website fee</span>
+                  <span className="shrink-0 tabular-nums">{formatPrice(o.service_fee, currency, { exact: true })}</span>
+                </li>
+              )}
             </ul>
             {o.refunded_amount > 0 && (
               <p className="mt-2 text-xs text-warning">Refunded: {formatPrice(o.refunded_amount, currency, { exact: true })}</p>

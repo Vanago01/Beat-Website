@@ -15,7 +15,7 @@ import { moderateBeat, toggleBeatFlag } from "@/actions/admin";
 import { deleteBeat } from "@/actions/beats";
 import { usePlayer } from "@/stores/player";
 import { BEAT_STATUS_LABEL, type BeatStatus } from "@/lib/constants";
-import { formatCompact, formatDateTime, keyName } from "@/lib/format";
+import { bpmLabel, formatCompact, formatDateTime, keyName } from "@/lib/format";
 
 export interface AdminBeat {
   id: string;
@@ -116,7 +116,7 @@ export function AdminBeats({ beats }: { beats: AdminBeat[] }) {
                     ) : (
                       producerName
                     )}{" "}
-                    · {b.genre} · {b.bpm} BPM · {keyName(b.key_note, b.key_mode)}
+                    · {b.genre ?? "No genre yet"} · {bpmLabel(b.bpm)} · {keyName(b.key_note, b.key_mode)}
                   </p>
                   <p className="mt-0.5 font-mono text-[11px] text-ink-500">
                     {b.status === "pending" && b.submitted_at ? `Submitted ${formatDateTime(b.submitted_at)}` : `Created ${formatDateTime(b.created_at)}`} · {formatCompact(b.plays_count)} plays · {formatCompact(b.sales_count)} sales

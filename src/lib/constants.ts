@@ -77,7 +77,7 @@ export const BPM_MIN = 40;
 export const BPM_MAX = 220;
 
 export const BEAT_STATUS_LABEL: Record<BeatStatus, string> = {
-  draft: "Unpublished",
+  draft: "Draft",
   pending: "In review",
   published: "Published",
   rejected: "Rejected",
@@ -250,3 +250,6 @@ export type SocialKey = (typeof SOCIAL_FIELDS)[number]["key"];
 
 /** Stripe minimum charge amounts, in minor units. */
 export const MIN_CHARGE: Record<Currency, number> = { eur: 50, pln: 200, usd: 50 };
+
+/** What a draft saved without a title is called (the title can be added later). */
+export const UNTITLED_BEAT = "Untitled beat";

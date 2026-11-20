@@ -1,31 +1,57 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Crown, Infinity as InfinityIcon } from "lucide-react";
+import { ChevronDown, Crown, Infinity as InfinityIcon, TriangleAlert } from "lucide-react";
 import { MoneyInput } from "./form-parts";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/controls";
 import { Input, Textarea } from "@/components/ui/input";
 import { LICENSE_META, type LicenseDraft, type PriceRates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-/** Rounds a converted PLN amount up to a "charm" price ending in 9 (e.g. 127.46 → 129). */
-export function charmPln(eurMinor: number, rate: number) {
-  if (eurMinor <= 0) return 0;
-  const whole = Math.ceil((eurMinor / 100) * rate);
-  const charmed = whole % 10 === 9 ? whole : whole + ((9 - (whole % 10) + 10) % 10);
-  return Math.max(200, charmed * 100);
+/**
+ * A price in another currency for a euro price (in cents / grosze): the amount
+ * at the exchange rate, rounded to the nearest price-like figure, so it is
+ * never more than about 2% away from it:
+ * - under 10: to the cent (€1.00 → 4.25 zł, $1.15)
+ * - under 100: to .49 or .99 (€9.99 → 42.49 zł, €29.99 → $34.49)
+ * - under 1,000: to .99 (€29.99 → 126.99 zł, €99.99 → $114.99)
+ * - from 1,000: to a whole amount ending in 9 (€999 → 4,249 zł)
+ */
+export function convertedPrice(eurMinor: number, rate: number, minimum: number) {
+  if (eurMinor <= 0 || !(rate > 0)) return 0;
+  // Rounded to a hundredth of a cent first, so 50 × 1.15 counts as 57.5, not 57.4999….
+  const exact = Math.round(eurMinor * rate * 100) / 100;
+  let price: number;
+  if (exact < 1000) price = Math.round(exact);
+  else if (exact < 10000) price = Math.round((exact + 1) / 50) * 50 - 1;
+  else if (exact < 100000) price = Math.round((exact + 1) / 100) * 100 - 1;
+  else price = (Math.round((exact / 100 - 9) / 10) * 10 + 9) * 100;
+  return Math.max(minimum, price);
 }
 
+/** Złoty price suggested for a euro price (at least 2 zł, Stripe's minimum). */
+export const suggestPln = (eurMinor: number, rate: number) => convertedPrice(eurMinor, rate, 200);
+
 /**
- * Suggests a dollar price from a euro price (same rule as the database):
- * .99 prices up to $100 (€29.99 → $34.99), whole dollars ending in 9 above
- * (€99.99 → $119, €999 → $1,149).
+ * Dollar price suggested for a euro price (at least $0.50). The database's own
+ * fallback, for licenses an older version of the site saved without a dollar
+ * price, still rounds up to .99; the site always sends one.
  */
-export function suggestUsd(eurMinor: number, rate: number) {
-  if (eurMinor <= 0) return 0;
-  const whole = Math.ceil((eurMinor * (rate > 0 ? rate : 1.15)) / 100);
-  if (whole <= 100) return whole * 100 - 1;
-  return (whole + ((19 - (whole % 10)) % 10)) * 100;
+export const suggestUsd = (eurMinor: number, rate: number) => convertedPrice(eurMinor, rate > 0 ? rate : 1.15, 50);
+
+/** More than 20% away from the converted price: far beyond rounding or a deliberate round number. */
+const farFrom = (price: number, suggested: number) => suggested > 0 && Math.abs(price / suggested - 1) > 0.2;
+
+/** Paid licenses on sale whose złoty or dollar price is far from their euro price. */
+export function licensesOffRate(licenses: LicenseDraft[], rates: PriceRates) {
+  return licenses.filter(
+    (l) =>
+      l.enabled &&
+      l.type !== "free" &&
+      l.price_eur > 0 &&
+      (farFrom(l.price_pln, suggestPln(l.price_eur, rates.pln)) || farFrom(l.price_usd, suggestUsd(l.price_eur, rates.usd))),
+  );
 }
 
 /**
@@ -93,9 +119,35 @@ export function LicenseEditor({
 
   const patch = (type: string, p: Partial<LicenseDraft>) => onChange(licenses.map((l) => (l.type === type ? { ...l, ...p } : l)));
 
+  // E.g. 200 zł next to €1.00: almost certainly a mistake, so offer to fix it.
+  const offRate = licensesOffRate(licenses, rates);
+  const matchOffRate = () => {
+    const types = new Set<string>(offRate.map((l) => l.type));
+    onChange(
+      licenses.map((l) =>
+        types.has(l.type) ? { ...l, price_pln: suggestPln(l.price_eur, rates.pln), price_usd: suggestUsd(l.price_eur, rates.usd) } : l,
+      ),
+    );
+    const untouch = (s: Set<string>) => new Set([...s].filter((t) => !types.has(t)));
+    setPlnTouched(untouch);
+    setUsdTouched(untouch);
+  };
+
   return (
     // Lays itself out by the space it has (a wide card or a narrow pop-up), not the screen width.
     <div className="@container space-y-2.5">
+      {offRate.length > 0 && (
+        <div role="status" className="flex flex-col gap-3 rounded-2xl border border-warning/30 bg-warning/[0.07] p-4 @2xl:flex-row @2xl:items-center">
+          <TriangleAlert className="hidden h-5 w-5 shrink-0 text-warning @2xl:block" aria-hidden />
+          <p className="flex-1 text-sm leading-relaxed text-ink-200">
+            {offRate.length === 1 ? `${LICENSE_META[offRate[0].type].label} has` : `${offRate.length} licenses have`} a złoty or dollar price far
+            from {offRate.length === 1 ? "its" : "their"} euro price (€1 ≈ {rates.pln.toFixed(2)} zł ≈ ${rates.usd.toFixed(2)}).
+          </p>
+          <Button size="sm" variant="secondary" onClick={matchOffRate} className="shrink-0">
+            Match to the euro price
+          </Button>
+        </div>
+      )}
       {licenses.map((l) => {
         const meta = LICENSE_META[l.type];
         const expanded = open === l.type;
@@ -123,7 +175,7 @@ export function LicenseEditor({
                     onChange={(price_eur) =>
                       patch(l.type, {
                         price_eur,
-                        ...(plnTouched.has(l.type) ? {} : { price_pln: charmPln(price_eur, rates.pln) }),
+                        ...(plnTouched.has(l.type) ? {} : { price_pln: suggestPln(price_eur, rates.pln) }),
                         ...(usdTouched.has(l.type) ? {} : { price_usd: suggestUsd(price_eur, rates.usd) }),
                       })
                     }

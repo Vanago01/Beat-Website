@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Check, ImagePlus, Info, Library, Plus, Send, Sparkles, Tag, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { FileSlot, type FileState } from "./form-parts";
-import { LicenseEditor, charmPln, suggestUsd } from "./license-editor";
+import { LicenseEditor, suggestPln, suggestUsd } from "./license-editor";
 import { QuickBeatForm } from "./quick-beat-form";
 import { BeatPricesModal, priceSummary, type BeatPrice } from "./beat-prices";
 import { BeatCover } from "@/components/beats/cover";
@@ -72,7 +72,7 @@ function initialLicenses(existing: PackLicense[] | undefined, rates: PriceRates)
     return {
       ...base,
       enabled: existing?.length ? false : base.enabled,
-      price_pln: charmPln(base.price_eur, rates.pln),
+      price_pln: suggestPln(base.price_eur, rates.pln),
       price_usd: suggestUsd(base.price_eur, rates.usd),
     };
   });

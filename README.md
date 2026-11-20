@@ -220,6 +220,8 @@ The DLAY page offers whatever installers it finds in the private `plugin-files` 
 
 Within a few minutes the page offers the highest version it finds for each system; older files can stay or be deleted. Until a system has a file, its button says “Coming soon”. The free plan's 50 MB cap per file is enough for both archives. The server needs `SUPABASE_SECRET_KEY` to read the bucket, as it does for purchased files.
 
+`/plugins` lists every plug-in in `src/lib/plugin-catalog.ts` with its picture, name and price. A new plug-in needs an entry there (name, kind, formats, price or `null` for free, a 16:9 picture in `public/plugins/<slug>/`), its own page at `src/app/plugins/<slug>/page.tsx` and its installers in a `<slug>` folder in the bucket.
+
 ### 6. Deploy (Vercel recommended)
 
 1. Import the repository in Vercel.
@@ -250,6 +252,7 @@ src/
     data/catalog.ts    cached public queries ("use cache" + tags)
     orders.ts          fulfilment, refunds, seller transfers, emails
     license-pdf.ts     license agreement PDF generator
+    plugin-catalog.ts  the plug-ins listed on /plugins (name, price, picture)
     plugins.ts         plug-in installers in the private bucket (newest version per system)
     supabase/          browser / server / service-role / public clients + session proxy
   stores/              client state (player, cart, currency, favorites, messages)

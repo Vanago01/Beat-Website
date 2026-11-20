@@ -32,15 +32,24 @@ import { useMessages } from "@/stores/messages";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-const NAV = [
-  { href: "/", label: "Home" },
-  { href: "/beats", label: "Explore Beats" },
-  // Only shown in the top bar on wide screens (it would crowd it otherwise).
-  { href: "/packs", label: "Beat Packs", wide: true },
+interface NavItem {
+  href: string;
+  label: string;
+  /** What the top bar says below 1440 px, where the full labels don't all fit (tablets in landscape, small laptops). */
+  short?: string;
+  /** Only in the top bar from 1280 px (the menu always has it). */
+  fromXl?: boolean;
+}
+
+// From 1024 px every page is in the top bar; below that, in the menu.
+const NAV: NavItem[] = [
+  // The logo leads home too, so narrower bars leave this one out.
+  { href: "/", label: "Home", fromXl: true },
+  { href: "/beats", label: "Explore Beats", short: "Beats" },
+  { href: "/packs", label: "Beat Packs", short: "Packs" },
   { href: "/producers", label: "Producers" },
   { href: "/sell", label: "Sell Beats" },
-  // Only from 1440 px: with it, the bar no longer fits a 1280 px window.
-  { href: "/plugins", label: "Plugins", widest: true },
+  { href: "/plugins", label: "Plugins" },
 ];
 
 function isActive(pathname: string | null, href: string) {
@@ -262,25 +271,33 @@ function NavbarView({ pathname }: { pathname: string | null }) {
           scrolled ? "border-b border-white/[0.06] bg-ink-950/75 backdrop-blur-2xl" : "border-b border-transparent",
         )}
       >
-        <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-6 px-4 sm:px-6 lg:px-8">
+        {/* Spacing a little tighter from 1024 to 1279 px, so a 1024 px bar fits the sign-in buttons too. */}
+        <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-6 px-4 sm:px-6 lg:gap-4 lg:px-8 xl:gap-6">
           {/* Signed in, narrow phones need the room for the account icons: show just the mark. */}
           <Logo wordmarkClassName={user ? "max-[399px]:hidden" : undefined} />
 
-          <nav className="hidden flex-1 items-center justify-center gap-1 lg:flex" aria-label="Main">
+          <nav className="hidden flex-1 items-center justify-center gap-0.5 lg:flex xl:gap-1" aria-label="Main">
             {NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-label={item.short ? item.label : undefined}
                 className={cn(
-                  "relative whitespace-nowrap rounded-full px-4 py-2 text-[13.5px] font-medium transition-colors",
-                  "wide" in item && item.wide && "hidden xl:inline-block",
-                  "widest" in item && item.widest && "hidden min-[1440px]:inline-block",
+                  "relative whitespace-nowrap rounded-full px-2 py-2 text-[13.5px] font-medium transition-colors xl:px-3 min-[1440px]:px-4",
+                  item.fromXl && "hidden xl:inline-block",
                   isActive(pathname, item.href) ? "text-white" : "text-ink-300 hover:text-white",
                 )}
               >
-                {item.label}
+                {item.short ? (
+                  <>
+                    <span className="min-[1440px]:hidden">{item.short}</span>
+                    <span className="hidden min-[1440px]:inline">{item.label}</span>
+                  </>
+                ) : (
+                  item.label
+                )}
                 {isActive(pathname, item.href) && (
-                  <span className="absolute inset-x-4 -bottom-[1px] h-px bg-gradient-to-r from-transparent via-white to-transparent" />
+                  <span className="absolute inset-x-2 -bottom-[1px] h-px bg-gradient-to-r from-transparent via-white to-transparent xl:inset-x-3 min-[1440px]:inset-x-4" />
                 )}
               </Link>
             ))}

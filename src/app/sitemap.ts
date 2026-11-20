@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { cacheLife, cacheTag } from "next/cache";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { env } from "@/lib/env";
+import { PLUGIN_LIST, pluginHref } from "@/lib/plugin-catalog";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   "use cache";
@@ -19,14 +20,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const hidden = new Set((packOnly ?? []).map((x) => x.beat_id));
   const activeProducers = new Set((beats ?? []).map((b) => b.producer_id));
 
-  const pages: MetadataRoute.Sitemap = ["", "/beats", "/packs", "/producers", "/sell", "/legal/licensing"].map((p) => ({
+  const pages: MetadataRoute.Sitemap = ["", "/beats", "/packs", "/producers", "/sell", "/plugins", "/legal/licensing"].map((p) => ({
     url: `${env.siteUrl}${p}`,
     changeFrequency: "daily",
     priority: p === "" ? 1 : 0.7,
   }));
+  const plugins: MetadataRoute.Sitemap = PLUGIN_LIST.map((p) => ({ url: `${env.siteUrl}${pluginHref(p.slug)}`, changeFrequency: "monthly", priority: 0.6 }));
 
   return [
     ...pages,
+    ...plugins,
     ...(beats ?? []).filter((b) => !hidden.has(b.id)).map((b) => ({ url: `${env.siteUrl}/beats/${b.slug}`, lastModified: b.updated_at, changeFrequency: "weekly" as const, priority: 0.8 })),
     ...(packs ?? []).map((p) => ({ url: `${env.siteUrl}/packs/${p.slug}`, lastModified: p.published_at ?? undefined, changeFrequency: "weekly" as const, priority: 0.8 })),
     ...(producers ?? [])

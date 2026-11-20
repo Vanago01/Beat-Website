@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Image from "next/image";
-import { AudioWaveform, Blocks, LibraryBig, Orbit, ScanEye, Spline } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, AudioWaveform, Blocks, LibraryBig, Orbit, ScanEye, Spline } from "lucide-react";
 import { getPluginDownloads, PLUGINS } from "@/lib/plugins";
 import { PluginDownload } from "@/components/plugins/plugin-download";
 import { Skeleton } from "@/components/ui/misc";
@@ -107,6 +108,9 @@ export default async function DlayPage() {
 
       <div className="mx-auto grid max-w-[1400px] gap-12 px-4 pb-4 pt-10 sm:px-6 md:pt-16 lg:grid-cols-[1.2fr_0.8fr] lg:gap-14 lg:px-8">
         <div>
+          <Link href="/plugins" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-300 transition-colors hover:text-white">
+            <ArrowLeft className="h-4 w-4" aria-hidden /> All plugins
+          </Link>
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-accent-300">Free plug-in · VST3 · Audio Unit</p>
           <h1 className="mt-4 font-display text-[clamp(3rem,8vw,6.5rem)] font-extrabold leading-[0.9] tracking-[-0.05em]">
             DLAY.

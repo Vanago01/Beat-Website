@@ -3,16 +3,18 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { newestPerPlatform, parsePluginFileName, type PluginDownloadInfo, type PluginFile, type PluginPlatform } from "./plugin-files";
+import { PLUGIN_CATALOG, type PluginSlug } from "./plugin-catalog";
 
 /** Private bucket: nobody reads it directly. Members get short-lived signed links from the server. */
 export const PLUGIN_BUCKET = "plugin-files";
 
-/** The plug-ins the site hands out. The key is the page under /plugins and the folder in the bucket. */
-export const PLUGINS = {
-  dlay: { name: "DLAY", sourceUrl: "https://github.com/Vanago01/DLAY-VST" },
-} as const;
+/**
+ * The plug-ins the site hands out (the catalog in plugin-catalog.ts). The key is
+ * the page under /plugins and the folder in the bucket.
+ */
+export const PLUGINS = PLUGIN_CATALOG;
 
-export type PluginSlug = keyof typeof PLUGINS;
+export type { PluginSlug };
 
 export function isPluginSlug(value: string): value is PluginSlug {
   return Object.hasOwn(PLUGINS, value);

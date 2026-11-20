@@ -3,13 +3,14 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Crown, Eye, EyeOff, FilePen, Handshake, Lock, MoreHorizontal, Pencil, Plus, Send, Sparkles, Trash2, Upload } from "lucide-react";
+import { Crown, Eye, EyeOff, FilePen, Handshake, Heart, Lock, MoreHorizontal, Pencil, Plus, Send, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { BeatCover } from "@/components/beats/cover";
 import { Badge, EmptyState } from "@/components/ui/misc";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dropdown, MenuItem, Segmented } from "@/components/ui/controls";
 import { Modal } from "@/components/ui/overlay";
+import { BeatLikesDialog } from "./beat-likes";
 import { deleteBeat, setBeatStatus } from "@/actions/beats";
 import { BEAT_STATUS_LABEL, UNTITLED_BEAT, type BeatStatus } from "@/lib/constants";
 import { bpmLabel, formatCompact, formatDate, formatPrice, keyName } from "@/lib/format";
@@ -71,6 +72,7 @@ export function BeatsManager({
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | BeatStatus>("all");
   const [confirm, setConfirm] = useState<ManagedBeat | null>(null);
+  const [likesFor, setLikesFor] = useState<ManagedBeat | null>(null);
   const [pending, startTransition] = useTransition();
 
   const counts = useMemo(() => {
@@ -150,7 +152,7 @@ export function BeatsManager({
           <span>Beat</span>
           <span>Status</span>
           <span className="text-right">Plays</span>
-          <span className="text-right">Saves</span>
+          <span className="text-right">Likes</span>
           <span className="text-right">Sales</span>
           <span className="text-right">From</span>
           <span />
@@ -172,8 +174,18 @@ export function BeatsManager({
                     <p className="truncate font-mono text-[11px] tracking-wider text-ink-400">
                       {bpmLabel(b.bpm)} · {keyName(b.key_note, b.key_mode)} · {formatDate(b.created_at)}
                     </p>
-                    <div className="mt-1 lg:hidden">
+                    <div className="mt-1 flex items-center gap-3 lg:hidden">
                       <Badge tone={TONE[b.status]}>{sold ? "Sold exclusively" : BEAT_STATUS_LABEL[b.status]}</Badge>
+                      {b.favorites_count > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setLikesFor(b)}
+                          className="inline-flex items-center gap-1 text-xs text-ink-300 hover:text-white"
+                          aria-label={`See who liked ${b.title} (${b.favorites_count} ${b.favorites_count === 1 ? "like" : "likes"})`}
+                        >
+                          <Heart className="h-3 w-3" aria-hidden /> {formatCompact(b.favorites_count)}
+                        </button>
+                      )}
                     </div>
                     {b.status === "rejected" && b.rejection_reason && <p className="mt-1 text-xs text-danger">Reason: {b.rejection_reason}</p>}
                     {b.status === "draft" && stillToAdd(b).length > 0 && (
@@ -204,7 +216,21 @@ export function BeatsManager({
                   <Badge tone={TONE[b.status]}>{sold ? "Sold" : BEAT_STATUS_LABEL[b.status]}</Badge>
                 </span>
                 <span className="hidden text-right text-sm tabular-nums lg:block">{formatCompact(b.plays_count)}</span>
-                <span className="hidden text-right text-sm tabular-nums lg:block">{formatCompact(b.favorites_count)}</span>
+                <span className="hidden text-right text-sm tabular-nums lg:block">
+                  {b.favorites_count > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setLikesFor(b)}
+                      className="tabular-nums underline decoration-white/20 underline-offset-4 transition hover:text-white hover:decoration-white"
+                      aria-label={`See who liked ${b.title} (${b.favorites_count} ${b.favorites_count === 1 ? "like" : "likes"})`}
+                      title="See who liked it"
+                    >
+                      {formatCompact(b.favorites_count)}
+                    </button>
+                  ) : (
+                    0
+                  )}
+                </span>
                 <span className="hidden text-right text-sm tabular-nums lg:block">{formatCompact(b.sales_count)}</span>
                 <span className="hidden text-right text-sm tabular-nums lg:block">{b.min_price_eur == null ? "—" : b.min_price_eur === 0 ? "Free" : formatPrice(b.min_price_eur, "eur")}</span>
                 <Dropdown
@@ -221,6 +247,9 @@ export function BeatsManager({
                       </MenuItem>
                       <MenuItem onClick={() => { close(); router.push(packOnly[b.id] ? `/packs/${packOnly[b.id].slug}` : `/beats/${b.slug}`); }}>
                         <Eye className="h-4 w-4 text-ink-300" /> {packOnly[b.id] ? "View its pack" : b.status === "published" ? "View in marketplace" : "Preview page"}
+                      </MenuItem>
+                      <MenuItem onClick={() => { close(); setLikesFor(b); }}>
+                        <Heart className="h-4 w-4 text-ink-300" /> Who liked it{b.favorites_count > 0 ? ` (${formatCompact(b.favorites_count)})` : ""}
                       </MenuItem>
                       <MenuItem onClick={() => { close(); router.push(`/dashboard/beats/${b.id}/edit#collaboration`); }}>
                         <Handshake className="h-4 w-4 text-ink-300" /> {collaborators[b.id] ? "Collaboration" : "Invite a collaborator"}
@@ -247,6 +276,13 @@ export function BeatsManager({
           })}
         </ul>
       </div>
+
+      <BeatLikesDialog
+        open={!!likesFor}
+        onClose={() => setLikesFor(null)}
+        beat={likesFor ? { id: likesFor.id, title: likesFor.title } : undefined}
+        count={likesFor?.favorites_count}
+      />
 
       <Modal
         open={!!confirm}

@@ -824,6 +824,11 @@ isOneToOne: false
 "assert_pack_publishable":
 { Args: { "p_pack_id": string }; Returns: undefined
                            },
+"beat_likes":
+{ Args: { "p_beat"?: string | null,"p_before"?: string | null,"p_limit"?: number }; Returns: {
+              "avatar_path": string | null,"beat_id": string,"beat_title": string,"is_verified": boolean,"liked_at": string,"name": string,"user_id": string,"username": string
+            }[]
+                           },
 "beat_path_ok":
 { Args: { "p_path": string,"p_producer": string }; Returns: boolean
                            },

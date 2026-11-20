@@ -1577,4 +1577,81 @@ select test.act_as(null);
 select test.ok((select count(*) = 0 from public.beat_cards where id = '88888888-8888-4888-8888-888888888882'), 'drafts aren''t public');
 rollback;
 
+-- 62. Who liked a beat: its producer and an accepted co-producer see the list, nobody else.
+-- Pack One (…551) is sellerB's alone (that collaboration ended); Pack Two (…552) is co-produced with sellerA.
+begin;
+select test.act_as(:'buyer');
+insert into public.favorites (user_id, beat_id) values
+  (auth.uid(), '55555555-5555-4555-8555-555555555551'),
+  (auth.uid(), '55555555-5555-4555-8555-555555555552');
+commit;
+begin;
+select test.act_as(:'owner', 'aal2');
+insert into public.favorites (user_id, beat_id) values (auth.uid(), '55555555-5555-4555-8555-555555555551');
+commit;
+begin;
+select test.act_as(:'sb');
+select test.ok((select count(*) = 2 from public.beat_likes('55555555-5555-4555-8555-555555555551')), 'the producer sees who liked their beat');
+select test.ok((select array_agg(username order by liked_at desc) = array['owner', 'buyerc']
+  from public.beat_likes('55555555-5555-4555-8555-555555555551')), 'newest like first');
+select test.ok((select name = 'buyerc' and beat_title = 'Pack One' and liked_at is not null
+  from public.beat_likes('55555555-5555-4555-8555-555555555551') where username = 'buyerc'), 'each like has a name, the beat and when');
+select test.ok((select count(*) = 3 from public.beat_likes()), 'without a beat: the likes on all of the producer''s beats');
+select test.ok((select count(*) = 1 from public.beat_likes('55555555-5555-4555-8555-555555555551', p_limit => 1)), 'the list comes in pages');
+select test.ok((select array_agg(username) = array['buyerc'] from public.beat_likes('55555555-5555-4555-8555-555555555551',
+  (select liked_at from public.beat_likes('55555555-5555-4555-8555-555555555551') where username = 'owner'))), 'the next page starts after the last like shown');
+select test.ok((select count(*) = 0 from public.favorites where beat_id = '55555555-5555-4555-8555-555555555551'),
+  'the likes table itself stays private');
+rollback;
+begin;
+select test.act_as(:'sa');
+select test.ok((select array_agg(username) = array['buyerc'] from public.beat_likes('55555555-5555-4555-8555-555555555552')), 'the co-producer sees who liked the beat');
+select test.ok((select array_agg(beat_title) = array['Pack Two'] from public.beat_likes()), 'the co-producer''s list has only the beats they co-produce');
+do $$ begin
+  perform public.beat_likes('55555555-5555-4555-8555-555555555551');
+  perform test.ok(false, 'after a collaboration ends, the other producer can''t see the likes');
+exception when insufficient_privilege then perform test.ok(true, 'after a collaboration ends, the other producer can''t see the likes');
+end $$;
+rollback;
+begin;
+select test.act_as(:'buyer');
+do $$ begin
+  perform public.beat_likes('55555555-5555-4555-8555-555555555551');
+  perform test.ok(false, 'nobody else can see who liked a beat');
+exception when insufficient_privilege then perform test.ok(true, 'nobody else can see who liked a beat');
+end $$;
+select test.ok((select count(*) = 0 from public.beat_likes()), 'someone without beats has no likes to see');
+rollback;
+begin;
+select test.act_as(null);
+do $$ begin
+  perform public.beat_likes('55555555-5555-4555-8555-555555555551');
+  perform test.ok(false, 'visitors can''t see who liked a beat');
+exception when insufficient_privilege then perform test.ok(true, 'visitors can''t see who liked a beat');
+end $$;
+rollback;
+begin;
+select test.act_as(:'buyer');
+insert into public.user_blocks (blocker_id, blocked_id) values (auth.uid(), :'sb');
+select test.act_as(:'sb');
+select test.ok((select array_agg(username) = array['owner'] from public.beat_likes('55555555-5555-4555-8555-555555555551')),
+  'someone who blocked the producer isn''t in their list');
+select test.act_as(:'sa');
+select test.ok((select count(*) = 1 from public.beat_likes('55555555-5555-4555-8555-555555555552')), 'a block only hides them from the person blocked');
+rollback;
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('99999999-9999-4999-8999-999999999998', :'sb', 'test authenticator', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP');
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  perform public.beat_likes();
+  perform test.ok(false, '2FA user: password-only session can''t see who liked their beats');
+exception when insufficient_privilege then perform test.ok(true, '2FA user: password-only session can''t see who liked their beats');
+end $$;
+select test.act_as(:'sb', 'aal2');
+select test.ok((select count(*) = 3 from public.beat_likes()), '2FA user: after the code, the list shows');
+rollback;
+delete from auth.mfa_factors where id = '99999999-9999-4999-8999-999999999998';
+delete from public.favorites where beat_id in ('55555555-5555-4555-8555-555555555551', '55555555-5555-4555-8555-555555555552');
+
 \echo '--- all security tests passed ---'

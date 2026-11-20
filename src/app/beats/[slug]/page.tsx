@@ -12,6 +12,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { MessageButton } from "@/components/messages/message-button";
 import { CurrencySwitch } from "@/components/layout/currency-switch";
 import { Badge, SectionHeading, Skeleton } from "@/components/ui/misc";
+import { BeatLikesValue } from "@/components/studio/beat-likes";
 import { coverUrl } from "@/lib/storage";
 import { env } from "@/lib/env";
 import { formatCompact, formatDuration, keyName } from "@/lib/format";
@@ -136,7 +137,17 @@ async function BeatDetail({ params }: { params: PageProps<"/beats/[slug]">["para
               <dl className="mt-5 grid grid-cols-3 gap-3">
                 {[
                   { icon: Headphones, label: "Plays", value: formatCompact(beat.plays_count) },
-                  { icon: Heart, label: "Favorites", value: formatCompact(beat.favorites_count) },
+                  {
+                    icon: Heart,
+                    label: "Likes",
+                    value: (
+                      <BeatLikesValue
+                        beat={{ id: beat.id, title: beat.title }}
+                        count={beat.favorites_count}
+                        producerIds={[beat.producer_id, beat.collaborator_id].filter((id): id is string => !!id)}
+                      />
+                    ),
+                  },
                   { icon: ShoppingBag, label: "Sales", value: formatCompact(beat.sales_count) },
                 ].map((s) => (
                   <div key={s.label} className="glass rounded-2xl px-4 py-3">

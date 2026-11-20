@@ -73,6 +73,23 @@ export function formatDateTime(value: string | Date | null | undefined) {
   return dateTimeFmt.format(typeof value === "string" ? new Date(value) : value);
 }
 
+const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 31_557_600],
+  ["month", 2_629_800],
+  ["week", 604_800],
+  ["day", 86_400],
+  ["hour", 3_600],
+  ["minute", 60],
+];
+/** "just now", "5 minutes ago", "yesterday", "3 weeks ago"… For lists drawn in the browser (it depends on the clock). */
+export function timeAgo(value: string | Date, now = Date.now()) {
+  const seconds = ((typeof value === "string" ? new Date(value) : value).getTime() - now) / 1000;
+  const unit = UNITS.find(([, size]) => Math.abs(seconds) >= size);
+  if (!unit) return "just now";
+  return relative.format(Math.round(seconds / unit[1]), unit[0]);
+}
+
 export function formatLimit(value: number | null | undefined, unit: string) {
   if (value == null) return `Unlimited ${unit}`;
   if (value === 0) return `No ${unit}`;

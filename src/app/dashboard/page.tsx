@@ -5,6 +5,7 @@ import { Headphones, Heart, Plus, ShoppingBag, Wallet } from "lucide-react";
 import { requireSeller } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { MoneyChart, PlaysChart, StatTile, type MonthlyPoint } from "@/components/studio/stats";
+import { LikesButton } from "@/components/studio/beat-likes";
 import { BeatCover } from "@/components/beats/cover";
 import { Badge, EmptyState } from "@/components/ui/misc";
 import { buttonVariants } from "@/components/ui/button";
@@ -57,7 +58,17 @@ async function Overview() {
         <StatTile icon={<Wallet className="h-4 w-4" />} label="Total earnings" value={money(d.earnings, (s) => s !== "reversed")} sub={isOwner ? "Platform-owned beats — retained in your Stripe balance" : `Pending payout: ${money(d.earnings, (s) => s === "pending")}`} />
         <StatTile icon={<ShoppingBag className="h-4 w-4" />} label="Sales" value={formatCompact(d.sales_count)} sub={`${d.free_downloads} free ${d.free_downloads === 1 ? "download" : "downloads"}`} />
         <StatTile icon={<Headphones className="h-4 w-4" />} label="Plays" value={formatCompact(d.plays)} sub={`Across ${totalBeats} ${totalBeats === 1 ? "beat" : "beats"}`} />
-        <StatTile icon={<Heart className="h-4 w-4" />} label="Favorites" value={formatCompact(d.favorites)} sub="Listeners who saved your beats" />
+        <StatTile
+          icon={<Heart className="h-4 w-4" />}
+          label="Likes"
+          value={formatCompact(d.favorites)}
+          sub={
+            // Always offered: the list also has the likes on beats you co-produced.
+            <LikesButton className="text-ink-300 underline decoration-white/20 underline-offset-4 transition hover:text-white hover:decoration-white">
+              See who liked your beats
+            </LikesButton>
+          }
+        />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -84,7 +95,18 @@ async function Overview() {
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-right text-xs text-ink-400">
                     <span><strong className="block text-sm text-white tabular-nums">{formatCompact(b.plays_count)}</strong>plays</span>
-                    <span><strong className="block text-sm text-white tabular-nums">{formatCompact(b.favorites_count)}</strong>saves</span>
+                    {b.favorites_count > 0 ? (
+                      <LikesButton
+                        beat={{ id: b.id, title: b.title }}
+                        count={b.favorites_count}
+                        label={`See who liked ${b.title} (${b.favorites_count} ${b.favorites_count === 1 ? "like" : "likes"})`}
+                        className="text-right transition hover:text-white"
+                      >
+                        <strong className="block text-sm text-white tabular-nums underline decoration-white/20 underline-offset-4">{formatCompact(b.favorites_count)}</strong>likes
+                      </LikesButton>
+                    ) : (
+                      <span><strong className="block text-sm text-white tabular-nums">0</strong>likes</span>
+                    )}
                     <span><strong className="block text-sm text-white tabular-nums">{formatCompact(b.sales_count)}</strong>sales</span>
                   </div>
                 </li>

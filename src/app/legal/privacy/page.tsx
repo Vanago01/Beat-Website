@@ -14,7 +14,11 @@ export default function PrivacyPage() {
       <ul>
         <li>Account data: email address, username, profile information you choose to publish.</li>
         <li>Transaction data: orders, licenses and payout records. Card details are handled by Stripe and never stored by us.</li>
-        <li>Usage data: plays and favorites, used to power charts and recommendations.</li>
+        <li>
+          Usage data: plays and likes (favorites), used to power charts and recommendations. When you like a beat, its producer can see that
+          you liked it, with your name, username and profile picture. Other visitors only see how many likes a beat has. A producer you have
+          blocked doesn&apos;t see your likes.
+        </li>
         <li>
           Messages: the text of direct messages you send and receive, when they were sent and read, and the people you block.
           Only you and the person you&apos;re talking to can read a conversation. If you delete a conversation it disappears

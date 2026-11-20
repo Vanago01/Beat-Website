@@ -76,6 +76,7 @@ import {
 import { ThreadSkeleton } from "./thread-skeleton";
 import { EmojiPickerDialog, ReactionBar, ReactionSummary } from "./reactions";
 import { DraftFiles, MediaLightbox, MessageMedia, useMediaLinks, type DraftFile } from "./media";
+import { TypingBubble, useTyping } from "./typing";
 
 const BASE_COLUMNS = "id, conversation_id, sender_id, body, created_at";
 // Photos, videos and reactions (database update 13).
@@ -247,6 +248,12 @@ export function ConversationView({ conversationId }: { conversationId: string })
   const [viewing, setViewing] = useState<{ file: ChatAttachment; url: string } | null>(null);
   const [dragging, setDragging] = useState(false);
   const pinned = useMessages((s) => s.inbox?.find((c) => c.id === conversationId)?.pinned ?? false);
+  // "Typing…" both ways, except across a block.
+  const { typing: otherTyping, onDraftChange, stopTyping, hideTyping } = useTyping(
+    conversationId,
+    me,
+    !!detail && !detail.blocked_by_me && !detail.blocked_me,
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLOListElement>(null);
@@ -420,11 +427,15 @@ export function ConversationView({ conversationId }: { conversationId: string })
             ? { ...d, other_read_at: laterTime(d.other_read_at, r.read_at), other_delivered_at: laterTime(d.other_delivered_at, r.delivered_at) }
             : d,
         );
-      } else if (event.message.conversation_id === conversationId) receive([event.message]);
+      } else if (event.message.conversation_id === conversationId) {
+        receive([event.message]);
+        // Their message is here: they're no longer typing it.
+        if (event.message.sender_id !== meRef.current) hideTyping();
+      }
     });
     void syncNewer();
     return off;
-  }, [conversationId, receive, syncNewer, applyReaction]);
+  }, [conversationId, receive, syncNewer, applyReaction, hideTyping]);
 
   // Mark as read while the conversation is on screen.
   const ready = Boolean(detail);
@@ -510,6 +521,12 @@ export function ConversationView({ conversationId }: { conversationId: string })
     if (ready && window.matchMedia("(pointer: fine)").matches) inputRef.current?.focus({ preventScroll: true });
   }, [ready]);
 
+  // Show the "typing" bubble when it appears, if you're at the bottom of the conversation.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (otherTyping && el && atBottom.current) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [otherTyping]);
+
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -555,6 +572,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
   const send = async (text: string, retryOf?: ChatMessage) => {
     const body = text.trim();
     if (!me) return;
+    stopTyping();
     const current = filesRef.current;
     if (!retryOf && current.some((f) => f.status === "uploading")) {
       toast("Your photos and videos are still uploading", { description: "They'll be ready in a moment." });
@@ -885,7 +903,11 @@ export function ConversationView({ conversationId }: { conversationId: string })
               {other.is_verified && <BadgeCheck className="h-4 w-4 shrink-0 text-accent-400" aria-label="Verified" />}
               {pinned && <Pin className="h-3.5 w-3.5 shrink-0 rotate-45 text-ink-400" aria-label="Pinned" />}
             </span>
-            <span className="block truncate text-xs text-ink-400">@{other.username}</span>
+            {otherTyping ? (
+              <span className="block truncate text-xs font-medium text-accent-300">typing…</span>
+            ) : (
+              <span className="block truncate text-xs text-ink-400">@{other.username}</span>
+            )}
           </span>
         </Link>
         <div className="ml-auto">
@@ -1111,6 +1133,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
             })}
           </ol>
         )}
+        {otherTyping && <TypingBubble name={name} />}
       </div>
 
       {showJump && (
@@ -1169,7 +1192,10 @@ export function ConversationView({ conversationId }: { conversationId: string })
             <textarea
               ref={inputRef}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                onDraftChange(e.target.value);
+              }}
               onKeyDown={onKeyDown}
               onPaste={onPaste}
               rows={1}

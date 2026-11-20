@@ -244,6 +244,17 @@
   50% { height: 100%; }
 }
 
+/* "Typing…" bubble in messages: three dots that bounce one after another. */
+.typing-dots > span {
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+.typing-dots > span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots > span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
 /* Range inputs (volume etc.) */
 input[type="range"].range {
   -webkit-appearance: none;

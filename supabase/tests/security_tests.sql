@@ -1654,4 +1654,69 @@ rollback;
 delete from auth.mfa_factors where id = '99999999-9999-4999-8999-999999999998';
 delete from public.favorites where beat_id in ('55555555-5555-4555-8555-555555555551', '55555555-5555-4555-8555-555555555552');
 
+-- 63. "Typing…": only the conversation's two members can listen to or send on its private
+-- Realtime channel. (Realtime checks a join by reading realtime.messages and a broadcast by
+-- inserting into it, with realtime.topic() set to the channel's name.)
+select set_config('test.typing', 'typing:' || :'conv', false);
+insert into realtime.messages (topic, extension, event, payload, private)
+values (current_setting('test.typing'), 'broadcast', 'typing', '{"typing": true}', true)
+returning id as typing_probe \gset
+begin;
+select test.act_as(:'buyer');
+select set_config('realtime.topic', current_setting('test.typing'), true);
+select test.ok((select count(*) = 1 from realtime.messages where id = :'typing_probe'), 'a member can listen to the conversation''s typing channel');
+insert into realtime.messages (topic, extension, event, payload, private)
+values (current_setting('test.typing'), 'broadcast', 'typing', '{"typing": true}', true);
+select test.ok(true, 'a member can send "typing" on it');
+rollback;
+begin;
+select test.act_as(:'sa');
+select set_config('realtime.topic', current_setting('test.typing'), true);
+select test.ok((select count(*) = 1 from realtime.messages where id = :'typing_probe'), 'so can the other member');
+rollback;
+begin;
+select test.act_as(:'sb');
+select set_config('realtime.topic', current_setting('test.typing'), true);
+select test.ok((select count(*) = 0 from realtime.messages where id = :'typing_probe'), 'someone else can''t listen to it');
+do $$ begin
+  insert into realtime.messages (topic, extension, event, payload, private)
+  values (current_setting('test.typing'), 'broadcast', 'typing', '{"typing": true}', true);
+  perform test.ok(false, 'someone else can''t send "typing" on it');
+exception when insufficient_privilege then perform test.ok(true, 'someone else can''t send "typing" on it');
+end $$;
+rollback;
+begin;
+select test.act_as(null);
+select set_config('realtime.topic', current_setting('test.typing'), true);
+select test.ok((select count(*) = 0 from realtime.messages where id = :'typing_probe'), 'visitors can''t listen to it');
+rollback;
+begin;
+select test.act_as(:'buyer');
+select set_config('realtime.topic', 'typing:not-a-conversation', true);
+select test.ok((select count(*) = 0 from realtime.messages where id = :'typing_probe'), 'a made-up channel name gives no access');
+select set_config('realtime.topic', 'room:' || :'conv', true);
+select test.ok(not public.can_use_typing_channel(realtime.topic()), 'the rule only covers "typing:" channels');
+rollback;
+begin;
+insert into public.user_blocks (blocker_id, blocked_id) values (:'sa', :'buyer');
+select test.act_as(:'buyer');
+select set_config('realtime.topic', current_setting('test.typing'), true);
+select test.ok((select count(*) = 0 from realtime.messages where id = :'typing_probe'), 'after a block, the blocked person can''t use the channel');
+select test.act_as(:'sa');
+select set_config('realtime.topic', current_setting('test.typing'), true);
+select test.ok(not public.can_use_typing_channel(realtime.topic()), 'nor can the person who blocked them');
+rollback;
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('99999999-9999-4999-8999-999999999997', :'buyer', 'test authenticator', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP');
+begin;
+select test.act_as(:'buyer');
+select set_config('realtime.topic', current_setting('test.typing'), true);
+select test.ok((select count(*) = 0 from realtime.messages where id = :'typing_probe'), '2FA user: password-only session can''t use the typing channel');
+select test.act_as(:'buyer', 'aal2');
+select set_config('realtime.topic', current_setting('test.typing'), true);
+select test.ok((select count(*) = 1 from realtime.messages where id = :'typing_probe'), '2FA user: after the code, it works');
+rollback;
+delete from auth.mfa_factors where id = '99999999-9999-4999-8999-999999999997';
+delete from realtime.messages where id = :'typing_probe';
+
 \echo '--- all security tests passed ---'

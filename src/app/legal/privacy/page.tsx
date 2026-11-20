@@ -21,8 +21,9 @@ export default function PrivacyPage() {
         </li>
         <li>
           Messages: the text of direct messages you send and receive, when they were sent and read, and the people you block.
-          Only you and the person you&apos;re talking to can read a conversation. If you delete a conversation it disappears
-          from your account; the other person keeps their copy.
+          Only you and the person you&apos;re talking to can read a conversation. While you write a message, the other person sees
+          that you&apos;re typing (this isn&apos;t stored). If you delete a conversation it disappears from your account; the other
+          person keeps their copy.
         </li>
       </ul>
       <h2>How we use it</h2>

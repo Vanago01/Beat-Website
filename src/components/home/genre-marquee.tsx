@@ -4,7 +4,7 @@ export function GenreMarquee({ genres }: { genres: { slug: string; name: string 
   const items = [...genres, ...genres];
   return (
     <div className="relative overflow-hidden border-y border-white/[0.06] bg-white/[0.015] py-5 mask-fade-x">
-      <div className="flex w-max animate-marquee gap-10 hover:[animation-play-state:paused]">
+      <div className="marquee-track flex w-max gap-10">
         {items.map((g, i) => (
           <Link
             key={`${g.slug}-${i}`}

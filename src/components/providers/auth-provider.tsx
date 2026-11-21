@@ -49,14 +49,18 @@ function AuthBootstrap() {
     }
     const supabase = getSupabaseBrowserClient();
     let active = true;
+    let loads = 0;
 
-    const apply = async (next: AuthUser | null) => {
+    /** Shows who's signed in; `reload` fetches their profile and favorites again. */
+    const apply = async (next: AuthUser | null, reload = false) => {
       if (!active) return;
       const changed = next?.id !== lastUserId.current;
       lastUserId.current = next?.id ?? null;
-      if (changed || !next) {
-        const [profile] = await Promise.all([fetchProfile(next?.id ?? null), useFavorites.getState().load(next?.id ?? null)]);
-        if (!active) return;
+      if (changed || !next || reload) {
+        const ticket = ++loads;
+        const [profile] = await Promise.all([fetchProfile(next?.id ?? null), useFavorites.getState().load(next?.id ?? null, reload)]);
+        // A later step (the two-factor code) may have loaded again meanwhile: the newest wins.
+        if (!active || ticket !== loads) return;
         useAuthStore.setState({ user: next, profile, loading: false });
       } else {
         useAuthStore.setState({ user: next, loading: false });
@@ -72,15 +76,15 @@ function AuthBootstrap() {
       const u = session?.user;
       const next = u ? { id: u.id, email: u.email ?? null } : null;
       if (event === "MFA_CHALLENGE_VERIFIED") {
-        // The two-factor code upgraded the sign-in. Supabase only hands a new
-        // token to its live connection on sign-in and refresh, so without this
-        // live messages, the unread badge and "typing…" would keep the
-        // password-only sign-in (and see nothing) until the page is reloaded.
-        setTimeout(() => {
-          void supabase.realtime
-            .setAuth()
-            .catch(() => {})
-            .then(() => useAuthStore.setState((s) => ({ sessionVersion: s.sessionVersion + 1 })));
+        // The two-factor code upgraded the sign-in. Until then the database's
+        // two-factor rule hid everything from this person, so the profile
+        // (picture, admin role) and favorites loaded at the password step came
+        // back empty: load them again. Supabase also only hands a new token to
+        // its live connection on sign-in and refresh, so pass it on, then tell
+        // live features (messages, "typing…") to reconnect.
+        setTimeout(async () => {
+          await Promise.all([supabase.realtime.setAuth().catch(() => {}), apply(next, true)]);
+          if (active) useAuthStore.setState((s) => ({ sessionVersion: s.sessionVersion + 1 }));
         }, 0);
         return;
       }

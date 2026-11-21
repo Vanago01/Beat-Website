@@ -8,19 +8,28 @@ interface FavoritesState {
   ids: Set<string>;
   userId: string | null;
   loaded: boolean;
-  load: (userId: string | null) => Promise<void>;
+  /** Loads the signed-in person's favorites; `force` loads them again even if already loaded. */
+  load: (userId: string | null, force?: boolean) => Promise<void>;
   toggle: (beatId: string) => Promise<boolean | null>;
 }
+
+// Only the newest load counts (one started before the two-factor code may finish after a reload).
+let loads = 0;
 
 export const useFavorites = create<FavoritesState>((set, get) => ({
   ids: new Set(),
   userId: null,
   loaded: false,
-  load: async (userId) => {
-    if (!userId) return set({ ids: new Set(), userId: null, loaded: true });
-    if (get().userId === userId && get().loaded) return;
+  load: async (userId, force = false) => {
+    if (!userId) {
+      loads += 1;
+      return set({ ids: new Set(), userId: null, loaded: true });
+    }
+    if (!force && get().userId === userId && get().loaded) return;
+    const ticket = ++loads;
     const supabase = getSupabaseBrowserClient();
     const { data, error } = await supabase.from("favorites").select("beat_id").eq("user_id", userId).limit(2000);
+    if (ticket !== loads) return;
     if (error) return set({ userId, loaded: true });
     set({ ids: new Set((data ?? []).map((f) => f.beat_id)), userId, loaded: true });
   },

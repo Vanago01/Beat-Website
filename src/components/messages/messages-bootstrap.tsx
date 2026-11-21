@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { chatName, messagePreview, type ChatProfile } from "@/lib/messages";
-import { onMessagesEvent, startMessages, stopMessages } from "@/stores/messages";
+import { onMessagesEvent, restartMessages, startMessages, stopMessages } from "@/stores/messages";
 
 const senders = new Map<string, Promise<ChatProfile | null>>();
 
@@ -33,7 +33,7 @@ const preview = (body: string) => (body.length > 120 ? `${body.slice(0, 117).tri
  * elsewhere on the site.
  */
 export function MessagesBootstrap() {
-  const { user, loading } = useAuth();
+  const { user, loading, sessionVersion } = useAuth();
   const router = useRouter();
   const userId = user?.id ?? null;
 
@@ -42,6 +42,11 @@ export function MessagesBootstrap() {
     if (userId) startMessages(userId);
     else stopMessages();
   }, [userId, loading]);
+
+  // Two-factor code accepted: reconnect, so the badge and live messages work at once.
+  useEffect(() => {
+    if (sessionVersion > 0) restartMessages();
+  }, [sessionVersion]);
 
   useEffect(() => {
     if (!userId) return;

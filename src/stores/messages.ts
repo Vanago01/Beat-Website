@@ -261,6 +261,18 @@ export function startMessages(userId: string) {
   };
 }
 
+/**
+ * Reconnects with the current sign-in (after the two-factor code upgraded it):
+ * counts unread conversations again and re-joins live updates with the new token.
+ */
+export function restartMessages() {
+  const { userId, activeConversationId } = useMessages.getState();
+  if (!userId) return;
+  stopMessages();
+  startMessages(userId);
+  useMessages.setState({ activeConversationId });
+}
+
 /** Called on sign-out. */
 export function stopMessages() {
   stopPolling();

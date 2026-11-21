@@ -18,6 +18,11 @@ interface AuthState {
   user: AuthUser | null;
   profile: Profile | null;
   loading: boolean;
+  /**
+   * Goes up when the signed-in session is upgraded without a new sign-in (the
+   * two-factor code was accepted), so live connections reconnect with it.
+   */
+  sessionVersion: number;
 }
 
 /**
@@ -25,7 +30,7 @@ interface AuthState {
  * updates during hydration would force still-streaming Suspense boundaries to
  * re-render on the client and discard their server HTML.
  */
-const useAuthStore = create<AuthState>(() => ({ user: null, profile: null, loading: true }));
+const useAuthStore = create<AuthState>(() => ({ user: null, profile: null, loading: true, sessionVersion: 0 }));
 
 async function fetchProfile(userId: string | null) {
   if (!userId) return null;
@@ -66,6 +71,19 @@ function AuthBootstrap() {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user;
       const next = u ? { id: u.id, email: u.email ?? null } : null;
+      if (event === "MFA_CHALLENGE_VERIFIED") {
+        // The two-factor code upgraded the sign-in. Supabase only hands a new
+        // token to its live connection on sign-in and refresh, so without this
+        // live messages, the unread badge and "typing…" would keep the
+        // password-only sign-in (and see nothing) until the page is reloaded.
+        setTimeout(() => {
+          void supabase.realtime
+            .setAuth()
+            .catch(() => {})
+            .then(() => useAuthStore.setState((s) => ({ sessionVersion: s.sessionVersion + 1 })));
+        }, 0);
+        return;
+      }
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
         // Defer: Supabase recommends not awaiting other calls inside the callback.
         setTimeout(() => {
@@ -97,7 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const router = useRouter();
-  const { user, profile, loading } = useAuthStore(useShallow((s) => ({ user: s.user, profile: s.profile, loading: s.loading })));
+  const { user, profile, loading, sessionVersion } = useAuthStore(
+    useShallow((s) => ({ user: s.user, profile: s.profile, loading: s.loading, sessionVersion: s.sessionVersion })),
+  );
 
   const refreshProfile = useCallback(async () => {
     const id = useAuthStore.getState().user?.id ?? null;
@@ -116,6 +136,7 @@ export function useAuth() {
     user,
     profile,
     loading,
+    sessionVersion,
     isSeller: profile?.role === "seller" || profile?.role === "admin",
     isAdmin: profile?.role === "admin",
     refreshProfile,

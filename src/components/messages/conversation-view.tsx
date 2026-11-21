@@ -224,7 +224,7 @@ function MessageText({ body, mine }: { body: string; mine: boolean }) {
 
 export function ConversationView({ conversationId }: { conversationId: string }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, sessionVersion } = useAuth();
   const storeUser = useMessages((s) => s.userId);
   const me = user?.id ?? storeUser;
 
@@ -253,6 +253,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
     conversationId,
     me,
     !!detail && !detail.blocked_by_me && !detail.blocked_me,
+    sessionVersion,
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);

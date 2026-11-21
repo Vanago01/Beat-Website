@@ -23,7 +23,7 @@ interface TypingSignal {
  * Realtime channel, which only its two members can join (database update 18);
  * without the update the channel is refused and nothing shows.
  */
-export function useTyping(conversationId: string, me: string | null, enabled: boolean) {
+export function useTyping(conversationId: string, me: string | null, enabled: boolean, sessionVersion = 0) {
   /** The other person is typing right now. */
   const [typing, setTyping] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -81,6 +81,7 @@ export function useTyping(conversationId: string, me: string | null, enabled: bo
     setTyping(false);
   }, []);
 
+  // (Re)joins the channel; a new sessionVersion (two-factor code accepted) re-joins with the upgraded sign-in.
   useEffect(() => {
     if (!enabled || !me) return;
     const supabase = getSupabaseBrowserClient();
@@ -123,7 +124,7 @@ export function useTyping(conversationId: string, me: string | null, enabled: bo
       setTyping(false);
       void supabase.removeChannel(channel);
     };
-  }, [conversationId, me, enabled]);
+  }, [conversationId, me, enabled, sessionVersion]);
 
   return { typing, onDraftChange, stopTyping, hideTyping };
 }

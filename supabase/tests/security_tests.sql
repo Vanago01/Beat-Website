@@ -1719,4 +1719,55 @@ rollback;
 delete from auth.mfa_factors where id = '99999999-9999-4999-8999-999999999997';
 delete from realtime.messages where id = :'typing_probe';
 
+-- 64. Plug-in downloads: recorded by the server, readable by admins only.
+begin;
+set local role service_role;
+insert into public.plugin_downloads (user_id, email, plugin, platform, version)
+values (:'buyer', 'buyerc@test.local', 'dlay', 'windows', '1.0.0'),
+       (:'buyer', 'buyerc@test.local', 'dlay', 'macos', '1.0.0'),
+       (:'sa', 'sellera@test.local', 'dlay', 'windows', '1.0.1');
+commit;
+begin;
+select test.act_as(:'owner', 'aal2');
+select test.ok((select count(*) = 3 from public.plugin_downloads), 'an admin sees who downloaded the plug-ins');
+select test.ok((select min(download_number) >= 1001 from public.plugin_downloads), 'downloads are numbered like orders');
+select test.ok((select downloads = 3 and people = 2 from public.plugin_download_stats() where plugin = 'dlay'),
+  'totals: downloads and different people');
+rollback;
+begin;
+select test.act_as(:'owner', 'aal1');
+select test.ok((select count(*) = 0 from public.plugin_downloads), 'an admin needs the two-factor sign-in to see them');
+rollback;
+begin;
+select test.act_as(:'buyer');
+select test.ok((select count(*) = 0 from public.plugin_downloads), 'members don''t see the list, not even their own downloads');
+select test.ok((select count(*) = 0 from public.plugin_download_stats()), 'nor the totals');
+do $$ begin
+  insert into public.plugin_downloads (user_id, plugin, platform) values (auth.uid(), 'dlay', 'windows');
+  perform test.ok(false, 'members can''t record downloads themselves');
+exception when insufficient_privilege then perform test.ok(true, 'members can''t record downloads themselves');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 0 from public.plugin_downloads), 'producers don''t see the list either');
+rollback;
+begin;
+select test.act_as(null);
+do $$ declare n int; begin
+  select count(*) into n from public.plugin_downloads;
+  perform test.ok(n = 0, 'visitors can''t see the list');
+exception when insufficient_privilege then perform test.ok(true, 'visitors can''t see the list');
+end $$;
+rollback;
+begin;
+set local role service_role;
+do $$ begin
+  insert into public.plugin_downloads (user_id, plugin, platform) values (current_setting('test.buyer')::uuid, 'dlay', 'linux');
+  perform test.ok(false, 'only known systems are recorded');
+exception when check_violation then perform test.ok(true, 'only known systems are recorded');
+end $$;
+rollback;
+delete from public.plugin_downloads;
+
 \echo '--- all security tests passed ---'

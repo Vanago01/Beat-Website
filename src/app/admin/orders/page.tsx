@@ -4,6 +4,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { RefundButton } from "@/components/admin/admin-actions";
+import { PluginDownloadList } from "@/components/admin/plugin-downloads";
 import { PageSkeleton } from "@/components/account/page-skeleton";
 import { Badge, EmptyState } from "@/components/ui/misc";
 import { buttonVariants } from "@/components/ui/button";
@@ -19,6 +20,8 @@ const FILTERS = [
   { value: "pending", label: "Pending" },
   { value: "failed", label: "Failed / canceled" },
   { value: "all", label: "All" },
+  // Free plug-in downloads, listed like orders (who downloaded what, and when).
+  { value: "plugins", label: "Plug-in downloads" },
 ];
 const PAGE = 50;
 
@@ -27,6 +30,28 @@ async function Orders({ searchParams }: { searchParams: PageProps<"/admin/orders
   const sp = await searchParams;
   const filter = FILTERS.some((f) => f.value === sp.status) ? (sp.status as string) : "paid";
   const page = Math.max(0, Number(sp.page ?? 0) || 0);
+  const tabs = (
+    <nav className="mb-5 flex flex-wrap gap-1" aria-label="Order status">
+      {FILTERS.map((f) => (
+        <Link
+          key={f.value}
+          href={`/admin/orders?status=${f.value}`}
+          aria-current={filter === f.value ? "page" : undefined}
+          className={cn("rounded-full px-3.5 py-1.5 text-sm transition", filter === f.value ? "bg-white text-ink-950" : "text-ink-300 hover:bg-white/[0.06] hover:text-white")}
+        >
+          {f.label}
+        </Link>
+      ))}
+    </nav>
+  );
+  if (filter === "plugins") {
+    return (
+      <>
+        {tabs}
+        <PluginDownloadList page={page} />
+      </>
+    );
+  }
   const supabase = await createSupabaseServerClient();
   let query = supabase
     .from("orders")
@@ -41,13 +66,7 @@ async function Orders({ searchParams }: { searchParams: PageProps<"/admin/orders
 
   return (
     <>
-      <nav className="mb-5 flex flex-wrap gap-1" aria-label="Order status">
-        {FILTERS.map((f) => (
-          <Link key={f.value} href={`/admin/orders?status=${f.value}`} className={cn("rounded-full px-3.5 py-1.5 text-sm transition", filter === f.value ? "bg-white text-ink-950" : "text-ink-300 hover:bg-white/[0.06] hover:text-white")}>
-            {f.label}
-          </Link>
-        ))}
-      </nav>
+      {tabs}
       {!data?.length ? (
         <EmptyState title="No orders" description="Orders will appear here as soon as buyers check out." />
       ) : (

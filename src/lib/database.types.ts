@@ -525,6 +525,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"plugin_downloads": {
+                  Row: {
+                    "created_at": string,"download_number": number,"email": string | null,"id": string,"platform": string,"plugin": string,"user_id": string,"version": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"email"?: string | null,"id"?: string,"platform": string,"plugin": string,"user_id": string,"version"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"email"?: string | null,"id"?: string,"platform"?: string,"plugin"?: string,"user_id"?: string,"version"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "plugin_downloads_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"platform_settings": {
                   Row: {
                     "buyer_fee_percent": number,"eur_to_pln": number,"eur_to_usd": number,"id": boolean,"platform_fee_percent": number,"require_beat_approval": boolean,"seller_signups_open": boolean,"updated_at": string
@@ -823,6 +843,11 @@ isOneToOne: false
                            },
 "assert_pack_publishable":
 { Args: { "p_pack_id": string }; Returns: undefined
+                           },
+"plugin_download_stats":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "downloads": number,"people": number,"plugin": string
+            }[]
                            },
 "beat_likes":
 { Args: { "p_beat"?: string | null,"p_before"?: string | null,"p_limit"?: number }; Returns: {

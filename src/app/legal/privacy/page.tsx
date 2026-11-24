@@ -20,6 +20,10 @@ export default function PrivacyPage() {
           blocked doesn&apos;t see your likes.
         </li>
         <li>
+          Plug-in downloads: when you download a plug-in, we record your account and email address, which plug-in, system and
+          version, and when. Only the site&apos;s administrators can see this.
+        </li>
+        <li>
           Messages: the text of direct messages you send and receive, when they were sent and read, and the people you block.
           Only you and the person you&apos;re talking to can read a conversation. While you write a message, the other person sees
           that you&apos;re typing (this isn&apos;t stored). If you delete a conversation it disappears from your account; the other

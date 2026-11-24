@@ -1,14 +1,15 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { getViewer } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isPluginPlatform, newestPerPlatform } from "@/lib/plugin-files";
 import { isPluginSlug, listPluginFiles, PLUGIN_BUCKET } from "@/lib/plugins";
+import { recordPluginDownload } from "@/lib/plugin-downloads";
 
 /**
  * Members-only download of a plug-in installer: checks the session, then redirects to a
  * 60-second signed link to the newest file for the visitor's system. The bucket itself is
- * private, so this is the only way to the files.
+ * private, so this is the only way to the files. Each download is recorded for admins.
  */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/plugins/[plugin]/download">) {
   const { plugin } = await ctx.params;
@@ -42,6 +43,11 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/plugins/
       .storage.from(PLUGIN_BUCKET)
       .createSignedUrl(file.path, 60, { download: file.name });
     if (error || !signed) throw new Error(error?.message ?? "no signed link");
+
+    // Listed for admins (Admin → Orders → Plug-in downloads), once the download has started.
+    after(() =>
+      recordPluginDownload({ userId: viewer.id, email: viewer.email, plugin, platform, version: file.version }),
+    );
 
     const res = NextResponse.redirect(signed.signedUrl, 302);
     res.headers.set("Cache-Control", "private, no-store");

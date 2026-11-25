@@ -24,8 +24,11 @@ import {
   CheckCheck,
   EllipsisVertical,
   ImagePlus,
+  Info,
   LoaderCircle,
+  LogOut,
   MessageCircle,
+  Music2,
   Pin,
   PinOff,
   SendHorizontal,
@@ -49,20 +52,29 @@ import {
   MESSAGE_MAX_LENGTH,
   MESSAGE_PAGE_SIZE,
   chatName,
+  conversationName,
   dayKey,
+  eventAction,
   formatDayDivider,
+  formatInboxTime,
   formatMessageStamp,
   formatMessageTime,
   isUuid,
   laterTime,
   linkify,
+  listNames,
+  messagePreview,
   timeOf,
   type ChatAttachment,
+  type ChatEvent,
   type ChatMessage,
+  type ChatProfile,
   type ChatReaction,
   type ConversationDetail,
   type DeliveryStatus,
+  type MessageKind,
 } from "@/lib/messages";
+import type { BeatCard } from "@/lib/types";
 import { cn, errorMessage } from "@/lib/utils";
 import {
   markConversationRead,
@@ -76,13 +88,20 @@ import {
 import { ThreadSkeleton } from "./thread-skeleton";
 import { EmojiPickerDialog, ReactionBar, ReactionSummary } from "./reactions";
 import { DraftFiles, MediaLightbox, MessageMedia, useMediaLinks, type DraftFile } from "./media";
-import { TypingBubble, useTyping } from "./typing";
+import { TypingBubble, typingText, useTyping } from "./typing";
+import { BeatMessageCard, BeatPickerDialog, rememberBeatCard, useBeatCards } from "./beat-share";
+import { GroupAvatar } from "./group-avatar";
+import { GroupInfoDialog } from "./group-info";
 
 const BASE_COLUMNS = "id, conversation_id, sender_id, body, created_at";
 // Photos, videos and reactions (database update 13).
 const FULL_COLUMNS = `${BASE_COLUMNS}, attachments, reactions:message_reactions(user_id, emoji)`;
+// Shared beats, lines about the group and pinned messages (database update 20).
+const NEWEST_COLUMNS = `${FULL_COLUMNS}, kind, beat_id, event, pinned_at, pinned_by`;
 /** Becomes false once it's clear the database doesn't have update 13 yet. */
 let databaseHasMedia = true;
+/** Likewise for update 20 (group chats, pinned messages, beats in messages). */
+let databaseHasGroups = true;
 
 interface RawMessage {
   id: string;
@@ -92,6 +111,11 @@ interface RawMessage {
   created_at: string;
   attachments?: ChatAttachment[] | null;
   reactions?: { user_id: string; emoji: string | null }[] | null;
+  kind?: MessageKind | null;
+  beat_id?: string | null;
+  event?: ChatEvent | null;
+  pinned_at?: string | null;
+  pinned_by?: string | null;
 }
 
 /** A message as loaded (or sent live) → as shown. */
@@ -111,13 +135,29 @@ function toChat(m: RawMessage | ChatMessage): ChatMessage {
     created_at: m.created_at,
     attachments: Array.isArray(m.attachments) ? m.attachments : [],
     reactions,
+    kind: m.kind ?? "text",
+    beat_id: m.beat_id ?? null,
+    event: m.event ?? null,
+    pinned_at: m.pinned_at ?? null,
+    pinned_by: m.pinned_by ?? null,
   };
 }
 
 type Run = (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
 
-/** Loads messages with their photos and reactions, or without them on a database before update 13. */
+/**
+ * Loads messages with everything the database has: beats, group lines and pins
+ * (update 20), photos and reactions (update 13), or just the text before those.
+ */
 async function selectMessages(run: Run): Promise<{ rows: ChatMessage[]; error: { message: string } | null }> {
+  if (databaseHasGroups && databaseHasMedia) {
+    const res = await run(NEWEST_COLUMNS);
+    if (!res.error) return { rows: ((res.data ?? []) as RawMessage[]).map(toChat), error: null };
+    if (!/\b(kind|beat_id|event|pinned_at|pinned_by)\b|attachments|message_reactions|relationship|schema cache|does not exist/i.test(res.error.message)) {
+      return { rows: [], error: res.error };
+    }
+    databaseHasGroups = false;
+  }
   if (databaseHasMedia) {
     const res = await run(FULL_COLUMNS);
     if (!res.error) return { rows: ((res.data ?? []) as RawMessage[]).map(toChat), error: null };
@@ -134,7 +174,8 @@ const sameReactions = (a: Record<string, string> = {}, b: Record<string, string>
 };
 
 /** Pairs a confirmed message with the one shown while it was sending (same text and files). */
-const sendKey = (m: Pick<ChatMessage, "body" | "attachments">) => `${m.body}\u0000${(m.attachments ?? []).map((a) => a.path).join(",")}`;
+const sendKey = (m: Pick<ChatMessage, "body" | "attachments" | "beat_id">) =>
+  `${m.body}\u0000${(m.attachments ?? []).map((a) => a.path).join(",")}\u0000${m.beat_id ?? ""}`;
 
 const randomId = () =>
   typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -186,8 +227,15 @@ function mergeMessages(list: ChatMessage[], incoming: (ChatMessage | RawMessage)
 
 const STATUS_LABEL: Record<DeliveryStatus, string> = { sending: "Sending…", sent: "Sent", delivered: "Delivered", seen: "Seen" };
 
-/** "Sending…", "✓ Sent", "✓✓ Delivered" or "✓✓ Seen" under your latest message. */
-function DeliveryLabel({ status }: { status: DeliveryStatus }) {
+/** "Seen by Anna", "Seen by Anna and Ben", "Seen by Anna, Ben and 3 others", "Seen by everyone". */
+function seenByLabel(names: string[], everyone: boolean) {
+  if (everyone) return "Seen by everyone";
+  if (names.length <= 3) return `Seen by ${listNames(names)}`;
+  return `Seen by ${names.slice(0, 2).join(", ")} and ${names.length - 2} others`;
+}
+
+/** "Sending…", "✓ Sent", "✓✓ Delivered" or "✓✓ Seen" under your latest message (in a group, who has seen it). */
+function DeliveryLabel({ status, label }: { status: DeliveryStatus; label?: string }) {
   const Icon = status === "sending" ? LoaderCircle : status === "sent" ? Check : CheckCheck;
   return (
     <span
@@ -195,7 +243,7 @@ function DeliveryLabel({ status }: { status: DeliveryStatus }) {
       className={cn("inline-flex items-center gap-1", status === "seen" ? "font-medium text-ink-100" : status === "delivered" && "text-ink-200")}
     >
       <Icon className={cn("h-3 w-3", status === "sending" && "animate-spin", status === "seen" && "text-accent-300")} aria-hidden />
-      {STATUS_LABEL[status]}
+      {label ?? STATUS_LABEL[status]}
     </span>
   );
 }
@@ -224,7 +272,7 @@ function MessageText({ body, mine }: { body: string; mine: boolean }) {
 
 export function ConversationView({ conversationId }: { conversationId: string }) {
   const router = useRouter();
-  const { user, sessionVersion } = useAuth();
+  const { user, profile, sessionVersion } = useAuth();
   const storeUser = useMessages((s) => s.userId);
   const me = user?.id ?? storeUser;
 
@@ -238,7 +286,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
   const [reloadKey, setReloadKey] = useState(0);
   const [draft, setDraft] = useState("");
   const [showJump, setShowJump] = useState(false);
-  const [confirm, setConfirm] = useState<null | "block" | "delete">(null);
+  const [confirm, setConfirm] = useState<null | "block" | "delete" | "leave">(null);
   const [busy, setBusy] = useState(false);
   /** Photos, videos, reactions and pins work (the database has update 13). */
   const [rich, setRich] = useState(databaseHasMedia);
@@ -247,14 +295,28 @@ export function ConversationView({ conversationId }: { conversationId: string })
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [viewing, setViewing] = useState<{ file: ChatAttachment; url: string } | null>(null);
   const [dragging, setDragging] = useState(false);
+  /** Group chats, pinned messages and beats work (the database has update 20). */
+  const [groups, setGroups] = useState(databaseHasGroups);
+  /** Pinned messages, the latest pin first (null until loaded). */
+  const [pins, setPins] = useState<ChatMessage[] | null>(null);
+  const [pinsOpen, setPinsOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [beatPicker, setBeatPicker] = useState(false);
+  /** A message pointed out after jumping to it. */
+  const [flash, setFlash] = useState<string | null>(null);
+  /** People who wrote here but aren't in the group (any more). */
+  const [people, setPeople] = useState<Record<string, ChatProfile>>({});
+  /** You left this group (on another device) or were taken out of it. */
+  const [gone, setGone] = useState(false);
   const pinned = useMessages((s) => s.inbox?.find((c) => c.id === conversationId)?.pinned ?? false);
-  // "Typing…" both ways, except across a block.
-  const { typing: otherTyping, onDraftChange, stopTyping, hideTyping } = useTyping(
+  // "Typing…" both ways (everyone in a group), except across a block.
+  const { typists, onDraftChange, stopTyping, hideTyping } = useTyping(
     conversationId,
     me,
     !!detail && !detail.blocked_by_me && !detail.blocked_me,
     sessionVersion,
   );
+  const otherTyping = typists.length > 0;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLOListElement>(null);
@@ -272,6 +334,8 @@ export function ConversationView({ conversationId }: { conversationId: string })
   const messagesRef = useRef<ChatMessage[]>([]);
   const pendingRef = useRef<ChatMessage[]>([]);
   const meRef = useRef<string | null>(me);
+  const wasGroup = useRef(false);
+  const askedProfiles = useRef(new Set<string>());
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -288,7 +352,40 @@ export function ConversationView({ conversationId }: { conversationId: string })
 
   const refreshDetail = useCallback(async () => {
     const { data, error } = await getSupabaseBrowserClient().rpc("get_conversation", { p_conversation: conversationId });
-    if (!error) setDetail((data as unknown as ConversationDetail | null) ?? null);
+    if (error) return;
+    const next = (data as unknown as ConversationDetail | null) ?? null;
+    if (next?.is_group) wasGroup.current = true;
+    else if (!next && wasGroup.current) setGone(true);
+    setDetail(next);
+  }, [conversationId]);
+
+  /** Re-reads the pinned messages (they can be older than the messages loaded). */
+  const loadPins = useCallback(async () => {
+    if (!databaseHasGroups) return;
+    const { rows, error } = await selectMessages((columns) =>
+      getSupabaseBrowserClient()
+        .from("messages")
+        .select(columns)
+        .eq("conversation_id", conversationId)
+        .not("pinned_at", "is", null)
+        .order("pinned_at", { ascending: false })
+        .limit(25),
+    );
+    if (error) return;
+    setPins(rows);
+    // Messages on screen show whether they're pinned.
+    const now = new Map(rows.map((m) => [m.id, m]));
+    setMessages((list) => {
+      let changed = false;
+      const next = list.map((m) => {
+        const pin = now.get(m.id);
+        const at = pin?.pinned_at ?? null;
+        if ((m.pinned_at ?? null) === at) return m;
+        changed = true;
+        return { ...m, pinned_at: at, pinned_by: pin?.pinned_by ?? null };
+      });
+      return changed ? next : list;
+    });
   }, [conversationId]);
 
   /** Adds messages that arrived live or from a catch-up fetch. */
@@ -305,7 +402,18 @@ export function ConversationView({ conversationId }: { conversationId: string })
       if (fromThem.length) {
         // Replying means they've read everything before their reply.
         const latest = fromThem[fromThem.length - 1];
-        setDetail((d) => (d ? { ...d, other_read_at: latest.created_at } : d));
+        setDetail((d) => {
+          if (!d) return d;
+          if (!d.is_group) return { ...d, other_read_at: laterTime(d.other_read_at, latest.created_at) };
+          const upTo = new Map<string, string>();
+          for (const m of fromThem) upTo.set(m.sender_id, laterTime(upTo.get(m.sender_id), m.created_at) ?? m.created_at);
+          return {
+            ...d,
+            members: (d.members ?? []).map((p) =>
+              upTo.has(p.id) ? { ...p, read_at: laterTime(p.read_at, upTo.get(p.id)), delivered_at: laterTime(p.delivered_at, upTo.get(p.id)) } : p,
+            ),
+          };
+        });
         if (document.visibilityState === "visible") void markConversationRead(conversationId);
       }
     },
@@ -363,9 +471,10 @@ export function ConversationView({ conversationId }: { conversationId: string })
       return query;
     });
     if (rows.length) receive(rows);
+    if (rows.some((m) => m.kind === "event" && (m.event?.type === "pinned" || m.event?.type === "unpinned"))) void loadPins();
     void syncReactions();
     void refreshDetail();
-  }, [conversationId, receive, refreshDetail, syncReactions]);
+  }, [conversationId, receive, refreshDetail, syncReactions, loadPins]);
 
   // First load.
   useEffect(() => {
@@ -375,7 +484,10 @@ export function ConversationView({ conversationId }: { conversationId: string })
     }
     let cancelled = false;
     loaded.current = false;
+    wasGroup.current = false;
     setLoadError(null);
+    setGone(false);
+    setPins(null);
     (async () => {
       const client = getSupabaseBrowserClient();
       const [conv, recent] = await Promise.all([
@@ -395,16 +507,20 @@ export function ConversationView({ conversationId }: { conversationId: string })
         return;
       }
       setRich(databaseHasMedia);
+      setGroups(databaseHasGroups);
       const rows = [...recent.rows].reverse();
       setMessages(rows);
       setHasMore(rows.length === MESSAGE_PAGE_SIZE);
-      setDetail((conv.data as unknown as ConversationDetail | null) ?? null);
+      const found = (conv.data as unknown as ConversationDetail | null) ?? null;
+      wasGroup.current = !!found?.is_group;
+      setDetail(found);
       loaded.current = true;
+      if (found && databaseHasGroups) void loadPins();
     })();
     return () => {
       cancelled = true;
     };
-  }, [conversationId, reloadKey]);
+  }, [conversationId, reloadKey, loadPins]);
 
   // Tell the rest of the site which conversation is open (no notifications for it).
   useEffect(() => {
@@ -423,20 +539,54 @@ export function ConversationView({ conversationId }: { conversationId: string })
         // The other person's browser received or read messages: "Delivered" / "Seen".
         const r = event.receipt;
         if (r.conversation_id !== conversationId) return;
-        setDetail((d) =>
-          d && d.other.id === r.user_id
+        setDetail((d) => {
+          if (!d) return d;
+          if (d.is_group) {
+            if (!d.members?.some((p) => p.id === r.user_id)) return d;
+            return {
+              ...d,
+              members: (d.members ?? []).map((p) =>
+                p.id === r.user_id
+                  ? { ...p, read_at: laterTime(p.read_at, r.read_at), delivered_at: laterTime(p.delivered_at, laterTime(r.delivered_at, r.read_at)) }
+                  : p,
+              ),
+            };
+          }
+          return d.other?.id === r.user_id
             ? { ...d, other_read_at: laterTime(d.other_read_at, r.read_at), other_delivered_at: laterTime(d.other_delivered_at, r.delivered_at) }
-            : d,
-        );
+            : d;
+        });
       } else if (event.message.conversation_id === conversationId) {
-        receive([event.message]);
+        const m = event.message;
+        receive([m]);
         // Their message is here: they're no longer typing it.
-        if (event.message.sender_id !== meRef.current) hideTyping();
+        if (m.sender_id !== meRef.current) hideTyping(m.sender_id);
+        // A line about the group: pins changed, or its name, picture or people did.
+        if (m.kind === "event") {
+          if (m.event?.type === "pinned" || m.event?.type === "unpinned") void loadPins();
+          else void refreshDetail();
+        }
       }
     });
     void syncNewer();
     return off;
-  }, [conversationId, receive, syncNewer, applyReaction, hideTyping]);
+  }, [conversationId, receive, syncNewer, applyReaction, hideTyping, loadPins, refreshDetail]);
+
+  // Catch up when you come back to the tab, and every half minute while it's open,
+  // in case a live update didn't arrive (a group change, a pin, a message).
+  useEffect(() => {
+    const catchUp = () => {
+      if (document.visibilityState === "visible") void syncNewer();
+    };
+    document.addEventListener("visibilitychange", catchUp);
+    window.addEventListener("focus", catchUp);
+    const timer = window.setInterval(catchUp, 30_000);
+    return () => {
+      document.removeEventListener("visibilitychange", catchUp);
+      window.removeEventListener("focus", catchUp);
+      window.clearInterval(timer);
+    };
+  }, [syncNewer]);
 
   // Mark as read while the conversation is on screen.
   const ready = Boolean(detail);
@@ -452,19 +602,61 @@ export function ConversationView({ conversationId }: { conversationId: string })
 
   const display = useMemo(() => [...messages, ...pending], [messages, pending]);
   const last = display[display.length - 1];
+  // The newest message (not a line about the group): it shows Sent / Delivered / Seen.
+  const lastReal = useMemo(() => {
+    for (let i = display.length - 1; i >= 0; i -= 1) if (display[i].kind !== "event") return display[i];
+    return undefined;
+  }, [display]);
   const mediaPaths = useMemo(
     () => display.flatMap((m) => (m.attachments ?? []).filter((a) => !a.localUrl).map((a) => a.path)),
     [display],
   );
   const mediaLinks = useMediaLinks(mediaPaths);
   const hasMessages = display.length > 0;
-  // Your latest message: Sent → Delivered (their browser has it) → Seen.
-  const lastMine = !!last && !last.pending && last.sender_id === me;
-  const lastAt = last ? timeOf(last.created_at) : Number.NaN;
-  const seen = lastMine && !!detail?.other_read_at && timeOf(detail.other_read_at) >= lastAt;
-  const delivered = seen || (lastMine && !!detail?.other_delivered_at && timeOf(detail.other_delivered_at) >= lastAt);
-  const status: DeliveryStatus | null = lastMine ? (seen ? "seen" : delivered ? "delivered" : "sent") : null;
+  // Your latest message: Sent → Delivered (their browser has it) → Seen
+  // (in a group: delivered to everyone, then who has seen it).
+  const lastMine = !!lastReal && !lastReal.pending && lastReal.sender_id === me;
+  const lastAt = lastReal ? timeOf(lastReal.created_at) : Number.NaN;
+  const reached = (at: string | null | undefined) => !!at && timeOf(at) >= lastAt;
+  const isGroupChat = !!detail?.is_group;
+  const others = isGroupChat ? (detail?.members ?? []).filter((p) => p.id !== me) : [];
+  const seenBy = isGroupChat && lastMine ? others.filter((p) => reached(p.read_at)) : [];
+  const seen = lastMine && (isGroupChat ? others.length > 0 && seenBy.length === others.length : reached(detail?.other_read_at));
+  const delivered =
+    seen ||
+    (lastMine &&
+      (isGroupChat ? others.length > 0 && others.every((p) => reached(p.delivered_at) || reached(p.read_at)) : reached(detail?.other_delivered_at)));
+  const status: DeliveryStatus | null = lastMine ? (seen || seenBy.length > 0 ? "seen" : delivered ? "delivered" : "sent") : null;
+  const statusLabel =
+    isGroupChat && seenBy.length > 0
+      ? seenByLabel(
+          seenBy.map((p) => chatName(p)),
+          seenBy.length === others.length && others.length > 1,
+        )
+      : undefined;
   const awaitingSeen = lastMine && !seen;
+
+  const memberMap = useMemo(() => new Map<string, ChatProfile>((detail?.members ?? []).map((p) => [p.id, p])), [detail]);
+  // Names and pictures of people who wrote here but have left the group.
+  useEffect(() => {
+    if (!detail?.is_group) return;
+    const missing = [...new Set(messages.map((m) => m.sender_id))].filter(
+      (id) => id !== me && !memberMap.has(id) && !askedProfiles.current.has(id),
+    );
+    if (!missing.length) return;
+    missing.forEach((id) => askedProfiles.current.add(id));
+    void getSupabaseBrowserClient()
+      .from("profiles")
+      .select("id, username, display_name, producer_name, avatar_path, is_verified")
+      .in("id", missing)
+      .then(({ data }) => {
+        if (data?.length) setPeople((all) => ({ ...all, ...Object.fromEntries((data as ChatProfile[]).map((p) => [p.id, p])) }));
+      });
+  }, [detail, messages, me, memberMap]);
+
+  // Beats shared in the conversation.
+  const beatIds = useMemo(() => display.filter((m) => m.kind === "beat" && m.beat_id).map((m) => m.beat_id as string), [display]);
+  const beatCards = useBeatCards(beatIds);
 
   // While your last message hasn't been read, check now and then (in case live
   // updates are unavailable) so "Delivered" and "Seen" appear.
@@ -570,18 +762,22 @@ export function ConversationView({ conversationId }: { conversationId: string })
   const readyFiles = files.filter((f) => f.status === "done");
   const canSend = !uploading && (draft.trim().length > 0 || readyFiles.length > 0);
 
-  const send = async (text: string, retryOf?: ChatMessage) => {
+  const send = async (text: string, retryOf?: ChatMessage, beatId?: string) => {
     const body = text.trim();
     if (!me) return;
-    stopTyping();
+    // A beat from the marketplace (sent on its own: the message box keeps what you were writing).
+    const beat = retryOf ? (retryOf.beat_id ?? null) : (beatId ?? null);
+    if (!beat) stopTyping();
     const current = filesRef.current;
-    if (!retryOf && current.some((f) => f.status === "uploading")) {
+    if (!retryOf && !beat && current.some((f) => f.status === "uploading")) {
       toast("Your photos and videos are still uploading", { description: "They'll be ready in a moment." });
       return;
     }
     const attachments: ChatAttachment[] = retryOf
       ? (retryOf.attachments ?? [])
-      : current
+      : beat
+        ? []
+        : current
           .filter((f) => f.status === "done")
           .map((f) => ({
             path: f.path,
@@ -593,7 +789,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
             name: f.file.name.slice(0, 120),
             localUrl: f.localUrl,
           }));
-    if (!body && !attachments.length) return;
+    if (!body && !attachments.length && !beat) return;
     if (body.length > MESSAGE_MAX_LENGTH) {
       toast.error(`Messages can be up to ${MESSAGE_MAX_LENGTH.toLocaleString("en")} characters`);
       return;
@@ -604,11 +800,13 @@ export function ConversationView({ conversationId }: { conversationId: string })
       sender_id: me,
       body,
       attachments,
+      kind: beat ? "beat" : "text",
+      beat_id: beat,
       created_at: new Date().toISOString(),
       pending: "sending",
     };
     setPending((list) => (retryOf ? [...list.filter((m) => m.id !== retryOf.id), temp] : [...list, temp]));
-    if (!retryOf) {
+    if (!retryOf && !beat) {
       setDraft("");
       // Files that failed to upload aren't sent; the others now belong to the message.
       for (const f of current) if (f.status !== "done") URL.revokeObjectURL(f.localUrl);
@@ -617,8 +815,10 @@ export function ConversationView({ conversationId }: { conversationId: string })
     atBottom.current = true;
 
     const client = getSupabaseBrowserClient();
-    // Without photos the call also works on a database before update 13.
-    const { data, error } = attachments.length
+    // Without photos the call also works on a database before update 13 (and without a beat, before update 20).
+    const { data, error } = beat
+      ? await client.rpc("send_message", { p_conversation: conversationId, p_body: body, p_attachments: [], p_beat: beat })
+      : attachments.length
       ? await client.rpc("send_message", {
           p_conversation: conversationId,
           p_body: body,
@@ -629,7 +829,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
       const reason = errorMessage(error, "Couldn't send your message. Please try again.");
       setPending((list) => list.map((m) => (m.id === temp.id ? { ...m, pending: "failed", error: reason } : m)));
       toast.error("Message not sent", { description: reason });
-      if (/block|can.t message/i.test(reason)) void refreshDetail();
+      if (/block|can.t message|not found/i.test(reason)) void refreshDetail();
       return;
     }
     const sent = toChat(data as unknown as RawMessage);
@@ -751,6 +951,82 @@ export function ConversationView({ conversationId }: { conversationId: string })
     applyReaction({ message_id: messageId, user_id: me, emoji: (data as string | null) ?? null });
   };
 
+  // ------------------------------------------------------- pinned messages
+  const pinMessage = async (m: ChatMessage, pin: boolean) => {
+    setReacting(null);
+    const { error } = await getSupabaseBrowserClient().rpc("pin_message", { p_message: m.id, p_pinned: pin });
+    if (error) {
+      toast.error(pin ? "Couldn't pin the message" : "Couldn't unpin the message", { description: errorMessage(error) });
+      return;
+    }
+    toast.success(pin ? "Message pinned" : "Message unpinned", {
+      description: pin ? "Everyone in the conversation can find it at the top." : undefined,
+    });
+    void loadPins();
+    void syncNewer();
+  };
+
+  /** Scrolls to a message (loading earlier ones if it isn't on screen) and points it out. */
+  const jumpTo = async (id: string, at?: string | null) => {
+    setPinsOpen(false);
+    const show = () => {
+      const el = document.getElementById(`msg-${id}`);
+      if (!el) return false;
+      atBottom.current = false;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      setFlash(id);
+      window.setTimeout(() => setFlash((f) => (f === id ? null : f)), 2000);
+      return true;
+    };
+    if (show()) return;
+    const oldest = messagesRef.current[0];
+    if (!at) {
+      const { data } = await getSupabaseBrowserClient().from("messages").select("created_at").eq("id", id).maybeSingle();
+      at = (data as { created_at: string } | null)?.created_at ?? null;
+    }
+    if (!at || !oldest || timeOf(at) >= timeOf(oldest.created_at)) {
+      toast("That message isn't in this conversation any more");
+      return;
+    }
+    const { rows, error } = await selectMessages((columns) =>
+      getSupabaseBrowserClient()
+        .from("messages")
+        .select(columns)
+        .eq("conversation_id", conversationId)
+        .gte("created_at", at)
+        .lt("created_at", oldest.created_at)
+        .order("created_at", { ascending: true })
+        .limit(1000),
+    );
+    if (error || !rows.some((m) => m.id === id)) {
+      toast.error("Couldn't find that message");
+      return;
+    }
+    setMessages((list) => mergeMessages(list, rows));
+    window.setTimeout(show, 120);
+  };
+
+  const sendBeat = (beat: BeatCard) => {
+    setBeatPicker(false);
+    rememberBeatCard(beat);
+    void send("", undefined, beat.id);
+  };
+
+  const leave = async () => {
+    if (!me) return;
+    setBusy(true);
+    const { error } = await getSupabaseBrowserClient().rpc("remove_group_member", { p_conversation: conversationId, p_user: me });
+    setBusy(false);
+    if (error) {
+      toast.error("Couldn't leave the group", { description: errorMessage(error) });
+      return;
+    }
+    setConfirm(null);
+    toast.success("You left the group");
+    void refreshInbox();
+    router.push("/messages");
+  };
+
   // Long press on phones opens the reactions (like Messenger).
   const cancelPress = () => {
     if (press.current) window.clearTimeout(press.current.timer);
@@ -758,7 +1034,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
   };
   const startPress = (e: ReactPointerEvent, m: ChatMessage) => {
     touchPointer.current = e.pointerType !== "mouse";
-    if (e.pointerType === "mouse" || !rich || m.pending) return;
+    if (e.pointerType === "mouse" || !rich || m.pending || m.kind === "event") return;
     cancelPress();
     const timer = window.setTimeout(() => {
       press.current = null;
@@ -797,9 +1073,10 @@ export function ConversationView({ conversationId }: { conversationId: string })
   };
 
   const block = async () => {
-    if (!detail || !me) return;
+    const other = detail?.other;
+    if (!detail || !me || !other) return;
     setBusy(true);
-    const { error } = await getSupabaseBrowserClient().from("user_blocks").insert({ blocker_id: me, blocked_id: detail.other.id });
+    const { error } = await getSupabaseBrowserClient().from("user_blocks").insert({ blocker_id: me, blocked_id: other.id });
     setBusy(false);
     if (error && !/duplicate key/i.test(error.message)) {
       toast.error("Couldn't block", { description: errorMessage(error) });
@@ -807,24 +1084,25 @@ export function ConversationView({ conversationId }: { conversationId: string })
     }
     setConfirm(null);
     setDetail((d) => (d ? { ...d, blocked_by_me: true } : d));
-    toast.success(`${chatName(detail.other)} is blocked`);
+    toast.success(`${chatName(other)} is blocked`);
   };
 
   const unblock = async () => {
-    if (!detail || !me) return;
+    const other = detail?.other;
+    if (!detail || !me || !other) return;
     setBusy(true);
     const { error } = await getSupabaseBrowserClient()
       .from("user_blocks")
       .delete()
       .eq("blocker_id", me)
-      .eq("blocked_id", detail.other.id);
+      .eq("blocked_id", other.id);
     setBusy(false);
     if (error) {
       toast.error("Couldn't unblock", { description: errorMessage(error) });
       return;
     }
     setDetail((d) => (d ? { ...d, blocked_by_me: false } : d));
-    toast.success(`${chatName(detail.other)} is unblocked`);
+    toast.success(`${chatName(other)} is unblocked`);
   };
 
   const remove = async () => {
@@ -855,14 +1133,16 @@ export function ConversationView({ conversationId }: { conversationId: string })
 
   if (detail === undefined || !me) return <ThreadSkeleton />;
 
-  if (detail === null) {
+  if (detail === null || (!detail.is_group && !detail.other)) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
         <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-ink-200">
           <MessageCircle className="h-6 w-6" />
         </div>
-        <p className="font-display text-lg font-bold">Conversation not found</p>
-        <p className="mt-1.5 max-w-sm text-sm text-ink-300">The link may be wrong, or this conversation isn&apos;t yours.</p>
+        <p className="font-display text-lg font-bold">{gone ? "You're not in this group any more" : "Conversation not found"}</p>
+        <p className="mt-1.5 max-w-sm text-sm text-ink-300">
+          {gone ? "You left the group, or the person who runs it took you out." : "The link may be wrong, or this conversation isn't yours."}
+        </p>
         <Link href="/messages" className={buttonVariants({ variant: "secondary", size: "sm", className: "mt-5" })}>
           Back to messages
         </Link>
@@ -870,11 +1150,22 @@ export function ConversationView({ conversationId }: { conversationId: string })
     );
   }
 
-  const other = detail.other;
-  const name = chatName(other);
+  const isGroup = !!detail.is_group;
+  const other = isGroup ? null : detail.other;
+  const name = conversationName(detail);
   const blocked = detail.blocked_by_me || detail.blocked_me;
-  const profileHref = `/producers/${other.username}`;
+  const profileHref = other ? `/producers/${other.username}` : "/messages";
+  const groupOthers = (detail.members ?? []).filter((p) => p.id !== me);
   const now = Date.now();
+  /** Someone's profile: in the group, the other person, or someone who has left. */
+  const profileOf = (id: string): ChatProfile | undefined => memberMap.get(id) ?? (other?.id === id ? other : undefined) ?? people[id];
+  const nameOf = (id: string) => {
+    if (id === me) return "You";
+    const p = profileOf(id);
+    return p ? chatName(p) : "Someone";
+  };
+  const avatarOf = (id: string) => (id === me ? (profile?.avatar_path ?? null) : (profileOf(id)?.avatar_path ?? null));
+  const typingLabel = isGroup ? typingText(typists.map(nameOf)) : `${name} is typing…`;
 
   const reactingTo = reacting ? display.find((m) => m.id === reacting && !m.pending) : undefined;
   const pickerMessage = pickerFor ? display.find((m) => m.id === pickerFor) : undefined;
@@ -896,21 +1187,45 @@ export function ConversationView({ conversationId }: { conversationId: string })
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <Link href={profileHref} className="group flex min-w-0 items-center gap-3 rounded-full py-0.5 pr-3 lg:pl-1">
-          <Avatar path={other.avatar_path} name={name} size={40} />
-          <span className="min-w-0">
-            <span className="flex items-center gap-1 truncate text-[15px] font-semibold group-hover:underline">
-              <span className="truncate">{name}</span>
-              {other.is_verified && <BadgeCheck className="h-4 w-4 shrink-0 text-accent-400" aria-label="Verified" />}
-              {pinned && <Pin className="h-3.5 w-3.5 shrink-0 rotate-45 text-ink-400" aria-label="Pinned" />}
+        {isGroup ? (
+          <button
+            type="button"
+            onClick={() => setInfoOpen(true)}
+            title="Group info"
+            className="group flex min-w-0 items-center gap-3 rounded-full py-0.5 pr-3 text-left lg:pl-1"
+          >
+            <GroupAvatar photoPath={detail.photo_path} title={name} members={groupOthers} size={40} />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1 truncate text-[15px] font-semibold group-hover:underline">
+                <span className="truncate">{name}</span>
+                {pinned && <Pin className="h-3.5 w-3.5 shrink-0 rotate-45 text-ink-400" aria-label="Pinned" />}
+              </span>
+              {otherTyping ? (
+                <span className="block truncate text-xs font-medium text-accent-300">{typingLabel}</span>
+              ) : (
+                <span className="block truncate text-xs text-ink-400">{["You", ...groupOthers.map((p) => chatName(p))].join(", ")}</span>
+              )}
             </span>
-            {otherTyping ? (
-              <span className="block truncate text-xs font-medium text-accent-300">typing…</span>
-            ) : (
-              <span className="block truncate text-xs text-ink-400">@{other.username}</span>
-            )}
-          </span>
-        </Link>
+          </button>
+        ) : (
+          other && (
+            <Link href={profileHref} className="group flex min-w-0 items-center gap-3 rounded-full py-0.5 pr-3 lg:pl-1">
+              <Avatar path={other.avatar_path} name={name} size={40} />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1 truncate text-[15px] font-semibold group-hover:underline">
+                  <span className="truncate">{name}</span>
+                  {other.is_verified && <BadgeCheck className="h-4 w-4 shrink-0 text-accent-400" aria-label="Verified" />}
+                  {pinned && <Pin className="h-3.5 w-3.5 shrink-0 rotate-45 text-ink-400" aria-label="Pinned" />}
+                </span>
+                {otherTyping ? (
+                  <span className="block truncate text-xs font-medium text-accent-300">typing…</span>
+                ) : (
+                  <span className="block truncate text-xs text-ink-400">@{other.username}</span>
+                )}
+              </span>
+            </Link>
+          )
+        )}
         <div className="ml-auto">
           <Dropdown
             trigger={({ open, toggle }) => (
@@ -928,14 +1243,25 @@ export function ConversationView({ conversationId }: { conversationId: string })
           >
             {(close) => (
               <>
-                <MenuItem
-                  onClick={() => {
-                    close();
-                    router.push(profileHref);
-                  }}
-                >
-                  <User className="h-4 w-4 text-ink-300" /> View profile
-                </MenuItem>
+                {isGroup ? (
+                  <MenuItem
+                    onClick={() => {
+                      close();
+                      setInfoOpen(true);
+                    }}
+                  >
+                    <Info className="h-4 w-4 text-ink-300" /> Group info
+                  </MenuItem>
+                ) : (
+                  <MenuItem
+                    onClick={() => {
+                      close();
+                      router.push(profileHref);
+                    }}
+                  >
+                    <User className="h-4 w-4 text-ink-300" /> View profile
+                  </MenuItem>
+                )}
                 {rich && (
                   <MenuItem
                     onClick={() => {
@@ -947,7 +1273,17 @@ export function ConversationView({ conversationId }: { conversationId: string })
                     {pinned ? "Unpin conversation" : "Pin conversation"}
                   </MenuItem>
                 )}
-                {detail.blocked_by_me ? (
+                {!!pins?.length && (
+                  <MenuItem
+                    onClick={() => {
+                      close();
+                      setPinsOpen(true);
+                    }}
+                  >
+                    <Pin className="h-4 w-4 text-ink-300" /> Pinned messages
+                  </MenuItem>
+                )}
+                {isGroup ? null : detail.blocked_by_me ? (
                   <MenuItem
                     onClick={() => {
                       close();
@@ -967,6 +1303,17 @@ export function ConversationView({ conversationId }: { conversationId: string })
                   </MenuItem>
                 )}
                 <div className="my-1 h-px bg-white/[0.07]" />
+                {isGroup && (
+                  <MenuItem
+                    danger
+                    onClick={() => {
+                      close();
+                      setConfirm("leave");
+                    }}
+                  >
+                    <LogOut className="h-4 w-4" /> Leave group
+                  </MenuItem>
+                )}
                 <MenuItem
                   danger
                   onClick={() => {
@@ -982,13 +1329,33 @@ export function ConversationView({ conversationId }: { conversationId: string })
         </div>
       </header>
 
+      {!!pins?.length && (
+        <button
+          type="button"
+          onClick={() => (pins.length === 1 ? void jumpTo(pins[0].id, pins[0].created_at) : setPinsOpen(true))}
+          className="flex items-center gap-3 border-b border-white/[0.07] bg-white/[0.02] px-4 py-2 text-left transition hover:bg-white/[0.05]"
+          data-testid="pinned-bar"
+        >
+          <Pin className="h-4 w-4 shrink-0 rotate-45 text-accent-300" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-400">
+              {pins.length === 1 ? "Pinned message" : `${pins.length} pinned messages`}
+            </span>
+            <span className="block truncate text-[13px] text-ink-100">
+              {nameOf(pins[0].sender_id)}: {messagePreview(pins[0]) || "Message"}
+            </span>
+          </span>
+          {pins.length > 1 && <span className="shrink-0 text-xs font-medium text-ink-300">See all</span>}
+        </button>
+      )}
+
       <div
         ref={scrollRef}
         onScroll={onScroll}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-6"
         role="log"
         aria-live="polite"
-        aria-label={`Messages with ${name}`}
+        aria-label={isGroup ? `Messages in ${name}` : `Messages with ${name}`}
       >
         {hasMore && (
           <div className="mb-4 flex justify-center">
@@ -1000,12 +1367,27 @@ export function ConversationView({ conversationId }: { conversationId: string })
 
         {display.length === 0 ? (
           <div className="flex min-h-full flex-col items-center justify-center py-10 text-center">
-            <Avatar path={other.avatar_path} name={name} size={72} />
-            <p className="mt-4 font-display text-lg font-bold">{name}</p>
-            <p className="text-sm text-ink-400">@{other.username}</p>
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-ink-300">
-              This is the start of your conversation. Messages are private between the two of you.
-            </p>
+            {isGroup ? (
+              <>
+                <GroupAvatar photoPath={detail.photo_path} title={name} members={groupOthers} size={72} />
+                <p className="mt-4 font-display text-lg font-bold">{name}</p>
+                <p className="text-sm text-ink-400">{detail.members?.length ?? 0} people</p>
+                <p className="mt-4 max-w-xs text-sm leading-relaxed text-ink-300">
+                  This is the start of the group. Everyone in it can see its messages.
+                </p>
+              </>
+            ) : (
+              other && (
+                <>
+                  <Avatar path={other.avatar_path} name={name} size={72} />
+                  <p className="mt-4 font-display text-lg font-bold">{name}</p>
+                  <p className="text-sm text-ink-400">@{other.username}</p>
+                  <p className="mt-4 max-w-xs text-sm leading-relaxed text-ink-300">
+                    This is the start of your conversation. Messages are private between the two of you.
+                  </p>
+                </>
+              )
+            )}
           </div>
         ) : (
           <ol ref={listRef} className="flex flex-col">
@@ -1015,21 +1397,65 @@ export function ConversationView({ conversationId }: { conversationId: string })
               const t = timeOf(m.created_at);
               const mine = m.sender_id === me;
               const newDay = !prev || dayKey(timeOf(prev.created_at)) !== dayKey(t);
-              const joinPrev = !!prev && !newDay && prev.sender_id === m.sender_id && t - timeOf(prev.created_at) < GROUP_MS;
+              const divider = newDay && (
+                <div className="my-4 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-400" role="separator">
+                  <span className="h-px flex-1 bg-white/[0.07]" />
+                  {formatDayDivider(t, now)}
+                  <span className="h-px flex-1 bg-white/[0.07]" />
+                </div>
+              );
+              // A line about the group: "Anna renamed the group “Studio”".
+              if (m.kind === "event") {
+                const e = m.event;
+                const pinnedId = e?.type === "pinned" ? e.message_id : undefined;
+                return (
+                  <li key={m.id} className={cn("flex flex-col", newDay ? "mt-0" : "mt-3")}>
+                    {divider}
+                    <p
+                      className="mx-auto max-w-[90%] px-3 text-center text-xs leading-relaxed text-ink-400"
+                      title={Number.isFinite(t) ? formatMessageStamp(t) : undefined}
+                      data-event={e?.type}
+                    >
+                      <span className="font-medium text-ink-200">{mine ? "You" : (e?.actor ?? nameOf(m.sender_id))}</span>{" "}
+                      {e ? eventAction(e, me) : "updated the conversation"}
+                      {pinnedId && (
+                        <>
+                          {" · "}
+                          <button
+                            type="button"
+                            onClick={() => void jumpTo(pinnedId, pins?.find((p) => p.id === pinnedId)?.created_at)}
+                            className="font-medium text-ink-200 underline underline-offset-2 transition hover:text-white"
+                          >
+                            See message
+                          </button>
+                        </>
+                      )}
+                    </p>
+                  </li>
+                );
+              }
+              const joinPrev =
+                !!prev && !newDay && prev.kind !== "event" && prev.sender_id === m.sender_id && t - timeOf(prev.created_at) < GROUP_MS;
               const nextT = next ? timeOf(next.created_at) : Number.NaN;
-              const joinNext = !!next && next.sender_id === m.sender_id && dayKey(nextT) === dayKey(t) && nextT - t < GROUP_MS;
-              const isLast = i === display.length - 1;
+              const joinNext =
+                !!next && next.kind !== "event" && next.sender_id === m.sender_id && dayKey(nextT) === dayKey(t) && nextT - t < GROUP_MS;
+              const isLast = m.id === lastReal?.id;
               const hasReactions = !!m.reactions && Object.keys(m.reactions).length > 0;
+              // In a group, others' messages show who wrote them.
+              const theirsInGroup = isGroup && !mine;
+              const card = m.kind === "beat";
               return (
                 <li key={m.id} className={cn("flex flex-col", joinPrev ? "mt-0.5" : newDay ? "mt-0" : "mt-3")}>
-                  {newDay && (
-                    <div className="my-4 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-400" role="separator">
-                      <span className="h-px flex-1 bg-white/[0.07]" />
-                      {formatDayDivider(t, now)}
-                      <span className="h-px flex-1 bg-white/[0.07]" />
-                    </div>
+                  {divider}
+                  {theirsInGroup && !joinPrev && (
+                    <p className="mb-1 ml-[46px] truncate text-[11px] font-medium text-ink-400">{nameOf(m.sender_id)}</p>
                   )}
                   <div className={cn("group/msg flex items-center gap-1", mine ? "flex-row-reverse" : "flex-row")}>
+                    {theirsInGroup && (
+                      <div className={cn("mr-1 w-7 shrink-0 self-end", hasReactions && "mb-3.5")} aria-hidden>
+                        {!joinNext && <Avatar path={avatarOf(m.sender_id)} name={nameOf(m.sender_id)} size={28} />}
+                      </div>
+                    )}
                     <div
                       id={`msg-${m.id}`}
                       title={Number.isFinite(t) ? formatMessageStamp(t) : undefined}
@@ -1055,20 +1481,22 @@ export function ConversationView({ conversationId }: { conversationId: string })
                         hasReactions && "mb-3.5",
                         m.pending === "sending" && "opacity-70",
                         m.pending === "failed" && "opacity-60",
+                        flash === m.id && "rounded-[1.3rem] ring-2 ring-accent/70 ring-offset-4 ring-offset-[var(--color-ink-900)]",
                       )}
                     >
-                      <span className="sr-only">{mine ? "You: " : `${name}: `}</span>
+                      <span className="sr-only">{mine ? "You: " : `${nameOf(m.sender_id)}: `}</span>
                       {!!m.attachments?.length && (
                         <MessageMedia files={m.attachments} links={mediaLinks} onOpen={(file, url) => setViewing({ file, url })} />
                       )}
+                      {card && <BeatMessageCard beat={m.beat_id ? beatCards.get(m.beat_id) : null} />}
                       {m.body && (
                         <div
                           className={cn(
                             "whitespace-pre-wrap break-words rounded-[1.3rem] px-3.5 py-2 text-[14.5px] leading-[1.45]",
                             mine ? "bg-accent text-on-accent" : "bg-white/[0.07] text-ink-50",
-                            mine && (joinPrev || !!m.attachments?.length) && "rounded-tr-md",
+                            mine && (joinPrev || card || !!m.attachments?.length) && "rounded-tr-md",
                             mine && joinNext && "rounded-br-md",
-                            !mine && (joinPrev || !!m.attachments?.length) && "rounded-tl-md",
+                            !mine && (joinPrev || card || !!m.attachments?.length) && "rounded-tl-md",
                             !mine && joinNext && "rounded-bl-md",
                             m.pending === "failed" && "ring-1 ring-danger/60",
                           )}
@@ -1080,12 +1508,18 @@ export function ConversationView({ conversationId }: { conversationId: string })
                         <ReactionSummary
                           reactions={m.reactions!}
                           me={me}
-                          otherName={name}
+                          nameOf={nameOf}
                           alignRight={mine}
                           onClick={rich && !blocked ? () => setReacting(m.id) : undefined}
                         />
                       )}
                     </div>
+                    {m.pinned_at && (
+                      <span className="shrink-0 text-ink-400" title="Pinned">
+                        <Pin className="h-3.5 w-3.5 rotate-45" aria-hidden />
+                        <span className="sr-only">Pinned</span>
+                      </span>
+                    )}
                     {rich && !m.pending && !blocked && (
                       <button
                         type="button"
@@ -1113,7 +1547,13 @@ export function ConversationView({ conversationId }: { conversationId: string })
                       </button>
                     </p>
                   ) : !joinNext || isLast ? (
-                    <p className={cn("mt-1 flex items-center gap-1 px-1 text-[11px] text-ink-400", mine ? "justify-end" : "justify-start")}>
+                    <p
+                      className={cn(
+                        "mt-1 flex items-center gap-1 px-1 text-[11px] text-ink-400",
+                        mine ? "justify-end" : "justify-start",
+                        theirsInGroup && "pl-10",
+                      )}
+                    >
                       {m.pending === "sending" ? (
                         <DeliveryLabel status="sending" />
                       ) : (
@@ -1122,7 +1562,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                           {isLast && status && (
                             <>
                               {" "}
-                              <span aria-hidden>·</span> <DeliveryLabel status={status} />
+                              <span aria-hidden>·</span> <DeliveryLabel status={status} label={statusLabel} />
                             </>
                           )}
                         </>
@@ -1134,7 +1574,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
             })}
           </ol>
         )}
-        {otherTyping && <TypingBubble name={name} />}
+        {otherTyping && <TypingBubble label={typingLabel} />}
       </div>
 
       {showJump && (
@@ -1189,6 +1629,17 @@ export function ConversationView({ conversationId }: { conversationId: string })
                   <ImagePlus className="h-5 w-5" />
                 </button>
               </>
+            )}
+            {groups && (
+              <button
+                type="button"
+                onClick={() => setBeatPicker(true)}
+                aria-label="Send a beat"
+                title="Send a beat"
+                className="-ml-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-300 transition hover:bg-white/[0.08] hover:text-white"
+              >
+                <Music2 className="h-5 w-5" />
+              </button>
             )}
             <textarea
               ref={inputRef}
@@ -1261,9 +1712,81 @@ export function ConversationView({ conversationId }: { conversationId: string })
         }
       >
         <p className="text-sm leading-relaxed text-ink-200">
-          The conversation and its messages will be removed from your account. {name} keeps their copy. If they send a new message, it
-          will appear here again.
+          {isGroup
+            ? "The messages so far will be removed from your account. Others in the group keep theirs, and you stay in the group: new messages will appear here."
+            : `The conversation and its messages will be removed from your account. ${name} keeps their copy. If they send a new message, it will appear here again.`}
         </p>
+      </Modal>
+
+      <Modal
+        open={confirm === "leave"}
+        onClose={() => setConfirm(null)}
+        title={`Leave “${name}”?`}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setConfirm(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={leave} loading={busy}>
+              Leave group
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm leading-relaxed text-ink-200">
+          You won&apos;t get its messages any more, and the others will see that you left. Someone in the group can add you back.
+        </p>
+      </Modal>
+
+      {isGroup && (
+        <GroupInfoDialog
+          open={infoOpen}
+          onClose={() => setInfoOpen(false)}
+          detail={detail}
+          me={me}
+          onChanged={async () => {
+            await refreshDetail();
+            void syncNewer();
+          }}
+          onLeft={() => {
+            setInfoOpen(false);
+            router.push("/messages");
+          }}
+        />
+      )}
+
+      {groups && <BeatPickerDialog open={beatPicker} onClose={() => setBeatPicker(false)} onPick={sendBeat} />}
+
+      <Modal open={pinsOpen} onClose={() => setPinsOpen(false)} title="Pinned messages" size="md">
+        {!pins?.length ? (
+          <p className="py-6 text-center text-sm text-ink-400">No pinned messages.</p>
+        ) : (
+          <ul className="-mx-2 max-h-[60vh] divide-y divide-white/[0.05] overflow-y-auto" aria-label="Pinned messages">
+            {pins.map((p) => (
+              <li key={p.id} className="flex items-start gap-3 px-2 py-3">
+                <Avatar path={avatarOf(p.sender_id)} name={nameOf(p.sender_id)} size={34} />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-baseline gap-2 text-xs text-ink-400">
+                    <span className="truncate font-semibold text-ink-100">{nameOf(p.sender_id)}</span>
+                    <span className="shrink-0">{formatInboxTime(timeOf(p.created_at), now)}</span>
+                  </p>
+                  <p className="mt-0.5 line-clamp-3 whitespace-pre-wrap break-words text-sm text-ink-200">{messagePreview(p) || "Message"}</p>
+                  <div className="mt-2 flex gap-2">
+                    <Button variant="secondary" size="xs" onClick={() => void jumpTo(p.id, p.created_at)}>
+                      Go to message
+                    </Button>
+                    {!blocked && (
+                      <Button variant="ghost" size="xs" onClick={() => void pinMessage(p, false)}>
+                        <PinOff className="h-3.5 w-3.5" /> Unpin
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </Modal>
 
       {reactingTo && (
@@ -1276,6 +1799,8 @@ export function ConversationView({ conversationId }: { conversationId: string })
             setReacting(null);
             setPickerFor(reactingTo.id);
           }}
+          pinned={!!reactingTo.pinned_at}
+          onPin={groups && !blocked ? () => void pinMessage(reactingTo, !reactingTo.pinned_at) : undefined}
           onCopy={
             reactingTo.body
               ? () => {

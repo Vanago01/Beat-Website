@@ -24,15 +24,15 @@ interface TypingSignal {
  * without the update the channel is refused and nothing shows.
  */
 export function useTyping(conversationId: string, me: string | null, enabled: boolean, sessionVersion = 0) {
-  /** The other person is typing right now. */
-  const [typing, setTyping] = useState(false);
+  /** Who is typing right now (in a group there can be several). */
+  const [typists, setTypists] = useState<string[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const joined = useRef(false);
   const saidTyping = useRef(false);
   const lastSaid = useRef(0);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastHeard = useRef(0);
+  const hideTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const lastHeard = useRef(new Map<string, number>());
 
   const say = useCallback(
     (value: boolean) => {
@@ -74,11 +74,12 @@ export function useTyping(conversationId: string, me: string | null, enabled: bo
    * when sending; this covers a lost signal. A "typing" heard moments ago is
    * about their next message, which can overtake the one being delivered.)
    */
-  const hideTyping = useCallback(() => {
-    if (Date.now() - lastHeard.current < FRESH_MS) return;
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = null;
-    setTyping(false);
+  const hideTyping = useCallback((userId: string) => {
+    if (Date.now() - (lastHeard.current.get(userId) ?? 0) < FRESH_MS) return;
+    const timer = hideTimers.current.get(userId);
+    if (timer) clearTimeout(timer);
+    hideTimers.current.delete(userId);
+    setTypists((list) => (list.includes(userId) ? list.filter((id) => id !== userId) : list));
   }, []);
 
   // (Re)joins the channel; a new sessionVersion (two-factor code accepted) re-joins with the upgraded sign-in.
@@ -88,16 +89,25 @@ export function useTyping(conversationId: string, me: string | null, enabled: bo
     const channel = supabase.channel(`typing:${conversationId}`, { config: { private: true, broadcast: { self: false } } });
     channel.on("broadcast", { event: "typing" }, ({ payload }) => {
       const signal = payload as Partial<TypingSignal> | undefined;
-      if (!signal?.user_id || signal.user_id === me) return;
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-      hideTimer.current = null;
+      const who = signal?.user_id;
+      if (!who || who === me) return;
+      const timer = hideTimers.current.get(who);
+      if (timer) clearTimeout(timer);
+      hideTimers.current.delete(who);
+      const without = (list: string[]) => (list.includes(who) ? list.filter((id) => id !== who) : list);
       if (signal.typing) {
-        lastHeard.current = Date.now();
-        setTyping(true);
-        hideTimer.current = setTimeout(() => setTyping(false), SHOWN_MS);
+        lastHeard.current.set(who, Date.now());
+        setTypists((list) => (list.includes(who) ? list : [...list, who]));
+        hideTimers.current.set(
+          who,
+          setTimeout(() => {
+            hideTimers.current.delete(who);
+            setTypists(without);
+          }, SHOWN_MS),
+        );
       } else {
-        lastHeard.current = 0;
-        setTyping(false);
+        lastHeard.current.delete(who);
+        setTypists(without);
       }
     });
     channel.subscribe((status, err) => {
@@ -118,19 +128,28 @@ export function useTyping(conversationId: string, me: string | null, enabled: bo
       joined.current = false;
       channelRef.current = null;
       if (idleTimer.current) clearTimeout(idleTimer.current);
-      if (hideTimer.current) clearTimeout(hideTimer.current);
       idleTimer.current = null;
-      hideTimer.current = null;
-      setTyping(false);
+      hideTimers.current.forEach((timer) => clearTimeout(timer));
+      hideTimers.current.clear();
+      lastHeard.current.clear();
+      setTypists([]);
       void supabase.removeChannel(channel);
     };
   }, [conversationId, me, enabled, sessionVersion]);
 
-  return { typing, onDraftChange, stopTyping, hideTyping };
+  return { typing: typists.length > 0, typists, onDraftChange, stopTyping, hideTyping };
+}
+
+/** "Anna is typing…", "Anna and Ben are typing…", "4 people are typing…". */
+export function typingText(names: string[]) {
+  if (names.length === 0) return "";
+  if (names.length === 1) return `${names[0]} is typing…`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`;
+  return `${names.length} people are typing…`;
 }
 
 /** The other person's "typing…" bubble: three bouncing dots on their side of the conversation. */
-export function TypingBubble({ name }: { name: string }) {
+export function TypingBubble({ label }: { label: string }) {
   return (
     <div className="mt-3 flex animate-fade-in justify-start" data-testid="typing-bubble">
       <div className="typing-dots inline-flex items-center gap-1 rounded-[1.3rem] rounded-bl-md bg-white/[0.07] px-4 py-3.5" aria-hidden>
@@ -138,7 +157,7 @@ export function TypingBubble({ name }: { name: string }) {
         <span className="h-1.5 w-1.5 rounded-full bg-ink-200" />
         <span className="h-1.5 w-1.5 rounded-full bg-ink-200" />
       </div>
-      <span className="sr-only">{name} is typing</span>
+      <span className="sr-only">{label}</span>
     </div>
   );
 }

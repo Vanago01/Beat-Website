@@ -1770,4 +1770,241 @@ end $$;
 rollback;
 delete from public.plugin_downloads;
 
+-- 65. Group chats: three or more people, with a name and a picture.
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  perform public.create_group('Duo', array[current_setting('test.sa')::uuid]);
+  perform test.ok(false, 'a group needs at least two other people');
+exception when raise_exception then perform test.ok(true, 'a group needs at least two other people');
+end $$;
+do $$ begin
+  perform public.create_group('   ', array[current_setting('test.sa')::uuid, current_setting('test.buyer')::uuid]);
+  perform test.ok(false, 'a group needs a name');
+exception when raise_exception then perform test.ok(true, 'a group needs a name');
+end $$;
+select public.create_group('  Studio   crew ', array[:'sa'::uuid, :'buyer'::uuid], :'sb' || '/group-photo.webp') as grp \gset
+commit;
+select set_config('test.grp', :'grp', false);
+select test.ok((select is_group and title = 'Studio crew' and created_by = :'sb' and photo_path = :'sb' || '/group-photo.webp'
+  from public.conversations where id = :'grp'), 'a producer makes a group with a name and a picture');
+select test.ok((select count(*) = 3 from public.conversation_members where conversation_id = :'grp'), 'everyone picked is in it');
+select test.ok((select kind = 'event' and event ->> 'type' = 'created' from public.messages where conversation_id = :'grp' order by created_at limit 1),
+  'the chat starts with a "created the group" line');
+begin;
+select test.act_as(:'buyer');
+select (public.send_message(:'grp', 'Hi all') ->> 'id') as grp_msg \gset
+commit;
+select set_config('test.grp_msg', :'grp_msg', false);
+begin;
+select test.act_as(:'sa');
+select test.ok((select count(*) = 1 from public.messages where id = :'grp_msg'), 'everyone in the group reads its messages');
+select test.ok((public.get_conversation(:'grp') ->> 'is_group')::boolean and json_array_length(public.get_conversation(:'grp') -> 'members') = 3,
+  'the group shows who is in it');
+select test.ok((select e ->> 'title' = 'Studio crew' and (e ->> 'member_count')::int = 3 and e -> 'last_message' ->> 'sender_name' = 'buyerc'
+  from json_array_elements(public.list_conversations()) e where e ->> 'id' = :'grp'), 'the inbox shows the group, its size and who wrote last');
+rollback;
+begin;
+select test.act_as(:'owner', 'aal2');
+select test.ok((select count(*) = 0 from public.messages where conversation_id = :'grp'), 'people outside the group can''t read it');
+select test.ok(public.get_conversation(:'grp') is null, 'nor open it');
+do $$ begin
+  perform public.send_message(current_setting('test.grp')::uuid, 'let me in');
+  perform test.ok(false, 'nor write in it');
+exception when no_data_found then perform test.ok(true, 'nor write in it');
+end $$;
+select test.ok(not public.can_use_typing_channel('typing:' || :'grp'), 'nor use its "typing" channel');
+rollback;
+begin;
+select test.act_as(:'buyer');
+select test.ok(public.can_use_typing_channel('typing:' || :'grp'), 'people in the group can use its "typing" channel');
+select public.update_group(:'grp', 'Beat makers');
+select test.ok((select title = 'Beat makers' from public.conversations where id = :'grp'), 'anyone in the group can rename it');
+select public.update_group(:'grp', null, :'buyer' || '/group-new.webp');
+select test.ok((select photo_path = :'buyer' || '/group-new.webp' from public.conversations where id = :'grp'), 'and change its picture');
+do $$ begin
+  perform public.update_group(current_setting('test.grp')::uuid, null, current_setting('test.sa') || '/not-mine.webp');
+  perform test.ok(false, 'only to a picture they uploaded themselves');
+exception when raise_exception then perform test.ok(true, 'only to a picture they uploaded themselves');
+end $$;
+commit;
+select test.ok((select count(*) = 2 from public.messages where conversation_id = :'grp' and kind = 'event' and event ->> 'type' in ('renamed', 'photo')),
+  'each change shows as a line in the chat');
+begin;
+select test.act_as(:'sa');
+select test.ok(public.add_group_members(:'grp', array[:'owner'::uuid]) = 1, 'anyone in the group can add people');
+do $$ begin
+  perform public.remove_group_member(current_setting('test.grp')::uuid, (select id from public.profiles where username = 'owner'));
+  perform test.ok(false, 'only whoever runs the group can take people out');
+exception when insufficient_privilege then perform test.ok(true, 'only whoever runs the group can take people out');
+end $$;
+commit;
+begin;
+select test.act_as(:'sb');
+select public.remove_group_member(:'grp', :'owner');
+commit;
+select test.ok(not exists (select 1 from public.conversation_members where conversation_id = :'grp' and user_id = :'owner')
+  and (select event ->> 'type' = 'removed' from public.messages where conversation_id = :'grp' order by created_at desc limit 1),
+  'whoever runs the group can take people out');
+begin;
+select test.act_as(:'sb');
+select public.remove_group_member(:'grp', :'sb');
+commit;
+select test.ok((select c.created_by in (:'sa'::uuid, :'buyer'::uuid) from public.conversations c where c.id = :'grp')
+  and not exists (select 1 from public.conversation_members where conversation_id = :'grp' and user_id = :'sb'),
+  'whoever runs it can leave; someone still in it takes over');
+begin;
+select test.act_as(:'sa');
+insert into public.user_blocks (blocker_id, blocked_id) values (auth.uid(), :'sb');
+select test.act_as(:'sb');
+do $$ begin
+  perform public.create_group('Blocked', array[current_setting('test.sa')::uuid, current_setting('test.buyer')::uuid]);
+  perform test.ok(false, 'nobody can put someone who blocked them in a group');
+exception when raise_exception then perform test.ok(true, 'nobody can put someone who blocked them in a group');
+end $$;
+rollback;
+
+-- 66. Pinned messages: anyone in the conversation pins or unpins; everyone sees it.
+begin;
+select test.act_as(:'buyer');
+select test.ok(public.pin_message(:'grp_msg', true), 'a message can be pinned');
+commit;
+select test.ok((select pinned_at is not null and pinned_by = :'buyer' from public.messages where id = :'grp_msg'),
+  'it''s pinned for everyone, with who pinned it');
+select test.ok((select event ->> 'type' = 'pinned' and event ->> 'message_id' = :'grp_msg'
+  from public.messages where conversation_id = :'grp' order by created_at desc limit 1), 'a line says it was pinned');
+begin;
+select test.act_as(:'sa');
+select test.ok(not public.pin_message(:'grp_msg', false), 'anyone else in it can unpin it');
+do $$ begin
+  perform public.pin_message((select id from public.messages where conversation_id = current_setting('test.grp')::uuid and kind = 'event' limit 1), true);
+  perform test.ok(false, 'lines about the group can''t be pinned');
+exception when raise_exception then perform test.ok(true, 'lines about the group can''t be pinned');
+end $$;
+commit;
+begin;
+select test.act_as(:'sb');
+do $$ begin
+  perform public.pin_message(current_setting('test.grp_msg')::uuid, true);
+  perform test.ok(false, 'people outside the conversation can''t pin');
+exception when no_data_found then perform test.ok(true, 'people outside the conversation can''t pin');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sa');
+insert into public.user_blocks (blocker_id, blocked_id) values (auth.uid(), :'buyer');
+do $$ begin
+  perform public.pin_message((select id from public.messages where conversation_id = current_setting('test.conv')::uuid
+    and kind = 'text' order by created_at desc limit 1), true);
+  perform test.ok(false, 'nobody pins across a block');
+exception when raise_exception then perform test.ok(true, 'nobody pins across a block');
+end $$;
+rollback;
+
+-- 67. Beats in messages.
+begin;
+select test.act_as(:'buyer');
+select test.ok((public.send_message(:'conv', '', '[]'::jsonb, '55555555-5555-4555-8555-555555555552') ->> 'kind') = 'beat',
+  'a beat can be sent in a message');
+do $$ begin
+  perform public.send_message(current_setting('test.conv')::uuid, 'listen', '[]'::jsonb, '88888888-8888-4888-8888-888888888882');
+  perform test.ok(false, 'only beats that are on sale');
+exception when raise_exception then perform test.ok(true, 'only beats that are on sale');
+end $$;
+select test.ok((select e -> 'last_message' ->> 'body' = '🎵 Pack Two' from json_array_elements(public.list_conversations()) e where e ->> 'id' = :'conv'),
+  'the inbox shows the beat''s name');
+commit;
+
+-- 68. Notifications: each only for whom it concerns. (Sales, follows, collaborations
+-- and reviews earlier in these tests already made some.)
+select test.ok((select count(*) = 1 from public.notifications n join public.order_items oi on oi.id = n.order_item_id
+  where n.user_id = :'sb' and n.type = 'sale' and oi.order_id = :'collab_order' and n.actor_id = :'buyer'),
+  'a sale tells the producer who bought what');
+select test.ok((select count(*) = 1 from public.notifications n join public.order_items oi on oi.id = n.order_item_id
+  where n.user_id = :'sa' and n.type = 'sale' and oi.order_id = :'collab_order'), 'and the co-producer');
+select test.ok((select count(*) = 1 from public.notifications n join public.order_items oi on oi.id = n.order_item_id
+  where n.user_id = :'sb' and n.type = 'sale' and oi.order_id = :'collab_pack_order' and n.pack_id is not null),
+  'a pack sale is one notification, not one per beat');
+select test.ok(exists (select 1 from public.notifications where user_id = :'sa' and type = 'collab_invite' and actor_id = :'sb'),
+  'a collaboration invite tells the invited producer');
+select test.ok(exists (select 1 from public.notifications where user_id = :'sb' and type = 'collab_accepted' and actor_id = :'sa'),
+  'accepting it tells whoever invited');
+select test.ok(exists (select 1 from public.notifications where user_id = :'sa' and type = 'beat_approved'
+  and beat_id = '11111111-1111-4111-8111-111111111111'), 'an approved beat tells its producer');
+begin;
+select test.act_as(:'buyer');
+insert into public.favorites (user_id, beat_id) values (auth.uid(), '55555555-5555-4555-8555-555555555552');
+commit;
+select test.ok((select count(*) = 2 from public.notifications where type = 'like' and actor_id = :'buyer'
+  and beat_id = '55555555-5555-4555-8555-555555555552' and user_id in (:'sb', :'sa')), 'a like tells the producer and the co-producer');
+begin;
+select test.act_as(:'buyer');
+delete from public.favorites where user_id = auth.uid() and beat_id = '55555555-5555-4555-8555-555555555552';
+commit;
+select test.ok((select count(*) = 0 from public.notifications where type = 'like' and actor_id = :'buyer'
+  and beat_id = '55555555-5555-4555-8555-555555555552'), 'taking the like back removes it');
+begin;
+select test.act_as(:'sb');
+insert into public.favorites (user_id, beat_id) values (auth.uid(), '55555555-5555-4555-8555-555555555552');
+commit;
+select test.ok((select count(*) = 1 from public.notifications where type = 'like' and actor_id = :'sb'
+  and beat_id = '55555555-5555-4555-8555-555555555552' and user_id = :'sa'), 'liking your own beat only tells your co-producer');
+delete from public.favorites where user_id = :'sb' and beat_id = '55555555-5555-4555-8555-555555555552';
+-- Like the "Liked by" list: a producer you've blocked isn't told about your likes,
+-- and blocking one takes back the likes they were told about.
+begin;
+select test.act_as(:'buyer');
+insert into public.user_blocks (blocker_id, blocked_id) values (auth.uid(), :'sa');
+insert into public.favorites (user_id, beat_id) values (auth.uid(), '55555555-5555-4555-8555-555555555552');
+commit;
+select test.ok((select count(*) = 0 from public.notifications where type = 'like' and actor_id = :'buyer' and user_id = :'sa'
+  and beat_id = '55555555-5555-4555-8555-555555555552'), 'a producer you blocked isn''t told about your like');
+select test.ok((select count(*) = 1 from public.notifications where type = 'like' and actor_id = :'buyer' and user_id = :'sb'
+  and beat_id = '55555555-5555-4555-8555-555555555552'), 'the co-producer you didn''t block is');
+begin;
+select test.act_as(:'buyer');
+insert into public.user_blocks (blocker_id, blocked_id) values (auth.uid(), :'sb');
+commit;
+select test.ok((select count(*) = 0 from public.notifications where type = 'like' and actor_id = :'buyer' and user_id = :'sb'),
+  'blocking a producer takes back the likes they were told about');
+delete from public.user_blocks where blocker_id = :'buyer' and blocked_id in (:'sa', :'sb');
+delete from public.favorites where user_id = :'buyer' and beat_id = '55555555-5555-4555-8555-555555555552';
+begin;
+select test.act_as(:'owner', 'aal2');
+insert into public.follows (follower_id, followee_id) values (auth.uid(), :'sa');
+commit;
+select test.ok(exists (select 1 from public.notifications where user_id = :'sa' and type = 'follow' and actor_id = :'owner'),
+  'a new follower is a notification');
+begin;
+select test.act_as(:'owner', 'aal2');
+delete from public.follows where follower_id = auth.uid() and followee_id = :'sa';
+commit;
+select test.ok(not exists (select 1 from public.notifications where user_id = :'sa' and type = 'follow' and actor_id = :'owner'),
+  'unfollowing removes it');
+begin;
+update public.beats set status = 'pending' where id = '55555555-5555-4555-8555-555555555551';
+select test.act_as(:'owner', 'aal2');
+update public.beats set status = 'rejected', rejection_reason = 'Too quiet' where id = '55555555-5555-4555-8555-555555555551';
+reset role;
+select test.ok(exists (select 1 from public.notifications where user_id = :'sb' and type = 'beat_rejected'
+  and beat_id = '55555555-5555-4555-8555-555555555551' and data ->> 'reason' = 'Too quiet'), 'a rejected beat tells its producer why');
+rollback;
+begin;
+select test.act_as(:'buyer');
+select test.ok((select count(*) = 0 from public.notifications where user_id <> auth.uid()), 'people only see their own notifications');
+do $$ begin
+  insert into public.notifications (user_id, type) values (auth.uid(), 'follow');
+  perform test.ok(false, 'nobody can write notifications themselves');
+exception when insufficient_privilege then perform test.ok(true, 'nobody can write notifications themselves');
+end $$;
+rollback;
+begin;
+select test.act_as(:'sb');
+select test.ok(public.unread_notification_count() > 0, 'the bell counts unread notifications');
+select test.ok((select bool_and((x -> 'actor') is not null or x ->> 'type' in ('beat_approved', 'beat_rejected', 'pack_approved', 'pack_rejected'))
+  from json_array_elements(public.list_notifications()) x), 'each one says who did it');
+select test.ok(public.mark_notifications_read() > 0, 'marking them read…');
+select test.ok(public.unread_notification_count() = 0, '…clears the count');
+rollback;
+
 \echo '--- all security tests passed ---'

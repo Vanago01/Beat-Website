@@ -22,6 +22,7 @@ import {
 import { Logo } from "./logo";
 import { SearchOverlay } from "./search-overlay";
 import { CurrencySwitch } from "./currency-switch";
+import { NotificationsButton } from "@/components/notifications/notifications-button";
 import { Dropdown, MenuItem } from "@/components/ui/controls";
 import { Sheet } from "@/components/ui/overlay";
 import { Avatar } from "@/components/ui/avatar";
@@ -29,6 +30,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useCart } from "@/stores/cart";
 import { useMessages } from "@/stores/messages";
+import { useNotifications } from "@/stores/notifications";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +66,7 @@ function CartButton() {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      className="relative grid h-10 w-10 place-items-center rounded-full text-ink-100 transition hover:bg-white/[0.08] hover:text-white"
+      className="relative grid h-10 w-10 place-items-center rounded-full text-ink-100 transition hover:bg-white/[0.08] hover:text-white max-[379px]:w-9"
       aria-label={`Shopping cart, ${count} items`}
     >
       <ShoppingBag className="h-[19px] w-[19px]" />
@@ -88,7 +90,7 @@ function MessagesButton({ pathname }: { pathname: string | null }) {
     <Link
       href="/messages"
       className={cn(
-        "relative grid h-10 w-10 place-items-center rounded-full transition hover:bg-white/[0.08]",
+        "relative grid h-10 w-10 place-items-center rounded-full transition hover:bg-white/[0.08] max-[379px]:w-9",
         active ? "bg-white/[0.06] text-white" : "text-ink-100 hover:text-white",
       )}
       aria-label={unread > 0 ? `Messages, ${unread} unread` : "Messages"}
@@ -237,6 +239,8 @@ function AccountMenu({ pathname, invites = 0 }: { pathname: string | null; invit
 function NavbarView({ pathname }: { pathname: string | null }) {
   const { user, isSeller, isAdmin, signOut } = useAuth();
   const unread = useMessages((s) => s.unread);
+  const notices = useNotifications((s) => (s.available ? s.unread : 0));
+  const hasNotifications = useNotifications((s) => s.available === true);
   const invites = useCollabInviteCount(isSeller ? user?.id : undefined, pathname);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -272,7 +276,8 @@ function NavbarView({ pathname }: { pathname: string | null }) {
         )}
       >
         {/* Spacing a little tighter from 1024 to 1279 px, so a 1024 px bar fits the sign-in buttons too. */}
-        <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-6 px-4 sm:px-6 lg:gap-4 lg:px-8 xl:gap-6">
+        {/* Narrow phones (under 380 px) get tighter spacing, so every icon fits. */}
+        <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-6 px-4 max-[379px]:gap-3 max-[379px]:px-3 sm:px-6 lg:gap-4 lg:px-8 xl:gap-6">
           {/* Signed in, narrow phones need the room for the account icons: show just the mark. */}
           <Logo wordmarkClassName={user ? "max-[399px]:hidden" : undefined} />
 
@@ -303,7 +308,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-1 lg:ml-0">
+          <div className="ml-auto flex items-center gap-1 max-[379px]:gap-0 lg:ml-0">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
@@ -317,13 +322,14 @@ function NavbarView({ pathname }: { pathname: string | null }) {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="grid h-10 w-10 place-items-center rounded-full text-ink-100 hover:bg-white/[0.08] md:hidden lg:grid xl:hidden"
+              className="grid h-10 w-10 place-items-center rounded-full text-ink-100 hover:bg-white/[0.08] max-[379px]:w-9 md:hidden lg:grid xl:hidden"
               aria-label="Search"
             >
               <Search className="h-[19px] w-[19px]" />
             </button>
             <CurrencySwitch className="mx-1 hidden sm:inline-flex" />
             <MessagesButton pathname={pathname} />
+            <NotificationsButton pathname={pathname} />
             <Link
               href="/favorites"
               className={cn(
@@ -341,7 +347,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="grid h-10 w-10 place-items-center rounded-full text-ink-100 hover:bg-white/[0.08] lg:hidden"
+              className="grid h-10 w-10 place-items-center rounded-full text-ink-100 hover:bg-white/[0.08] max-[379px]:w-9 lg:hidden"
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
@@ -364,6 +370,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
           {[
             ...NAV,
             ...(user ? [{ href: "/messages", label: "Messages" }] : []),
+            ...(user && hasNotifications ? [{ href: "/notifications", label: "Notifications" }] : []),
             { href: "/favorites", label: "Favorites" },
             { href: "/cart", label: "Shopping Cart" },
           ].map((item) => (
@@ -378,6 +385,9 @@ function NavbarView({ pathname }: { pathname: string | null }) {
               {item.label}
               {item.href === "/messages" && unread > 0 && (
                 <span className="rounded-full bg-accent px-2.5 font-sans text-sm leading-7 text-on-accent">{badgeText(unread)}</span>
+              )}
+              {item.href === "/notifications" && notices > 0 && (
+                <span className="rounded-full bg-accent px-2.5 font-sans text-sm leading-7 text-on-accent">{badgeText(notices)}</span>
               )}
             </Link>
           ))}

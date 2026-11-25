@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import type { BeatCard, BeatLicense } from "@/lib/types";
 import type { LicenseType } from "@/lib/constants";
 import type { PublicReview } from "@/lib/data/catalog";
+import { SendBeatButton } from "@/components/messages/beat-share";
 
 export function BeatHeroPlayer({ beat, queue }: { beat: BeatCard; queue: BeatCard[] }) {
   const play = usePlayer((s) => s.play);
@@ -49,7 +50,7 @@ export function BeatHeroPlayer({ beat, queue }: { beat: BeatCard; queue: BeatCar
   );
 }
 
-export function ShareButtons({ beatId, title }: { beatId: string; title: string }) {
+export function ShareButtons({ beatId, title, canSend = true }: { beatId: string; title: string; canSend?: boolean }) {
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
   useEffect(() => setCanShare(typeof navigator !== "undefined" && "share" in navigator), []);
@@ -71,6 +72,7 @@ export function ShareButtons({ beatId, title }: { beatId: string; title: string 
   return (
     <div className="flex items-center gap-2">
       <FavoriteButton beatId={beatId} />
+      {canSend && <SendBeatButton beatId={beatId} title={title} />}
       <button type="button" onClick={share} className="glass grid h-9 w-9 place-items-center rounded-full hover:bg-white/15" aria-label="Share beat">
         {copied ? <Check className="h-4 w-4 text-success" /> : canShare ? <Share2 className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
       </button>

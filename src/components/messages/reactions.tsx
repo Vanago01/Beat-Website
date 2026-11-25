@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Copy, Plus, Search, X } from "lucide-react";
+import { Copy, Pin, PinOff, Plus, Search, X } from "lucide-react";
 import { Modal } from "@/components/ui/overlay";
 import { QUICK_REACTIONS } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ const loadEmojis = () => (emojiData ??= import("@/lib/emoji-data.json").then((m)
 /**
  * The quick reaction bar that pops up over a message (hover button on
  * computers, long press on phones): six one-tap reactions, "+" for any emoji,
- * and Copy for text.
+ * Copy for text, and Pin (database update 20).
  */
 export function ReactionBar({
   anchorId,
@@ -29,6 +29,8 @@ export function ReactionBar({
   onPick,
   onMore,
   onCopy,
+  pinned,
+  onPin,
   onClose,
 }: {
   /** The element (message bubble) the bar sits above. */
@@ -39,6 +41,9 @@ export function ReactionBar({
   onPick: (emoji: string) => void;
   onMore: () => void;
   onCopy?: () => void;
+  /** The message is pinned in the conversation; onPin pins or unpins it. */
+  pinned?: boolean;
+  onPin?: () => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -130,6 +135,17 @@ export function ReactionBar({
           className="grid h-10 w-10 place-items-center rounded-full text-ink-200 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
         >
           <Copy className="h-[18px] w-[18px]" />
+        </button>
+      )}
+      {onPin && (
+        <button
+          type="button"
+          onClick={onPin}
+          aria-label={pinned ? "Unpin this message" : "Pin this message"}
+          title={pinned ? "Unpin" : "Pin"}
+          className="grid h-10 w-10 place-items-center rounded-full text-ink-200 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+        >
+          {pinned ? <PinOff className="h-[18px] w-[18px]" /> : <Pin className="h-[18px] w-[18px]" />}
         </button>
       )}
     </div>,
@@ -262,13 +278,14 @@ export function EmojiPickerDialog({
 export function ReactionSummary({
   reactions,
   me,
-  otherName,
+  nameOf,
   alignRight,
   onClick,
 }: {
   reactions: Record<string, string>;
   me: string;
-  otherName: string;
+  /** The name of whoever reacted (the other person, or someone in the group). */
+  nameOf: (userId: string) => string;
   alignRight: boolean;
   onClick?: () => void;
 }) {
@@ -277,7 +294,7 @@ export function ReactionSummary({
   // Yours last, like Messenger.
   entries.sort(([a], [b]) => Number(a === me) - Number(b === me));
   const emojis = [...new Set(entries.map(([, e]) => e))];
-  const label = entries.map(([user, e]) => `${user === me ? "You" : otherName} reacted ${e}`).join(", ");
+  const label = entries.map(([user, e]) => `${user === me ? "You" : nameOf(user)} reacted ${e}`).join(", ");
   return (
     <button
       type="button"

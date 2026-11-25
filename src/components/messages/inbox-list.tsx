@@ -7,9 +7,12 @@ import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/misc";
 import { buttonVariants } from "@/components/ui/button";
-import { chatName, formatInboxTime, timeOf } from "@/lib/messages";
+import { conversationName, formatInboxTime, inboxPreview, timeOf } from "@/lib/messages";
 import { cn, errorMessage } from "@/lib/utils";
 import { pinConversation, useMessages, watchInbox } from "@/stores/messages";
+import { useChatUpdate20 } from "@/stores/chat-features";
+import { GroupAvatar } from "./group-avatar";
+import { NewGroupButton } from "./new-group";
 
 function InboxSkeleton() {
   return (
@@ -33,6 +36,7 @@ export function InboxList() {
   const inbox = useMessages((s) => s.inbox);
   const error = useMessages((s) => s.inboxError);
   const active = useMessages((s) => s.activeConversationId);
+  const groups = useChatUpdate20(userId);
 
   // Refetch when the signed-in user is known (or changes).
   useEffect(() => watchInbox(), [userId]);
@@ -42,8 +46,9 @@ export function InboxList() {
 
   return (
     <>
-      <div className="flex items-center justify-between px-5 pb-3 pt-5">
+      <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-5">
         <h1 className="font-display text-2xl font-extrabold tracking-[-0.03em]">Messages</h1>
+        {userId && groups && <NewGroupButton me={userId} />}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
         {inbox === null ? (
@@ -66,9 +71,9 @@ export function InboxList() {
         ) : (
           <ul className="space-y-0.5 px-2" aria-label="Conversations">
             {inbox.map((c) => {
-              const name = chatName(c.other);
+              const name = conversationName(c);
               const unread = c.unread_count > 0 && c.id !== active;
-              const mine = c.last_message.sender_id === userId;
+              const preview = inboxPreview(c, userId);
               const time = timeOf(c.last_message.created_at);
               const pinnable = c.pinned !== undefined;
               const togglePin = async () => {
@@ -88,12 +93,16 @@ export function InboxList() {
                       c.id === active ? "bg-white/[0.07]" : "hover:bg-white/[0.04]",
                     )}
                   >
-                    <Avatar path={c.other.avatar_path} name={name} size={44} />
+                    {c.is_group ? (
+                      <GroupAvatar photoPath={c.photo_path} title={name} members={c.members} size={44} />
+                    ) : (
+                      <Avatar path={c.other?.avatar_path} name={name} size={44} />
+                    )}
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline gap-2">
                         <span className={cn("flex min-w-0 items-center gap-1 truncate text-sm", unread ? "font-bold text-white" : "font-semibold text-ink-50")}>
                           <span className="truncate">{name}</span>
-                          {c.other.is_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-400" aria-label="Verified" />}
+                          {c.other?.is_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-accent-400" aria-label="Verified" />}
                         </span>
                         <span
                           className={cn(
@@ -108,8 +117,8 @@ export function InboxList() {
                       </span>
                       <span className="mt-0.5 flex items-center gap-2">
                         <span className={cn("min-w-0 flex-1 truncate text-[13px]", unread ? "font-medium text-ink-100" : "text-ink-400")}>
-                          {mine && <span className="text-ink-400">You: </span>}
-                          {c.last_message.body}
+                          {preview.prefix && <span className="text-ink-400">{preview.prefix}</span>}
+                          {preview.text}
                         </span>
                         {unread && (
                           <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-on-accent">

@@ -178,7 +178,7 @@ async function BeatDetail({ params }: { params: PageProps<"/beats/[slug]">["para
               <div className="mt-5 flex items-start justify-between gap-4">
                 <h1 className="font-display text-[clamp(2.4rem,6vw,4.6rem)] font-extrabold leading-[0.95] tracking-[-0.045em]">{beat.title}</h1>
                 <div className="pt-2">
-                  <ShareButtons beatId={beat.id} title={beat.title} />
+                  <ShareButtons beatId={beat.id} title={beat.title} canSend={!previewStatus} />
                 </div>
               </div>
 

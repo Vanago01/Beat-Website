@@ -29,6 +29,17 @@ export default function PrivacyPage() {
           that you&apos;re typing (this isn&apos;t stored). If you delete a conversation it disappears from your account; the other
           person keeps their copy.
         </li>
+        <li>
+          Group chats: everyone in a group can read its messages, including messages sent before they were added, and sees who is in
+          it, who has read the latest message and who is typing. Anyone in a group can change its name and picture and add people;
+          the person who runs it can remove people. When you leave a group, the messages you sent stay in it. Pinned messages are
+          visible to everyone in the conversation.
+        </li>
+        <li>
+          Notifications: when you like a beat, buy or download it for free, follow someone, invite a producer to co-produce or answer
+          their invite, the producer or person concerned gets a notification with your name, username and profile picture and the time it happened.
+          Taking back a like or a follow removes its notification.
+        </li>
       </ul>
       <h2>How we use it</h2>
       <p>To provide the marketplace, deliver purchased files and messages, issue license agreements, pay sellers, prevent fraud and abuse, and send transactional emails such as order confirmations.</p>

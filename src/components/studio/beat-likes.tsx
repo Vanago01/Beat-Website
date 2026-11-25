@@ -31,7 +31,7 @@ const PAGE = 30;
 
 /** Loads one page of likes, newest first: of one beat, or of all of your beats. */
 async function fetchLikes(beatId: string | null, before: string | null) {
-  const { data, error } = await getSupabaseBrowserClient().rpc("beat_likes", { p_beat: beatId, p_before: before, p_limit: PAGE });
+  const { data, error } = await getSupabaseBrowserClient().rpc("beat_likes", { p_beat: beatId ?? undefined, p_before: before ?? undefined, p_limit: PAGE });
   if (!error) return { likes: (data ?? []) as BeatLike[] };
   // A database without update 17 doesn't have the list yet.
   if (error.code === "PGRST202" || /beat_likes/.test(error.message)) {

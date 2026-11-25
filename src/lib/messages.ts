@@ -14,12 +14,36 @@ export interface ChatProfile {
   role?: "buyer" | "seller" | "admin";
 }
 
+/** What a message is (database update 20): text (with photos/videos), a shared beat, or a line about the group. */
+export type MessageKind = "text" | "beat" | "event";
+
+/** A line about the conversation ("Anna renamed the group"), stored with the names at the time. */
+export interface ChatEvent {
+  type: "created" | "renamed" | "photo" | "added" | "removed" | "left" | "pinned" | "unpinned" | (string & {});
+  /** Who did it. */
+  actor?: string;
+  title?: string;
+  removed?: boolean;
+  users?: { id: string; name: string }[];
+  user?: { id: string; name: string };
+  /** The pinned or unpinned message, and a bit of its text. */
+  message_id?: string;
+  preview?: string;
+}
+
 /** One row of the inbox (list_conversations). */
 export interface ConversationSummary {
   id: string;
   last_message_at: string;
-  other: ChatProfile;
-  last_message: { body: string; sender_id: string; created_at: string };
+  /** The other person in a one-to-one chat (null for a group). */
+  other: ChatProfile | null;
+  /** Group chats (database update 20): name, picture, a few of the people in it and how many. */
+  is_group?: boolean;
+  title?: string | null;
+  photo_path?: string | null;
+  members?: ChatProfile[] | null;
+  member_count?: number | null;
+  last_message: { body: string; sender_id: string; created_at: string; kind?: MessageKind; sender_name?: string | null };
   unread_count: number;
   /** Pinned to the top of the inbox (database update 13). */
   pinned?: boolean;
@@ -36,10 +60,25 @@ export function sortInbox(list: ConversationSummary[]) {
   );
 }
 
+/** Someone in a group, with how far they've received and read it. */
+export interface GroupMember extends ChatProfile {
+  read_at: string | null;
+  delivered_at: string | null;
+  joined_at: string;
+}
+
 /** The open conversation (get_conversation). */
 export interface ConversationDetail {
   id: string;
-  other: ChatProfile;
+  /** Group chats (database update 20). */
+  is_group?: boolean;
+  title?: string | null;
+  photo_path?: string | null;
+  /** Who runs the group (can take people out). */
+  created_by?: string | null;
+  members?: GroupMember[] | null;
+  /** The other person in a one-to-one chat (null for a group). */
+  other: ChatProfile | null;
   /** Messages up to this time were seen by the other person. */
   other_read_at: string | null;
   /** Messages up to this time reached the other person's browser (database update 14). */
@@ -89,6 +128,13 @@ export interface ChatMessage {
   attachments?: ChatAttachment[];
   /** Who reacted with what: user id → emoji (database update 13). */
   reactions?: Record<string, string>;
+  /** Text, a shared beat, or a line about the group (database update 20). */
+  kind?: MessageKind;
+  beat_id?: string | null;
+  event?: ChatEvent | null;
+  /** Pinned to the top of the conversation, and by whom. */
+  pinned_at?: string | null;
+  pinned_by?: string | null;
   /** Only on messages typed in this tab that the server hasn't confirmed. */
   pending?: "sending" | "failed";
   error?: string;
@@ -109,9 +155,45 @@ export const MEDIA_MAX_FILES = 10;
 export const MEDIA_MAX_BYTES = 50 * 1024 * 1024;
 export const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"];
 
+/** "Anna", "Anna and Ben", "Anna, Ben and Cara". */
+export function listNames(names: string[]) {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/**
+ * What a group line says happened, without who did it: "renamed the group
+ * “Beat makers”". With your id, you're "you" ("added you and Ben").
+ */
+export function eventAction(e: ChatEvent, me?: string | null) {
+  const who = (u: { id: string; name: string }) => (me && u.id === me ? "you" : u.name);
+  switch (e.type) {
+    case "created":
+      return "created the group";
+    case "renamed":
+      return `renamed the group “${e.title ?? ""}”`;
+    case "photo":
+      return e.removed ? "removed the group picture" : "changed the group picture";
+    case "added":
+      return `added ${listNames((e.users ?? []).map(who)) || "people"}`;
+    case "removed":
+      return `removed ${e.user ? who(e.user) : "someone"}`;
+    case "left":
+      return "left the group";
+    case "pinned":
+      return "pinned a message";
+    case "unpinned":
+      return "unpinned a message";
+    default:
+      return "updated the conversation";
+  }
+}
+
 /** Text for a message in notifications and lists ("📷 Photo" when it has no text). */
-export function messagePreview(m: { body: string; attachments?: ChatAttachment[] | null }) {
+export function messagePreview(m: { body: string; attachments?: ChatAttachment[] | null; kind?: MessageKind; event?: ChatEvent | null }) {
+  if (m.kind === "event" && m.event) return `${m.event.actor ?? "Someone"} ${eventAction(m.event)}`;
   if (m.body) return m.body;
+  if (m.kind === "beat") return "🎵 Shared a beat";
   const files = m.attachments ?? [];
   if (!files.length) return "";
   const videos = files.filter((f) => f.kind === "video").length;
@@ -122,6 +204,21 @@ export function messagePreview(m: { body: string; attachments?: ChatAttachment[]
 
 export const chatName = (p: Pick<ChatProfile, "producer_name" | "display_name" | "username">) =>
   p.producer_name || p.display_name || p.username;
+
+/** The conversation's name: the group's, or the other person's. */
+export const conversationName = (c: { is_group?: boolean; title?: string | null; other: ChatProfile | null }) =>
+  c.is_group ? c.title || "Group" : c.other ? chatName(c.other) : "Conversation";
+
+/** The inbox's second line: "You: …", "Anna: …" in groups, or "Anna renamed the group …". */
+export function inboxPreview(c: ConversationSummary, me: string | null) {
+  const m = c.last_message;
+  const mine = m.sender_id === me;
+  const who = mine ? "You" : m.sender_name || "Someone";
+  if (m.kind === "event") return { prefix: "", text: `${who} ${m.body}` };
+  if (mine) return { prefix: "You: ", text: m.body };
+  if (c.is_group) return { prefix: `${who}: `, text: m.body };
+  return { prefix: "", text: m.body };
+}
 
 export const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
